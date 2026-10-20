@@ -1,0 +1,1 @@
+joblib.dump(model, 'eta_model.joblib')

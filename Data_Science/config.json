@@ -1,0 +1,34 @@
+{
+  "input_csv": "../data/hampton_roads_march_2024.csv",
+  "output_directory": "artifacts/march_2024",
+  "gate": {
+    "longitude": -76.30,
+    "south_latitude": 36.95,
+    "north_latitude": 37.05,
+    "approach_east_longitude": -75.80,
+    "approach_south_latitude": 36.90,
+    "approach_north_latitude": 37.10,
+    "maximum_crossing_gap_seconds": 120,
+    "episode_break_hours": 6
+  },
+  "features": {
+    "history_minutes": 10,
+    "decision_interval_minutes": 5,
+    "minimum_episode_minutes": 10
+  },
+  "splits": {
+    "start": "2024-03-01",
+    "validation_start": "2024-03-20",
+    "test_start": "2024-03-25",
+    "end_exclusive": "2024-04-01"
+  },
+  "training": {
+    "seed": 42,
+    "cpu_threads": 4,
+    "ridge_alphas": [0.1, 1.0, 10.0, 100.0],
+    "xgboost_depths": [2, 4, 6],
+    "xgboost_learning_rates": [0.03, 0.1],
+    "xgboost_max_rounds": 500,
+    "xgboost_early_stopping_rounds": 30
+  }
+}

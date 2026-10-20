@@ -1,0 +1,5 @@
+Data_Science/__pycache__/
+Data_Science/.pytest_cache/
+Data_Science/.venv/
+Data_Science/artifacts/
+data

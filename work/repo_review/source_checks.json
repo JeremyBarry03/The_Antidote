@@ -1,0 +1,36 @@
+{
+  "basic_target_reconstruction": {
+    "target_hours": 2.0,
+    "distance_divided_by_avg_speed_hours": 2.0,
+    "absolute_error": 0.0
+  },
+  "dashboard_generated_feature_count": 39,
+  "dashboard_fixed_features": {
+    "speed_efficiency": 0.9,
+    "distance_efficiency": 5.0,
+    "lat_std": 0.01,
+    "lon_std": 0.01,
+    "avg_hour": 12,
+    "hour_variability": 4,
+    "weekend_ratio": 0.29,
+    "is_night_journey": 0
+  },
+  "dashboard_derived_density": 10.0,
+  "circular_course_example": {
+    "angles": [
+      359,
+      1
+    ],
+    "ordinary_mean": 180.0,
+    "correct_circular_mean_degrees": 360.0
+  },
+  "full_grid": {
+    "candidates": 6561,
+    "folds": 3,
+    "cross_validation_fits": 19683
+  },
+  "isolation_forest_fit_present": false,
+  "global_X_y_assignments": [],
+  "enhanced_class_call_requires_X_y": true,
+  "readme_mae_minutes": 17.4
+}

@@ -1,0 +1,1 @@
+"""Standard XGBoost regression baseline."""
