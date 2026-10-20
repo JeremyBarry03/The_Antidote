@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Antidote — ETA replay</title>
+  <style>
+    :root {color-scheme:light dark;font-family:system-ui,sans-serif;background:#101925;color:#edf3fa}
+    body {max-width:1120px;margin:auto;padding:24px} h1 {margin-bottom:8px}
+    .muted {color:#b2c1d1} .controls {display:flex;flex-wrap:wrap;gap:16px;align-items:end;margin:24px 0}
+    label {display:flex;flex-direction:column;gap:6px;font-size:14px} select,button,input {font:inherit;padding:10px;border:1px solid #60758e;border-radius:6px;background:#1c2c40;color:inherit}
+    button {cursor:pointer} button:disabled {opacity:.5;cursor:default} .cards {display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+    article {padding:20px;background:#1c2c40;border-radius:10px;border-top:4px solid #46c3aa} .eta {font-size:26px;font-weight:650}
+    .warning {color:#ffd37e} .error {color:#ffaaa8} #map {width:100%;height:350px;background:#152b3a;border-radius:10px;margin:20px 0}
+    #map text {fill:#dce9f6;font-size:12px} .status {min-height:24px} .detail {white-space:pre-wrap;overflow-wrap:anywhere}
+    @media(max-width:700px) {.cards {grid-template-columns:1fr}body {padding:14px}}
+  </style>
+</head>
+<body>
+  <h1>The Antidote</h1>
+  <div class="muted">Historical Hampton Roads ETA replay · analytical crossing reference · simulated reporting failures</div>
+  <div class="controls">
+    <label>Approach<select id="approach"></select></label>
+    <label>Information condition<select id="scenario"></select></label>
+    <label>Decision time<select id="decision"></select></label>
+    <button id="previous">Previous</button><button id="play">Play</button><button id="next">Next</button>
+  </div>
+  <div id="status" class="status" aria-live="polite"></div>
+  <svg id="map" viewBox="0 0 1000 350" role="img" aria-label="Received vessel observations relative to the analytical gate; local coordinate plot, not a navigation chart"></svg>
+  <div class="muted">Local coordinate plot: received reports only. Vertical line is the arrival reference; no shoreline or navigational guidance.</div>
+  <div id="cards" class="cards" style="margin-top:20px"></div>
+  <div class="controls"><button id="reveal">Reveal recorded crossing and errors</button><button id="verify">Simulate human-verified update</button></div>
+  <p id="outcome" class="detail"></p>
+  <p class="muted">Verification supplies a recorded observation already measured by the replay time. It is a simulated human-assisted action, logged separately from unattended model performance. Review time measures the page walkthrough, not a validated operator study.</p>
+  <details><summary>Evidence and limitations</summary><pre id="evidence" class="detail"></pre></details>
+  <script>
+    'use strict';
+    const elements = Object.fromEntries(['approach','scenario','decision','status','map','cards','outcome','evidence','play','next','previous','reveal','verify'].map(id => [id,document.getElementById(id)]));
+    let catalog; let playback; let reveal = false; let started = performance.now(); let requestNumber = 0;
+    const clock = value => value ? new Date(value.endsWith('Z') ? value : `${value}Z`).toLocaleTimeString('en-GB',{timeZone:'UTC'}) : 'unavailable';
+    function options(select, values) {select.replaceChildren(...values.map(item => {const option=document.createElement('option');option.value=item.id;option.textContent=item.label;return option;}));}
+    function decisions() {return catalog.approaches.find(item => item.id===elements.approach.value).decisions;}
+    function setApproach() {options(elements.decision,decisions().map(item => ({id:item.id,label:clock(item.time)})));reveal=false;started=performance.now();loadSnapshot();}
+    async function readResponse(response) {const result=await response.json();if(!response.ok)throw new Error(result.error || 'Request failed');return result;}
+    async function loadSnapshot() {
+      const current = ++requestNumber;
+      const query = new URLSearchParams({decision:elements.decision.value,scenario:elements.scenario.value,reveal:String(reveal)});
+      try {const result=await readResponse(await fetch(`/api/replay?${query}`));if(current===requestNumber)render(result);}catch(error){elements.status.textContent=error.message;}
+    }
+    function line(parent, text, className='') {const node=document.createElement('p');node.textContent=text;node.className=className;parent.append(node);}
+    function render(result) {
+      elements.status.textContent=`Replay ${clock(result.decision_time)} UTC · ${catalog.split} · ${result.human_assisted?'HUMAN ASSISTED':'unattended'} · ${catalog.calibrated?'empirical calibration loaded':'not calibrated: verification required'}`;
+      elements.cards.replaceChildren();
+      for(const card of result.cards) {
+        const article=document.createElement('article');const title=document.createElement('h2');title.textContent={A:'A · Quadratic',B:'B · XGBoost',C:'C · Optimized'}[card.system];article.append(title);
+        line(article,card.available?`${clock(card.predicted_arrival_time)} UTC`:'No supported forecast','eta');
+        line(article,card.report_age_minutes===null?'Report age unavailable':`Evidence age: ${card.report_age_minutes.toFixed(1)} min`);
+        if(card.interval_half_width_minutes!==null && card.interval_half_width_minutes!==undefined)line(article,`Empirical envelope: ±${card.interval_half_width_minutes.toFixed(1)} min (${card.calibration_approaches} approaches)`);
+        line(article,(card.review_reason || '').replaceAll('_',' '),card.accepted?'':'warning');
+        if(card.error_minutes!==undefined && card.error_minutes!==null)line(article,`ETA error: ${card.error_minutes.toFixed(2)} min (positive = late)`);
+        elements.cards.append(article);
+      }
+      elements.outcome.textContent=result.reference_arrival?`Recorded crossing: ${clock(result.reference_arrival)} UTC. Bracket: ${result.reference_bracket.map(clock).join('–')} UTC.`:result.human_assisted?`Verified observation: ${clock(result.verified_observation_time)} UTC. Result is human assisted.`:'';
+      elements.evidence.textContent=JSON.stringify(result.cards,null,2);drawMap(result.received_history);
+    }
+    function drawMap(history) {
+      const svg=elements.map;svg.replaceChildren();const ns='http://www.w3.org/2000/svg';
+      const lon=history.map(item=>item.longitude),lat=history.map(item=>item.latitude);const gate=catalog.gate;
+      const xmin=Math.min(gate.longitude,...lon)-.003,xmax=Math.max(gate.longitude,...lon)+.003;
+      const ymin=Math.min(gate.south,...lat)-.003,ymax=Math.max(gate.north,...lat)+.003;
+      const x=value=>40+(value-xmin)/(xmax-xmin)*920,y=value=>310-(value-ymin)/(ymax-ymin)*270;
+      const add=(tag,attributes)=>{const node=document.createElementNS(ns,tag);for(const [name,value] of Object.entries(attributes))node.setAttribute(name,value);svg.append(node);return node;};
+      add('line',{x1:x(gate.longitude),x2:x(gate.longitude),y1:y(gate.south),y2:y(gate.north),stroke:'#ffb664','stroke-width':4});
+      const path=history.map(item=>`${x(item.longitude)},${y(item.latitude)}`).join(' ');add('polyline',{points:path,fill:'none',stroke:'#46c3aa','stroke-width':2});
+      for(const point of history)add('circle',{cx:x(point.longitude),cy:y(point.latitude),r:3,fill:'#46c3aa'});
+      add('text',{x:40,y:335}).textContent=`Longitude ${xmin.toFixed(3)} to ${xmax.toFixed(3)}° · latitude ${ymin.toFixed(3)} to ${ymax.toFixed(3)}°`;
+    }
+    function step(delta) {const next=elements.decision.selectedIndex+delta;if(next<0 || next>=elements.decision.options.length){stop();return;}elements.decision.selectedIndex=next;reveal=false;started=performance.now();loadSnapshot();}
+    function stop() {clearInterval(playback);playback=null;elements.play.textContent='Play';}
+    elements.approach.onchange=()=>{stop();setApproach();};elements.scenario.onchange=()=>{reveal=false;started=performance.now();loadSnapshot();};elements.decision.onchange=()=>{reveal=false;started=performance.now();loadSnapshot();};
+    elements.next.onclick=()=>step(1);elements.previous.onclick=()=>step(-1);elements.play.onclick=()=>{if(playback){stop();}else{playback=setInterval(()=>step(1),1500);elements.play.textContent='Pause';}};
+    elements.reveal.onclick=()=>{stop();reveal=true;loadSnapshot();};
+    elements.verify.onclick=async()=>{stop();elements.verify.disabled=true;try {const result=await readResponse(await fetch('/api/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({decision:elements.decision.value,scenario:elements.scenario.value,review_seconds:(performance.now()-started)/1000})}));render(result);}catch(error){elements.status.textContent=error.message;}finally{elements.verify.disabled=false;}};
+    (async()=>{try {catalog=await readResponse(await fetch('/api/catalog'));if(!catalog.approaches.length)throw new Error('No replay approaches available');options(elements.approach,catalog.approaches.map(item=>({id:item.id,label:item.id})));options(elements.scenario,catalog.scenarios.map(name=>({id:name,label:name})));setApproach();}catch(error){elements.status.textContent=error.message;}})();
+  </script>
+</body>
+</html>

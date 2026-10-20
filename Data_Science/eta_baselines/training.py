@@ -20,6 +20,7 @@ from .configuration import ExperimentConfig
 from .dataset import file_digest
 from .evaluation import approach_weights, score_predictions
 from .features import FEATURE_COLUMNS, TARGET_COLUMN
+from .fitting import FitPartition, fit_imputer, fit_regressor
 from .prediction import EtaPredictor
 
 logger = logging.getLogger(__name__)
@@ -77,8 +78,7 @@ class BaselineTrainer:
 
     def train(self, examples: pd.DataFrame, model_names: list[ModelName]) -> None:
         train = examples.loc[examples["split"] == "train"]
-        imputer = SimpleImputer(strategy="median", add_indicator=True, keep_empty_features=True)
-        imputer.fit(train[list(FEATURE_COLUMNS)])
+        imputer = fit_imputer(train, FEATURE_COLUMNS)
         partitions = {}
         for split in ("train", "validation", "test"):
             subset = examples.loc[examples["split"] == split].copy()
@@ -108,16 +108,14 @@ class BaselineTrainer:
         for parameters in self._parameters(name):
             if name == "quadratic":
                 regressor = build_quadratic_regressor(float(parameters["alpha"]))
-                regressor.fit(train.features, train.target, ridge__sample_weight=train.weights)
             else:
                 regressor = build_xgboost_regressor(
                     self.config.training, int(parameters["depth"]), float(parameters["learning_rate"]),
                 )
-                regressor.fit(
-                    train.features, train.target, sample_weight=train.weights,
-                    eval_set=[(validation.features, validation.target)],
-                    sample_weight_eval_set=[validation.weights], verbose=False,
-                )
+            fit_regressor(
+                regressor, FitPartition(train.features, train.target, train.weights),
+                FitPartition(validation.features, validation.target, validation.weights),
+            )
             predictor = EtaPredictor(name, imputer, regressor)
             metrics = score_predictions(predictor.predict(validation.examples))
             error = float(metrics["approach_weighted_mae_minutes"])

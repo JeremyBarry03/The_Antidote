@@ -1,5 +1,8 @@
 # ETA baselines A and B
 
+The separately fitted degradation-aware model C, controls and April evaluation
+are documented in [Optimized_Model/README.md](Optimized_Model/README.md).
+
 Shared preparation and evaluation for **A: quadratic ridge regression** and
 **B: standard XGBoost**. These are nominal-data baselines, not model C and not
 the anomaly detector. All commands below run from `Data_Science`.
