@@ -29,16 +29,19 @@ def test_only_position_changes_and_audit_truth_stays_separate(reports):
     assert 0 < stream.modification_log.fault_applied.sum() < len(reports)
     assert not {"fault_applied","original_latitude","original_longitude","selected","attack","seed"} & set(stream.reports)
     assert stream.modification_log.loc[stream.modification_log.fault_applied,"action"].eq("position_shifted").all()
-    np.testing.assert_allclose(stream.modification_log.loc[stream.modification_log.fault_applied,
-        "applied_displacement_meters"],2000,rtol=0,atol=1e-6)
+    changed = stream.modification_log.loc[stream.modification_log.fault_applied]
+    np.testing.assert_allclose(changed.applied_displacement_meters,
+                               changed.requested_displacement_meters,rtol=0,atol=1e-6)
+    assert changed.applied_displacement_meters.std() > 100
     assert json.loads(json.dumps(attack.parameters))["displacement_meters"] == 2000
+    assert attack.parameters["displacement_std_meters"] == 200
     with pytest.raises(FrozenInstanceError):
         attack.config.seed = 1
 
 
 @pytest.mark.parametrize("bearing,lat,lon", [(0,1,0),(90,0,1),(180,-1,0),(270,0,-1)])
 def test_known_cardinal_destinations_at_equator(reports,bearing,lat,lon):
-    settings = PositionJumpConfig(EARTH_RADIUS_METERS*np.pi/180,1,bearing_degrees=bearing)
+    settings = PositionJumpConfig(EARTH_RADIUS_METERS*np.pi/180,1,bearing_degrees=bearing,displacement_std_meters=0)
     stream = PositionJumpAttack(settings).apply(reports.assign(latitude=0.,longitude=0.))
     np.testing.assert_allclose(stream.reports.latitude,lat,atol=1e-10)
     np.testing.assert_allclose(stream.reports.longitude,lon,atol=1e-10)
@@ -52,7 +55,9 @@ def test_percentages_repeat_exactly_and_are_stable_when_severity_changes(reports
     np.testing.assert_allclose(low.modification_log.bearing_degrees,high.modification_log.bearing_degrees)
     pd.testing.assert_frame_equal(low.reports,PositionJumpAttack(PositionJumpConfig(500,fraction,4201)).apply(reports).reports)
     if fraction == 1:
-        assert low.modification_log.fault_applied.all()
+        assert low.modification_log.selected.all()
+        np.testing.assert_array_equal(low.modification_log.fault_applied,
+                                      low.modification_log.bounded_displacement_meters.gt(0))
     else:
         assert 0 < low.modification_log.fault_applied.sum() < len(reports)
 
@@ -108,7 +113,7 @@ def test_invalid_missing_and_nullable_coordinates_remain_unmodified(reports):
     assert np.isnan(result.reports.latitude.iloc[0]) and result.modification_log.fault_applied.iloc[1:].all()
 
 
-@pytest.mark.parametrize("settings", [dict(displacement_meters=0),dict(affected_fraction=0)])
+@pytest.mark.parametrize("settings", [dict(displacement_meters=0,displacement_std_meters=0),dict(affected_fraction=0)])
 def test_noop_and_empty_input_preserve_dtypes(reports,settings):
     integer = reports.assign(latitude=37,longitude=-76)
     attack = PositionJumpAttack(PositionJumpConfig(**settings))
@@ -123,7 +128,7 @@ def test_wrapping_poles_and_source_delivery_metadata(reports):
     edge = reports.assign(latitude=0.,longitude=179.999)
     east = PositionJumpAttack(PositionJumpConfig(40000,1,bearing_degrees=90)).apply(edge)
     assert east.reports.longitude.lt(0).all()
-    polar = PositionJumpAttack(PositionJumpConfig(40000,1,bearing_degrees=0)).apply(
+    polar = PositionJumpAttack(PositionJumpConfig(40000,1,bearing_degrees=0,displacement_std_meters=0)).apply(
         reports.assign(latitude=89.9,longitude=20.))
     assert polar.reports.latitude.between(-90,90).all() and polar.reports.longitude.between(-180,180).all()
     np.testing.assert_allclose(polar.modification_log.applied_displacement_meters,40000,atol=1e-4)
@@ -137,6 +142,8 @@ def test_wrapping_poles_and_source_delivery_metadata(reports):
 
 @pytest.mark.parametrize("settings", [dict(displacement_meters=-1),dict(displacement_meters=np.nan),
     dict(displacement_meters=np.inf),dict(displacement_meters=True),dict(displacement_meters=1e20),
+    dict(displacement_std_meters=-1),dict(displacement_std_meters=np.nan),dict(displacement_std_meters=np.inf),
+    dict(displacement_std_meters=True),dict(displacement_std_meters="200"),dict(displacement_std_meters=1e20),
     dict(bearing_degrees=-1),dict(bearing_degrees=360),dict(bearing_degrees=np.nan),dict(bearing_degrees=True),
     dict(affected_fraction=-.1),dict(affected_fraction=1.1),dict(affected_fraction=np.nan),
     dict(seed=True),dict(seed=1.5),dict(target_mmsi="bad"),dict(start_time="2024-01-01"),
@@ -158,3 +165,45 @@ def test_required_numeric_fields_and_timezone_compatibility(reports,field):
         PositionJumpAttack(settings).apply(reports)
     utc = reports.assign(time=reports.time.dt.tz_localize("UTC"))
     assert str(PositionJumpAttack(settings).apply(utc).reports.time.dt.tz) == "UTC"
+
+
+def test_normal_distances_have_configured_mean_spread_and_independent_report_draws(reports):
+    sample = pd.concat([reports.iloc[:1]]*10000,ignore_index=True)
+    sample["time"] = pd.date_range("2024-04-10",periods=len(sample),freq="s")
+    log = PositionJumpAttack(PositionJumpConfig(affected_fraction=1)).apply(sample).modification_log
+    distances = log.applied_displacement_meters
+    assert abs(distances.mean()-2000) < 10
+    assert abs(distances.std()-200) < 8
+    assert .93 < distances.between(1600,2400).mean() < .97
+    assert distances.nunique() == len(sample)
+    assert abs(distances.autocorr()) < .05
+    assert not log.distance_clipped.any()
+    np.testing.assert_allclose(distances,log.requested_displacement_meters,atol=1e-6)
+
+
+def test_sigma_zero_reproduces_fixed_distance_and_sigma_changes_preserve_selected_reports(reports):
+    fixed = PositionJumpAttack(PositionJumpConfig(displacement_std_meters=0)).apply(reports).modification_log
+    normal = PositionJumpAttack().apply(reports).modification_log
+    wider = PositionJumpAttack(PositionJumpConfig(displacement_std_meters=400)).apply(reports).modification_log
+    np.testing.assert_array_equal(fixed.selected,normal.selected)
+    np.testing.assert_array_equal(normal.selected,wider.selected)
+    np.testing.assert_array_equal(normal.bearing_degrees,wider.bearing_degrees)
+    np.testing.assert_allclose(fixed.loc[fixed.selected,"applied_displacement_meters"],2000,atol=1e-6)
+    np.testing.assert_allclose(wider.loc[wider.selected,"requested_displacement_meters"]-2000,
+                               2*(normal.loc[normal.selected,"requested_displacement_meters"]-2000))
+
+
+def test_out_of_range_normal_distances_are_clipped_and_audited(reports):
+    low = PositionJumpAttack(PositionJumpConfig(0,1)).apply(reports)
+    log = low.modification_log
+    clipped = log.requested_displacement_meters < 0
+    assert clipped.any() and (~clipped).any()
+    np.testing.assert_array_equal(log.distance_clipped,clipped)
+    assert log.loc[clipped,"applied_displacement_meters"].eq(0).all()
+    assert not log.loc[clipped,"fault_applied"].any()
+    pd.testing.assert_frame_equal(low.reports.loc[clipped,reports.columns],reports.loc[clipped])
+    maximum = np.pi*EARTH_RADIUS_METERS
+    upper = PositionJumpAttack(PositionJumpConfig(maximum,1,displacement_std_meters=1000)).apply(reports)
+    assert upper.modification_log.distance_clipped.any()
+    assert upper.modification_log.bounded_displacement_meters.between(0,maximum).all()
+    assert np.isfinite(upper.reports[["latitude","longitude"]]).all().all()

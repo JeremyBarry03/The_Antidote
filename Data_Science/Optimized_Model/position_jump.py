@@ -18,8 +18,9 @@ def position_jump_presets(seed: int) -> dict[str, PositionJumpConfig]:
 
 def position_jump_options(seed: int) -> list[dict[str, object]]:
     return [{**asdict(Scenario(name, Condition.QUALITY, affected_fraction=config.affected_fraction)),
-             "label": f"Position jumps · {config.affected_fraction:.0%} · 2 km", "group": "position_jump",
-             "displacement_meters": config.displacement_meters}
+             "label": f"Position jumps · {config.affected_fraction:.0%} · mean 2 km, SD 0.2 km", "group": "position_jump",
+             "displacement_meters": config.displacement_meters,
+             "displacement_std_meters": config.displacement_std_meters}
             for name, config in position_jump_presets(seed).items()]
 
 

@@ -1,0 +1,12 @@
+{
+  "identical_protected_hashes": true,
+  "identical_cohort_schedule_and_crossing_targets": true,
+  "original_forecasts_match": true,
+  "paired_predictions": 115296,
+  "fixed_results": "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\Data_Science\\experiments\\position_jump_attack\\results",
+  "normal_results": "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\Data_Science\\experiments\\position_jump_attack\\results\\normal_distance",
+  "prediction_file_hashes": {
+    "fixed": "3554689bba3b83f079dabf23afbf08ab0ae02a9465dbd268b83c30a0c35adf90",
+    "normal": "93796d9d3311809a98b0912fc7bcf1e9294a6972bf0fe6bb1a763eae6f7cdc09"
+  }
+}

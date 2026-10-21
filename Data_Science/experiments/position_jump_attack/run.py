@@ -62,10 +62,11 @@ def render_report(summary: pd.DataFrame,validation: dict,protocol: dict) -> str:
         "Simulated corruption of copied AIS latitude/longitude. Original reported coordinates are references, not independently verified physical truth. The pattern is motivated by original jump-and-return inconsistencies; the underlying GPS/identity/timing/processing cause was not established.", "",
         "Percentages select eligible reports using the existing seed/vessel/timestamp hash threshold. Requested percentages are not exact-count quotas. A reproducible bearing per MMSI displaces selected fixes; unselected fixes retain their original positions. At 100% the whole supplied feed/window is displaced, with no intervening correct fixes inside it. The Python/API window is half-open [start,end). No reports are removed. Speed, course, classification, identity, timing, decision schedule and original crossing targets stay unchanged.", "",
         f"The cohort contains {validation['approaches']} April approaches / {validation['vessels']} vessels / {validation['unique_decisions']:,} decision times. {protocol['model_C_status']} No retraining, recalibration or new mitigation. C retains its existing guard.", "",
-        f"Completed settings: {protocol['settings']}. Each attacked setting uses seeds 4201–4203 to vary selection and bearing, not model training. Main prevalence comparison holds displacement at {protocol['primary_displacement_meters']:g} meters; additional distances are compared at 25%. All are stress settings; observed severe source jumps were much rarer than these injected percentages.", "",
+        f"Completed settings (mean meters, fraction): {protocol['settings']}. Each attacked setting uses seeds 4201–4203 to vary selection, bearing and report distances, not model training. Main prevalence comparison holds mean displacement at {protocol['primary_displacement_meters']:g} meters. Distance standard deviation: {protocol['displacement_std_meters']:g} meters. Additional means, if requested, are compared at 25%. All are stress settings; observed severe source jumps were much rarer than these injected percentages.", "",
+        "Distances are independent normal draws per vessel/timestamp identity, clipped to [0, half Earth's circumference]. Sigma zero reproduces fixed distances. Duplicate identities share a draw; sampling order, future reports and percentage do not change it. The clipping is audited separately. The seed/identity namespace for distance is separate from report selection and vessel bearing.", "",
         f"Window: {protocol['window_policy']}", "",
         "MAE weights approaches equally, averaging scenario realizations within each approach. MdAE and P95 pool absolute errors over decision/seed pairs. Changes compare identical supported original/attacked decisions. Coverage retains every scheduled decision in the denominator. Units are minutes to the analytical crossing, not docking.", "",
-        "| Displacement | Selected fraction | Model | MAE | MdAE | Δ MAE | Δ MdAE | P95 | Coverage |",
+        "| Mean displacement | Selected fraction | Model | MAE | MdAE | Δ MAE | Δ MdAE | P95 | Coverage |",
         "|---|---:|---|---:|---:|---:|---:|---:|---:|"]
     for row in summary.itertuples():
         label = "Original" if row.displacement_meters==0 else f"{row.displacement_meters/1000:g} km"
@@ -82,11 +83,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fractions",type=float,nargs="+",default=FRACTIONS)
     parser.add_argument("--displacement-meters",type=float,default=2000.)
-    parser.add_argument("--severity-distances",type=float,nargs="*",default=[500.,20000.,40000.])
+    parser.add_argument("--displacement-std-meters",type=float,default=200.)
+    parser.add_argument("--severity-distances",type=float,nargs="*",default=[])
     parser.add_argument("--window-start-minutes",type=float)
     parser.add_argument("--window-duration-minutes",type=float,default=15.)
     parser.add_argument("--workers",type=int,default=4)
-    parser.add_argument("--output",type=Path,default=HERE/"results")
+    parser.add_argument("--output",type=Path,default=HERE/"results/normal_distance")
     args = parser.parse_args()
     if args.workers < 1:
         parser.error("workers must be positive")
@@ -97,7 +99,7 @@ def main() -> None:
     settings = list(dict.fromkeys([(args.displacement_meters,f) for f in args.fractions]
                                  + [(distance,.25) for distance in args.severity_distances]))
     for distance,fraction in settings:
-        PositionJumpConfig(distance,fraction)
+        PositionJumpConfig(distance,fraction,displacement_std_meters=args.displacement_std_meters)
     started = time.perf_counter()
     output = args.output.resolve()
     output.mkdir(parents=True,exist_ok=True)
@@ -125,10 +127,11 @@ def main() -> None:
     hashes = {name:file_digest(path) for name,path in protected.items()}
     protocol = dict(attack=PositionJumpAttack.name,simulation=True,settings=settings,seeds=SEEDS,
         primary_displacement_meters=args.displacement_meters,model_C_status=c_status,
+        displacement_std_meters=args.displacement_std_meters,
         defaults=PositionJumpAttack().parameters,models=[system.name for system in systems],
         protected_paths={name:str(path) for name,path in protected.items()},protected_hashes=hashes,
         selection="Existing report-identity hash; percentage of eligible reports, not approaches",
-        displacement="Spherical forward geodesic, with one identity-seeded bearing per MMSI",
+        displacement="Spherical forward geodesic, with one identity-seeded bearing per MMSI; independent identity-seeded normal distance per report, clipped to [0, half Earth's circumference]",
         window_policy=("Whole supplied approach feed" if args.window_start_minutes is None else
             f"[{args.window_start_minutes:g}, {args.window_start_minutes+args.window_duration_minutes:g}) minutes after each approach's earliest supplied report"),
         labels="Original analytical crossing references, never derived from corrupted positions",
@@ -147,8 +150,9 @@ def main() -> None:
     with ProcessPoolExecutor(max_workers=args.workers) as pool:
         for index,(distance,fraction,seed) in enumerate(configurations):
             original = index==0
-            scenario = "original" if original else f"jump_{distance:g}m_{fraction:g}"
-            attack_config = PositionJumpConfig(distance,fraction,seed)
+            scenario = "original" if original else f"jump_{distance:g}m_sd{args.displacement_std_meters:g}m_{fraction:g}"
+            attack_config = PositionJumpConfig(distance,fraction,seed,
+                displacement_std_meters=0. if original else args.displacement_std_meters)
             tasks = [(history,group,config,attack_config,scenario,args.window_start_minutes,args.window_duration_minutes)
                      for history,group in cases]
             rows,audits = [],[]
@@ -175,6 +179,7 @@ def main() -> None:
                 result.loc[group.index,"original_error_minutes"] = group.decision_id.map(references[name])
             result["absolute_error_change"] = result.error_minutes.abs()-result.original_error_minutes.abs()
             result["severity"],result["displacement_meters"] = "original" if original else f"{distance:g}m",distance
+            result["displacement_std_meters"] = attack_config.displacement_std_meters
             result["mode"] = "whole_feed" if args.window_start_minutes is None else "window"
             result["affected_fraction"] = fraction
             if (result.available & ~np.isfinite(result.error_minutes)).any():
@@ -183,19 +188,25 @@ def main() -> None:
             audit_frame = pd.concat(audits,ignore_index=True)
             audit_frame.to_csv(output/"report_audit.csv",mode="w" if original else "a",header=original,index=False)
             exposure.append(dict(displacement_meters=distance,affected_fraction=fraction,seed=seed,
+                displacement_std_meters=attack_config.displacement_std_meters,
                 reports=len(audit_frame),eligible_reports=int(audit_frame.eligible_position.sum()),
                 in_window=int(audit_frame.in_window.sum()),selected_reports=int(audit_frame.selected.sum()),
                 changed_reports=int(audit_frame.fault_applied.sum()),
+                clipped_distances=int(audit_frame.distance_clipped.sum()),
+                mean_applied_displacement_meters=float(audit_frame.loc[audit_frame.selected,"applied_displacement_meters"].mean()) if audit_frame.selected.any() else 0.,
+                std_applied_displacement_meters=float(audit_frame.loc[audit_frame.selected,"applied_displacement_meters"].std()) if audit_frame.selected.sum()>1 else 0.,
                 maximum_applied_displacement_meters=float(audit_frame.applied_displacement_meters.max())))
             print(f"{index+1}/{len(configurations)} {scenario} seed {seed}: {len(result):,} scheduled forecasts",flush=True)
     results = pd.concat(predictions,ignore_index=True)
     results.to_csv(output/"predictions.csv",index=False)
     pd.DataFrame(exposure).to_csv(output/"injection_audit.csv",index=False)
-    keys = ["system","displacement_meters","affected_fraction"]
-    summary = pd.DataFrame([dict(displacement_meters=group.displacement_meters.iloc[0],**summarize(group))
+    keys = ["system","displacement_meters","displacement_std_meters","affected_fraction"]
+    summary = pd.DataFrame([dict(displacement_meters=group.displacement_meters.iloc[0],
+        displacement_std_meters=group.displacement_std_meters.iloc[0],**summarize(group))
                             for _,group in results.groupby(keys,sort=False)])
     summary.to_csv(output/"summary.csv",index=False)
-    pd.DataFrame([dict(seed=group.seed.iloc[0],displacement_meters=group.displacement_meters.iloc[0],**summarize(group))
+    pd.DataFrame([dict(seed=group.seed.iloc[0],displacement_meters=group.displacement_meters.iloc[0],
+        displacement_std_meters=group.displacement_std_meters.iloc[0],**summarize(group))
         for _,group in results.groupby(keys+["seed"],sort=False)]).to_csv(output/"per_seed_summary.csv",index=False)
     for name,path in protected.items():
         if file_digest(path)!=hashes[name]:

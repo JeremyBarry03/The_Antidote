@@ -390,6 +390,7 @@ def serve(config: OptimizedConfig, port: int) -> None:
                     bearing = query.get("bearing_degrees", [None])[0]
                     config = PositionJumpConfig(
                         displacement_meters=float(query.get("displacement_meters", ["2000"])[0]),
+                        displacement_std_meters=float(query.get("displacement_std_meters", ["200"])[0]),
                         affected_fraction=float(query.get("affected_fraction", ["0.25"])[0]),
                         seed=int(query.get("seed", ["42"])[0]), target_mmsi=query.get("target_mmsi", [None])[0],
                         bearing_degrees=float(bearing) if bearing is not None else None,

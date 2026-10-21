@@ -18,7 +18,7 @@ EARTH_RADIUS_METERS = 6_371_000.
 
 @dataclass(frozen=True)
 class PositionJumpConfig:
-    """Report prevalence, displacement severity and active window are independent."""
+    """Distance mean/spread, report prevalence and active window are independent."""
 
     displacement_meters: float = 2000.
     affected_fraction: float = .25
@@ -27,6 +27,7 @@ class PositionJumpConfig:
     bearing_degrees: float | None = None
     start_time: pd.Timestamp | str | None = None
     end_time: pd.Timestamp | str | None = None
+    displacement_std_meters: float = 200.
 
     def __post_init__(self) -> None:
         self.selection  # Reuse the existing prevalence/identity validation.
@@ -34,6 +35,10 @@ class PositionJumpConfig:
         if (isinstance(distance, bool) or not isinstance(distance, (int, float))
                 or not math.isfinite(distance) or not 0 <= distance <= math.pi*EARTH_RADIUS_METERS):
             raise ValueError("displacement_meters must be finite and between zero and half the Earth's circumference.")
+        spread = self.displacement_std_meters
+        if (isinstance(spread, bool) or not isinstance(spread, (int, float))
+                or not math.isfinite(spread) or not 0 <= spread <= math.pi*EARTH_RADIUS_METERS):
+            raise ValueError("displacement_std_meters must be finite and between zero and half the Earth's circumference.")
         bearing = self.bearing_degrees
         if bearing is not None and (isinstance(bearing, bool) or not isinstance(bearing, (int, float))
                 or not math.isfinite(bearing) or not 0 <= bearing < 360):
@@ -59,7 +64,7 @@ def _coordinates(reports: pd.DataFrame, field: str) -> np.ndarray:
     return values.to_numpy(dtype=float, na_value=np.nan, copy=True)
 
 
-def _destination(latitude: np.ndarray, longitude: np.ndarray, distance_meters: float,
+def _destination(latitude: np.ndarray, longitude: np.ndarray, distance_meters: float | np.ndarray,
                  bearing_degrees: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Spherical forward geodesic keeps meter distances meaningful at any latitude."""
     lat, lon, bearing = np.deg2rad(latitude), np.deg2rad(longitude), np.deg2rad(bearing_degrees)
@@ -90,6 +95,7 @@ class PositionJumpAttack(BaseAttack):
     @property
     def parameters(self) -> AttackParameters:
         return {**self.config.selection.as_parameters(), "displacement_meters": self.config.displacement_meters,
+                "displacement_std_meters": self.config.displacement_std_meters,
                 "bearing_degrees": self.config.bearing_degrees,
                 "start_time": self.config.start_time.isoformat() if self.config.start_time is not None else None,
                 "end_time": self.config.end_time.isoformat() if self.config.end_time is not None else None}
@@ -106,6 +112,17 @@ class PositionJumpAttack(BaseAttack):
             except TypeError as error:
                 raise ValueError("Attack window and report times must use compatible timezones.") from error
         selected = select_reports(prepared, self.config.selection).to_numpy() & eligible & in_window
+        requested_distance = np.where(selected, self.config.displacement_meters, 0.)
+        if self.config.displacement_std_meters > 0:
+            draws: dict[str, float] = {}
+            for position in np.flatnonzero(selected):
+                identity = f"position-jump-distance:{prepared.mmsi.iloc[position]}:{prepared.time.iloc[position].isoformat()}"
+                if identity not in draws:
+                    draws[identity] = float(seeded_generator(self.config.seed, identity).standard_normal())
+                requested_distance[position] += self.config.displacement_std_meters*draws[identity]
+        # Distance is nonnegative and cannot exceed a shortest-path half circle.
+        # Identity-based draws preserve duplicate, shuffle and future independence.
+        bounded_distance = np.clip(requested_distance, 0., math.pi*EARTH_RADIUS_METERS)
         bearing = np.full(len(prepared), np.nan)
         for mmsi, positions in prepared.groupby(prepared.mmsi.astype(str), sort=False).indices.items():
             direction = self.config.bearing_degrees
@@ -113,9 +130,10 @@ class PositionJumpAttack(BaseAttack):
                 direction = float(seeded_generator(self.config.seed, f"position-jump:{mmsi}").uniform(0,360))
             bearing[positions] = direction
         reported_latitude, reported_longitude = latitude.copy(), longitude.copy()
-        if self.config.displacement_meters > 0 and selected.any():
-            reported_latitude[selected], reported_longitude[selected] = _destination(
-                latitude[selected], longitude[selected], self.config.displacement_meters, bearing[selected])
+        displaced = selected & (bounded_distance > 0)
+        if displaced.any():
+            reported_latitude[displaced], reported_longitude[displaced] = _destination(
+                latitude[displaced], longitude[displaced], bounded_distance[displaced], bearing[displaced])
         affected = selected & ((reported_latitude != latitude) | (reported_longitude != longitude))
         if affected.any():
             prepared["latitude"], prepared["longitude"] = reported_latitude, reported_longitude
@@ -126,7 +144,9 @@ class PositionJumpAttack(BaseAttack):
         audit["eligible_position"], audit["in_window"], audit["selected"] = eligible, in_window, selected
         audit["original_latitude"], audit["original_longitude"] = latitude, longitude
         audit["reported_latitude"], audit["reported_longitude"] = reported_latitude, reported_longitude
-        audit["requested_displacement_meters"] = np.where(selected, self.config.displacement_meters, 0.)
+        audit["requested_displacement_meters"] = requested_distance
+        audit["bounded_displacement_meters"] = bounded_distance
+        audit["distance_clipped"] = requested_distance != bounded_distance
         audit["applied_displacement_meters"] = applied_distance
         audit["bearing_degrees"] = bearing
         audit["fault_applied"] = affected

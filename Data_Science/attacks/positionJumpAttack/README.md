@@ -15,7 +15,8 @@ coordinates are references, not independently verified physical truth.
 from attacks import PositionJumpAttack, PositionJumpConfig
 
 settings = PositionJumpConfig(
-    displacement_meters=2000,
+    displacement_meters=2000,  # Mean distance, in meters.
+    displacement_std_meters=200,
     affected_fraction=.20,
     seed=4201,
     target_mmsi="255803201",  # Optional; otherwise all supplied vessels.
@@ -28,10 +29,19 @@ received = stream.available(decision_time)
 
 ## Configuration and behavior
 
-Frozen `PositionJumpConfig` defaults: 2,000 meters, 25% of eligible reports, seed
-42, all vessels, no time window, and an automatically selected bearing. A custom
+Frozen `PositionJumpConfig` defaults: mean distance 2,000 meters, standard deviation
+200 meters, 25% of eligible reports, seed 42, all vessels, no time window, and an automatically selected bearing. A custom
 `bearing_degrees` in [0,360) fixes the direction clockwise from north.
 
+- Each selected report draws a distance from `N(2000, 200²)` in meters. About 95%
+  of draws lie between 1,600 and 2,400 meters. The mean and standard deviation are
+  configurable independently. `displacement_std_meters=0` restores fixed distances.
+  Draws are keyed by seed, MMSI and timestamp, using a separate namespace from
+  selection and bearing. Changing percentage or window does not change a matching
+  report's draw. Negative distances clip to zero; distances beyond half Earth's
+  circumference clip to that limit. Requested, bounded and applied distances plus
+  clipping flags are audited separately. At the default mean/spread these bounds
+  are ten standard deviations or more away.
 - Percentage applies to eligible reports, not approaches or vessels. It uses the
   existing identity-hash threshold, so 10%, 20%, 25%, 50%, 100% and custom fractions
   are reproducible Bernoulli selections rather than exact-count quotas.
@@ -51,11 +61,11 @@ Frozen `PositionJumpConfig` defaults: 2,000 meters, 25% of eligible reports, see
   must be finite latitude [-90,90] and longitude [-180,180]. Missing, invalid and
   unavailable-sentinel positions remain unchanged and ineligible. Unparsed
   strings/bools/complex coordinate columns fail clearly; numeric nullable columns
-  work. Zero distance/fraction is a no-op.
+  work. Zero fraction, or zero mean with zero standard deviation, is a no-op.
 - No source files, reports' order, or original data frames are mutated. The
   common preparation helper may add missing record/delivery metadata to the copy.
 - The separate audit stores eligibility, window membership, selection, original
-  and reported coordinates, bearing, requested/applied displacement and actual
+  and reported coordinates, bearing, requested/bounded/applied displacement and actual
   change flags. `fault_applied` requires an actual change. Audit truth never enters
   model features. All scoring/model loading/file writing lives outside the attack.
 
@@ -70,7 +80,7 @@ recent history still contains the altered fixes.
 The paired endpoint follows the existing attack endpoints:
 
 ```text
-GET /api/attacks/position-jump?decision=<decision_id>&affected_fraction=0.2&displacement_meters=2000&seed=4201&inspect=true
+GET /api/attacks/position-jump?decision=<decision_id>&affected_fraction=0.2&displacement_meters=2000&displacement_std_meters=200&seed=4201&inspect=true
 ```
 
 Optional parameters: `target_mmsi`, `bearing_degrees`, `start_time`, `end_time`,
@@ -79,11 +89,12 @@ clock/reference. Outcomes stay hidden until reveal; standalone attacks are
 uncalibrated and cannot invoke simulated verification. Inspection shows delivered
 records only and joins known original positions after inference.
 
-The backend catalog exposes 10%, 20%, 25%, 50%, and 100% presets at 2 km, using
+The backend catalog exposes 10%, 20%, 25%, 50%, and 100% presets with mean 2 km
+and standard deviation 0.2 km, using
 the configured replay seed. `/api/replay` and `/api/timeline`
 accept `position_jump_10pct`, `_20pct`, `_25pct`, `_50pct`, `_100pct`. Timelines
 compute actual past/current predictions through the shared serving feature path.
-Custom displacement/bearing/windows are available through Python and the paired
+Custom distance mean/standard deviation, bearing and windows are available through Python and the paired
 API. Frontend integration is deferred at the user's request; no frontend files
 are changed by this implementation.
 
@@ -100,14 +111,26 @@ payload supplies original/reported positions and displacement for a future map U
 
 ```text
 python experiments/position_jump_attack/run.py
+python experiments/position_jump_attack/compare_fixed.py
 python -m pytest -q
 ```
 
 Uses the same corrected frozen A/B/C artifacts, 112 April approaches and 2,402
-decision times. The default compares 10/20/25/50/100% at 2 km, then 500 m / 20 km /
-40 km at 25%, each with seeds 4201–4203. No retraining or recalibration. Reports
+decision times. The default compares 10/20/25/50/100% at mean 2 km, standard
+deviation 0.2 km, each with seeds 4201–4203. No retraining or recalibration. Reports
 include approach-weighted MAE, pooled MdAE/P95, coverage and paired error changes.
 Crossing targets/cohort membership are never recomputed from attacked fixes.
+
+Normal-distance outputs go to `experiments/position_jump_attack/results/normal_distance/`,
+preserving the previous fixed-distance outputs. The comparison script validates
+identical source/model/code hashes, window policy, decision/seed pairs and crossing
+targets before pairing the two saved experiments. Original forecasts must match.
+
+To reproduce the earlier fixed-distance matrix in a separate output directory:
+
+```text
+python experiments/position_jump_attack/run.py --displacement-std-meters 0 --severity-distances 500 20000 40000 --output artifacts/position_jump_fixed
+```
 
 Optional timed comparison:
 
@@ -123,10 +146,13 @@ holdout. The original analytical crossing is not a verified docking event.
 
 Completed outputs:
 
-- [Whole-cohort A/B/C report](../../experiments/position_jump_attack/results/REPORT.md)
-- [One-vessel timed replay](../../experiments/position_jump_attack/results/WINDOW_EXAMPLE.md)
-- [Timed replay ETA plot](../../artifacts/position_jump_attack/window_example.png)
+- [Normal-distance A/B/C report](../../experiments/position_jump_attack/results/normal_distance/REPORT.md)
+- [Normal versus fixed-distance comparison](../../experiments/position_jump_attack/results/normal_distance/FIXED_COMPARISON.md)
+- [Previous fixed-distance A/B/C report](../../experiments/position_jump_attack/results/REPORT.md)
+- [Previous fixed-distance one-vessel timed replay](../../experiments/position_jump_attack/results/WINDOW_EXAMPLE.md)
+- [Previous fixed-distance timed replay ETA plot](../../artifacts/position_jump_attack/window_example.png)
 
-The timed example is a separate single-approach replay, not a timed whole-cohort
-study. It uses a 15-minute window, 2 km displacement and 100% selection inside the
+The saved timed example is from the previous fixed-distance implementation. It is
+a separate single-approach replay, not a timed whole-cohort study. It uses a
+15-minute window, fixed 2 km displacement and 100% selection inside the
 window. Its ETA shifts are prediction changes, not necessarily error increases.

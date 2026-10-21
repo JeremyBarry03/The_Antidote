@@ -576,7 +576,8 @@ def test_position_jump_pair_preserves_reference_and_non_position_fields(demo_ser
             assert before[column]==after[column]
     for record in attacked["inspection"]["records"]:
         assert record["time"]<=attacked["decision_time"] and record["delivered_time"]<=attacked["decision_time"]
-        assert abs(record["offset_meters"]-2000)<1e-5
+        assert abs(record["offset_meters"]-record["bounded_displacement_meters"])<1e-5
+    assert attacked["attack"]["parameters"]["displacement_std_meters"]==200
     hidden = demo_service.position_jump_snapshot("decision",config)["attacked"]
     assert hidden["reference_arrival"] is None and hidden["inspection"] is None
     assert all("error_minutes" not in card for card in hidden["cards"])
@@ -587,6 +588,7 @@ def test_position_jump_pair_preserves_reference_and_non_position_fields(demo_ser
 def test_position_jump_presets_timeline_noop_and_future_window(demo_service: DemoService) -> None:
     choices = [c for c in demo_service.catalog()["scenario_options"] if c["group"]=="position_jump"]
     assert [c["affected_fraction"] for c in choices]==[.1,.2,.25,.5,1.]
+    assert all(c["displacement_std_meters"]==200 for c in choices)
     result = demo_service.snapshot("decision","position_jump_20pct",reveal=False,verify=False)
     timeline = demo_service.timeline("decision","position_jump_20pct",reveal=False)
     assert len(timeline["points"])==3
@@ -595,7 +597,7 @@ def test_position_jump_presets_timeline_noop_and_future_window(demo_service: Dem
         c["system"]:c["predicted_arrival_time"] for c in result["cards"]}
     with pytest.raises(ValueError,match="unattended"):
         demo_service.snapshot("decision","position_jump_20pct",reveal=False,verify=True)
-    noop = demo_service.position_jump_snapshot("decision",PositionJumpConfig(displacement_meters=0),reveal=True)
+    noop = demo_service.position_jump_snapshot("decision",PositionJumpConfig(displacement_meters=0,displacement_std_meters=0),reveal=True)
     assert noop["original"]["received_history"]==noop["attacked"]["received_history"]
     future = PositionJumpConfig(start_time="2024-03-05 12:20",end_time="2024-03-05 12:30")
     pair = demo_service.position_jump_snapshot("decision",future,reveal=True,inspect=True)
@@ -625,14 +627,16 @@ def test_position_jump_http_endpoint_reuses_paired_replay(demo_service: DemoServ
     server = ready.get(timeout=5)
     root = f"http://127.0.0.1:{server.server_port}"
     try:
-        path = "/api/attacks/position-jump?decision=decision&affected_fraction=0.2&displacement_meters=500&seed=99&inspect=true"
+        path = "/api/attacks/position-jump?decision=decision&affected_fraction=0.2&displacement_meters=500&displacement_std_meters=50&seed=99&inspect=true"
         with urlopen(root+path,timeout=5) as response:
             pair = json.load(response)
         assert pair["attacked"]["attack"]["parameters"]["displacement_meters"]==500
+        assert pair["attacked"]["attack"]["parameters"]["displacement_std_meters"]==50
         assert pair["attacked"]["attack"]["parameters"]["affected_fraction"]==.2
-        for invalid in ("&bearing_degrees=360","&start_time=2024-01-01"):
+        for invalid in (path+"&bearing_degrees=360",path+"&start_time=2024-01-01",
+                        path.replace("displacement_std_meters=50","displacement_std_meters=-1")):
             with pytest.raises(HTTPError) as error:
-                urlopen(root+path+invalid,timeout=5)
+                urlopen(root+invalid,timeout=5)
             assert error.value.code==400
         for route in ("/api/replay?decision=decision&scenario=position_jump_20pct",
                       "/api/timeline?decision=decision&scenario=position_jump_20pct"):
