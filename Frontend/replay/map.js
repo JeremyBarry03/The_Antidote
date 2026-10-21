@@ -49,7 +49,7 @@ function coordinates(collection) {
 }
 
 /** Load the optional SDK only after the user supplies a public token. */
-async function loadMapbox() {
+export async function loadMapbox() {
   const surface = /** @type {WindowWithMapbox} */ (window);
   if (surface.mapboxgl) return surface.mapboxgl;
   const css = document.createElement('link');

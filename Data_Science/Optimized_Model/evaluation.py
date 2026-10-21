@@ -11,6 +11,7 @@ import pandas as pd
 from eta_baselines.evaluation import score_predictions
 from eta_baselines.dataset import file_digest
 from eta_baselines.prediction import EtaPredictor
+from eta_baselines.features import LEGACY_FEATURE_COLUMNS
 
 from .configuration import OptimizedConfig
 from .model import MODEL_SPECS, inference_implementation
@@ -22,6 +23,32 @@ class PredictionSystem:
     name: str
     predictor: EtaPredictor
     input_view: str
+
+
+# The vessel-class v2 change adds two fields and recovers each frozen bundle's
+# fitted schema on unpickle. It preserves all legacy features for cargo/tanker
+# replay. Only these reviewed, exact source revisions are compatible; arbitrary
+# inference edits still invalidate the bundle. Model/config hashes stay strict.
+LEGACY_SCHEMA_MIGRATION = {
+    "eta_baselines/features.py": (
+        "774b64b9b7a9426ba52fe737006a1ad96ffaa0d82ed99a9c770b266ff98ff8d2",
+        "dd58103f61dcbb8039f2989ce15f437cc7f6b36cdae84f7ff81599e1ef05da9b"),
+    "eta_baselines/prediction.py": (
+        "292526a49d93dcdea488fec0bd73ed2217b84cbf2b577d743e8b0f4ed7eac282",
+        "66c92331ca318f2fe45e4f813b10f5d90bad804fbc6e6a4fad5a05d9904d811d"),
+}
+
+
+def compatible_inference(saved: dict, current: dict, columns: list[str]) -> bool:
+    if saved == current:
+        return True
+    if (set(saved) != set(current)
+            or tuple(columns[:len(LEGACY_FEATURE_COLUMNS)]) != LEGACY_FEATURE_COLUMNS
+            or {"is_cargo", "vessel_class_unknown"}.intersection(columns)):
+        return False
+    return all(previous == current[path] or
+               LEGACY_SCHEMA_MIGRATION.get(path) == (previous, current[path])
+               for path, previous in saved.items())
 
 
 def load_systems(config: OptimizedConfig) -> list[PredictionSystem]:
@@ -36,7 +63,8 @@ def load_systems(config: OptimizedConfig) -> list[PredictionSystem]:
             raise FileNotFoundError(f"Required model/control {spec.name} is missing; run train before evaluation.")
         manifest = json.loads(path.with_name(f"{spec.name}_manifest.json").read_text())
         if (manifest["config"] != config.snapshot() or manifest["model_sha256"] != file_digest(path)
-                or manifest.get("inference_implementation") != inference_implementation()):
+                or not compatible_inference(manifest.get("inference_implementation", {}),
+                                            inference_implementation(), manifest["feature_columns"])):
             raise ValueError(f"Model {spec.name} does not match current inference code/config; use a new trained version.")
         systems.append(PredictionSystem(spec.name, joblib.load(path), spec.input_view))
     return systems

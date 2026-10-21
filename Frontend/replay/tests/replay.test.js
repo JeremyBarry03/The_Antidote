@@ -8,7 +8,7 @@ import {clock, minutesBetween, utcDate} from '../format.js';
 import {mapFeatures} from '../map.js';
 import {ModelCardsView} from '../views.js';
 
-const PAGE_HTML = readFileSync('eta_replay.html', 'utf8');
+const PAGE_HTML = readFileSync('replay/tests/fixtures/single-replay.html', 'utf8');
 const GATE = {longitude: -76.3, south: 36.95, north: 37.05};
 
 /** @param {Partial<Snapshot>} [overrides] @returns {Snapshot} */

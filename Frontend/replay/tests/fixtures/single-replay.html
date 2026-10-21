@@ -1,0 +1,109 @@
+<!doctype html>
+<!-- Archived markup used only by legacy module regression checks. Not served. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>The Antidote · AIS reliability lab</title>
+  <link rel="stylesheet" href="/replay/replay.css">
+  <script type="module" src="/replay/bootstrap.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#replay-controls">Skip to replay controls</a>
+  <main>
+    <header class="page-header">
+      <div><p class="eyebrow brand">THE ANTIDOTE <span>/ AIS RELIABILITY LAB</span></p>
+        <h1>Bad reports. Different forecasts.</h1>
+        <p class="muted">Replay a vessel approach. Change the incoming data. See what happens to its predicted arrival.</p>
+      </div>
+      <span class="badge">HISTORICAL AIS <span class="status-dot"></span> SIMULATED FAULTS</span>
+    </header>
+    <div id="error-banner" class="error-banner" role="alert" hidden></div>
+    <div id="status" class="sr-only" role="status" aria-live="polite">Loading replay…</div>
+    <section class="replay-toolbar panel" id="replay-controls" aria-label="Replay selection">
+      <label class="approach-label">VESSEL APPROACH<select id="approach" disabled><option>Loading approaches…</option></select></label>
+      <div class="replay-clock"><span class="eyebrow">REPLAY CLOCK · UTC</span><strong id="replay-clock">—</strong><span id="replay-date" class="muted">—</span></div>
+      <div class="run-identity"><span id="run-mode" class="badge">UNATTENDED</span><span id="run-seed" class="muted">All models receive the same delivered feed</span></div>
+    </section>
+    <section class="scenario-section" aria-labelledby="scenario-title">
+      <div class="section-heading"><div><p class="eyebrow">01 / CHANGE THE INPUT</p><h2 id="scenario-title">Stress the incoming reports</h2></div>
+        <p id="scenario-description" class="muted">Original reports with no added reporting faults.</p></div>
+      <div id="scenario-buttons" class="scenario-buttons" role="group" aria-label="Primary reporting conditions"></div>
+      <details class="experiment-options"><summary>Position-error prevalence, repeated reports &amp; reserved drift</summary>
+        <div class="experiment-fields">
+          <label>Incorrect positions at fixed message count<select id="prevalence" disabled><option value="">Choose 10%, 25%, or 50%</option></select></label>
+          <label>Additional evaluated experiment<select id="experiment" disabled><option value="">Choose an experiment</option></select></label>
+        </div>
+        <p class="muted small">Each choice is a separate evaluated preset. Repetition counts include the original message; slightly different copies add 0.1 metre per copy.</p>
+      </details>
+    </section>
+    <section id="workspace" class="workspace" aria-label="Incoming reports and observable signals">
+      <div class="panel map-panel">
+        <div class="map-heading"><div><h2>Received vessel positions</h2><p class="muted small">One shared feed for A, B, and C</p></div>
+          <div class="action-buttons"><button id="open-map-settings" class="quiet-button" type="button">Mapbox settings</button><button id="fit-map" class="quiet-button" type="button">Fit track</button></div></div>
+        <div class="map-surface">
+          <div id="basemap" class="basemap" aria-label="Geographic map of received reports" hidden></div>
+          <svg id="coordinate-map" viewBox="0 0 1000 400" role="img" aria-label="Local coordinate plot of received reports and the analytical crossing reference; no shoreline"></svg>
+          <span id="map-condition" class="map-condition">NORMAL REPORTS</span>
+        </div>
+        <div class="map-legend"><span><i class="legend-dot received"></i>Received report</span><span><i class="legend-line gate"></i>Arrival reference</span><span id="fault-legend" hidden><i class="legend-line fault"></i>Original → altered</span><span><i class="legend-ring"></i>Latest report</span></div>
+        <div class="map-footer"><label class="toggle-label"><input id="inspect-toggle" type="checkbox" aria-describedby="inspection-help">Show simulated changes</label>
+          <span id="map-status" class="muted small">Coordinate map · add a public Mapbox token for a geographic basemap</span></div>
+        <p id="inspection-help" class="muted small">The simulation inspector exposes known injected changes to the audience. These labels never enter the models.</p>
+      </div>
+      <aside class="panel feed-panel" aria-labelledby="feed-title">
+        <p class="eyebrow">INPUT EVIDENCE</p><h2 id="feed-title">What reached the models?</h2>
+        <div class="age-box"><span class="muted">Latest report</span><strong id="report-age">—</strong>
+          <div class="clock-pair"><span>Generated <b id="observed-clock">—</b></span><span>Delivered <b id="delivered-clock">—</b></span></div></div>
+        <p id="window-description" class="muted small">Waiting for the received evidence window.</p>
+        <dl id="feed-counts" class="feed-counts"></dl>
+        <div class="guard-signals"><h3>C's observable checks</h3><div id="observable-signals"></div>
+          <p class="muted small">Consolidated reports are not a count of detected faults. Guard warnings are imperfect.</p></div>
+      </aside>
+    </section>
+    <section id="inspection-panel" class="panel inspection-panel" aria-labelledby="inspection-title" hidden>
+      <div class="inspection-overview"><p class="eyebrow coral">AUDIENCE ONLY / KNOWN INJECTED CHANGES</p><h2 id="inspection-title">Inspect the changed message</h2>
+        <p id="injection-summary"></p><label>Delivered record<select id="report-select"></select></label><p id="visible-report-note" class="muted small"></p></div>
+      <dl id="report-detail" class="report-detail"></dl>
+    </section>
+    <section class="panel playback-panel" aria-label="Replay playback">
+      <div class="playback-buttons"><button id="previous" type="button" aria-label="Previous decision" disabled>←</button><button id="play" class="primary-button" type="button" disabled>Play replay</button><button id="next" type="button" aria-label="Next decision" disabled>→</button></div>
+      <label class="timeline-slider-label"><span>Decision time <span id="decision-position" class="muted"></span></span><input id="decision-slider" type="range" min="0" max="0" value="0" aria-label="Replay decision index" disabled></label>
+      <label class="decision-select-label">Jump to UTC time<select id="decision" disabled></select></label>
+    </section>
+    <section aria-labelledby="forecasts-title">
+      <div class="section-heading"><div><p class="eyebrow">02 / COMPARE THE RESPONSE</p><h2 id="forecasts-title">Same reports. Three ETA models.</h2></div>
+        <div class="action-buttons"><button id="verify" type="button" disabled>Simulate verified update</button><button id="reveal" class="primary-button" type="button" disabled>Reveal crossing &amp; errors</button></div></div>
+      <div id="cards" class="model-cards" aria-live="polite"></div>
+      <div id="outcome" class="outcome" role="status" hidden></div>
+      <p class="muted small">Arrival means crossing our analytical reference at longitude −76.30, latitude 36.95–37.05. Docking at a terminal is not verified. ETA shifts compare the same model's normal-input replay at this clock.</p>
+      <p id="verification-note" class="muted small">Verification supplies a historical report measured by this replay time. It is logged as human assisted. Walkthrough time is not a validated operator-workload measure.</p>
+    </section>
+    <section class="panel chart-panel" aria-labelledby="timeline-title">
+      <div class="section-heading"><div><h2 id="timeline-title">How the ETA changes over time</h2><p class="muted small">Vertical: predicted arrival UTC · horizontal: decision UTC · no future decisions shown</p></div>
+        <div class="model-legend"><span class="model-a-text">● A</span><span class="model-b-text">● B</span><span class="model-c-text">● C</span></div></div>
+      <div id="eta-timeline"><p class="empty-state">Loading saved forecast history…</p></div>
+      <p id="timeline-note" class="muted small">Saved evaluation forecasts; verification does not rewrite the unattended comparison.</p>
+    </section>
+    <section class="evidence-section" aria-labelledby="evidence-title">
+      <div class="section-heading"><div><p class="eyebrow">03 / CHECK THE WHOLE COHORT</p><h2 id="evidence-title">The evidence beyond this vessel</h2></div><p id="cohort-summary" class="muted">Loading saved evaluation…</p></div>
+      <p class="muted">Average absolute ETA error, in minutes. Lower is better. Each approach receives equal weight; errors are measured before warnings or deferral.</p>
+      <div id="primary-metrics" class="table-scroll panel"></div>
+      <p class="muted small">¹ Coverage includes scheduled decisions with no supported forecast. Reserved gradual drift was excluded from training and calibration. Other than stale and combined inputs, improvement estimates remain uncertain.</p>
+      <details class="panel evidence-details"><summary>Report prevalence and volume evidence</summary><p class="muted small">Repetition had a small measured effect on B. Exact duplicates receive shared preprocessing in every model. More bad reports do not guarantee a dramatic failure.</p><div id="volume-metrics" class="table-scroll"></div></details>
+      <details class="panel evidence-details"><summary>Limits, failure examples &amp; human review</summary>
+        <p>C still makes large errors and loses to B on many individual approaches. These buttons deliberately select recorded failure examples; they are not a representative sample.</p><div id="failure-examples" class="failure-examples"></div>
+        <p id="review-policy-note">Loading the predeclared acceptance-policy evidence…</p>
+        <p class="muted small">The archive contains event timestamps; delays and corruptions here are simulated. This does not establish actual NOAA poisoning or measured receiver latency. Model C uses timestamped motion history, report age, consistency features, guarded summaries, and training with simulated degraded inputs.</p>
+      </details>
+    </section>
+    <details id="map-settings" class="panel map-settings"><summary>Map settings</summary><form id="map-settings-form">
+      <label>Public Mapbox token<input id="mapbox-token" type="password" placeholder="pk.…" autocomplete="off" spellcheck="false"></label>
+      <button id="connect-map" type="submit">Use Mapbox</button><button id="use-coordinates" type="button">Use coordinate map</button></form>
+      <p class="muted small">The server loads your public Mapbox token from the project's .env file automatically. A token entered here temporarily overrides it for this page. The renderer receives delivered positions and, when inspection is enabled, their original archive positions. ETA computation stays in Python.</p>
+    </details>
+    <footer class="page-footer"><span>THE ANTIDOTE · HAMPTON ROADS</span><span>Reproducible replay · simulated input corruption · research prototype</span></footer>
+  </main>
+</body>
+</html>

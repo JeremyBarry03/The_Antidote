@@ -546,3 +546,41 @@ def test_missing_vessel_class_zero_mask_matches_nominal_and_audit_cannot_change_
     inspected = demo_service.missing_vessel_class_snapshot('decision', MissingVesselClassConfig(.5), reveal=True, inspect=True)['attacked']
     assert plain['cards'] == inspected['cards']
     assert inspected['attack']['injected_missing_vessel_class_reports_so_far'] > 0
+
+
+def test_fleet_keeps_delivery_cutoff_and_retrospective_truth_outside_inference(demo_service, monkeypatch):
+    from Optimized_Model.fleet import FleetReplay, epoch
+    monkeypatch.setattr(FleetReplay, "_archive_metadata", lambda _: ({}, {"voyage": [-76.3, 37.]}))
+    fleet = FleetReplay(demo_service)
+    clock = epoch(pd.Timestamp("2024-03-05 12:15"))
+    frame = fleet.frame(clock, delay=5, fraction=.25)
+    ship = frame["ships"][0]
+    assert all(report["delivered"] <= clock and report["time"] <= clock - 300 for report in ship["reports"])
+    predictions = ship["predictions"]
+    # Changing evaluator-only injection truth cannot change any forecast.
+    for stream in fleet.streams.values():
+        stream.modification_log["fault_applied"] = False
+    fleet.frames.clear()
+    assert fleet.frame(clock, delay=5, fraction=.25)["ships"][0]["predictions"] == predictions
+    history = fleet.history(clock, delay=5, fraction=.25)
+    assert all(sample["time"] <= clock for sample in history["samples"])
+    fading = fleet.frame(epoch(pd.Timestamp("2024-03-05 12:47")))["ships"][0]
+    assert fading["arrived"] and fading["fade"] == .75
+    assert not fleet.frame(epoch(pd.Timestamp("2024-03-05 12:54")))["ships"]
+
+
+def test_fleet_rejects_unbounded_or_nonfinite_controls():
+    from Optimized_Model.fleet import FleetReplay
+    for controls in [(float("nan"), 0, .5), (61, 0, .5), (0, 1.1, .5), (0, .25, 3)]:
+        with pytest.raises(ValueError):
+            FleetReplay.scenario(*controls)
+
+
+def test_legacy_schema_migration_does_not_accept_unreviewed_inference_edits():
+    from Optimized_Model.evaluation import compatible_inference, LEGACY_SCHEMA_MIGRATION
+    saved = {path: pair[0] for path, pair in LEGACY_SCHEMA_MIGRATION.items()}
+    current = {path: pair[1] for path, pair in LEGACY_SCHEMA_MIGRATION.items()}
+    assert compatible_inference(saved, current, list(LEGACY_FEATURE_COLUMNS))
+    assert not compatible_inference(saved, current, list(FEATURE_COLUMNS))
+    current["eta_baselines/features.py"] = "unreviewed-change"
+    assert not compatible_inference(saved, current, list(LEGACY_FEATURE_COLUMNS))

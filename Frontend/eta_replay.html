@@ -1,108 +1,495 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="dark">
-  <title>The Antidote · AIS reliability lab</title>
-  <link rel="stylesheet" href="/replay/replay.css">
-  <script type="module" src="/replay/bootstrap.js"></script>
-</head>
-<body>
-  <a class="skip-link" href="#replay-controls">Skip to replay controls</a>
-  <main>
-    <header class="page-header">
-      <div><p class="eyebrow brand">THE ANTIDOTE <span>/ AIS RELIABILITY LAB</span></p>
-        <h1>Bad reports. Different forecasts.</h1>
-        <p class="muted">Replay a vessel approach. Change the incoming data. See what happens to its predicted arrival.</p>
-      </div>
-      <span class="badge">HISTORICAL AIS <span class="status-dot"></span> SIMULATED FAULTS</span>
-    </header>
-    <div id="error-banner" class="error-banner" role="alert" hidden></div>
-    <div id="status" class="sr-only" role="status" aria-live="polite">Loading replay…</div>
-    <section class="replay-toolbar panel" id="replay-controls" aria-label="Replay selection">
-      <label class="approach-label">VESSEL APPROACH<select id="approach" disabled><option>Loading approaches…</option></select></label>
-      <div class="replay-clock"><span class="eyebrow">REPLAY CLOCK · UTC</span><strong id="replay-clock">—</strong><span id="replay-date" class="muted">—</span></div>
-      <div class="run-identity"><span id="run-mode" class="badge">UNATTENDED</span><span id="run-seed" class="muted">All models receive the same delivered feed</span></div>
-    </section>
-    <section class="scenario-section" aria-labelledby="scenario-title">
-      <div class="section-heading"><div><p class="eyebrow">01 / CHANGE THE INPUT</p><h2 id="scenario-title">Stress the incoming reports</h2></div>
-        <p id="scenario-description" class="muted">Original reports with no added reporting faults.</p></div>
-      <div id="scenario-buttons" class="scenario-buttons" role="group" aria-label="Primary reporting conditions"></div>
-      <details class="experiment-options"><summary>Position-error prevalence, repeated reports &amp; reserved drift</summary>
-        <div class="experiment-fields">
-          <label>Incorrect positions at fixed message count<select id="prevalence" disabled><option value="">Choose 10%, 25%, or 50%</option></select></label>
-          <label>Additional evaluated experiment<select id="experiment" disabled><option value="">Choose an experiment</option></select></label>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>The Antidote · Harbor arrival intelligence</title>
+    <link rel="stylesheet" href="./replay/fleet.css" />
+    <script>
+      if (location.protocol === "file:")
+        location.replace("http://127.0.0.1:8765/");
+    </script>
+    <script type="module" src="./replay/fleet-app.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#fleet-console">Skip to fleet replay</a>
+    <main>
+      <header class="site-header">
+        <a class="wordmark" href="#" aria-label="The Antidote home"
+          ><svg viewBox="0 0 32 32" aria-hidden="true">
+            <circle cx="16" cy="16" r="13" />
+            <path d="M16 5v22M5 16h22M11 21l5-12 5 12-5-3z" /></svg
+          >THE ANTIDOTE</a
+        >
+        <nav aria-label="Page sections">
+          <a href="#fleet-console">Fleet replay</a
+          ><a href="#comparison">Model comparison</a
+          ><a href="#research">Research notes</a>
+        </nav>
+        <span class="header-location">Hampton Roads, Virginia</span>
+      </header>
+      <section class="introduction" aria-labelledby="page-title">
+        <div>
+          <h1 id="page-title">The Antidote<span>.</span></h1>
         </div>
-        <p class="muted small">Each choice is a separate evaluated preset. Repetition counts include the original message; slightly different copies add 0.1 metre per copy.</p>
-      </details>
-    </section>
-    <section id="workspace" class="workspace" aria-label="Incoming reports and observable signals">
-      <div class="panel map-panel">
-        <div class="map-heading"><div><h2>Received vessel positions</h2><p class="muted small">One shared feed for A, B, and C</p></div>
-          <div class="action-buttons"><button id="open-map-settings" class="quiet-button" type="button">Mapbox settings</button><button id="fit-map" class="quiet-button" type="button">Fit track</button></div></div>
-        <div class="map-surface">
-          <div id="basemap" class="basemap" aria-label="Geographic map of received reports" hidden></div>
-          <svg id="coordinate-map" viewBox="0 0 1000 400" role="img" aria-label="Local coordinate plot of received reports and the analytical crossing reference; no shoreline"></svg>
-          <span id="map-condition" class="map-condition">NORMAL REPORTS</span>
-        </div>
-        <div class="map-legend"><span><i class="legend-dot received"></i>Received report</span><span><i class="legend-line gate"></i>Arrival reference</span><span id="fault-legend" hidden><i class="legend-line fault"></i>Original → altered</span><span><i class="legend-ring"></i>Latest report</span></div>
-        <div class="map-footer"><label class="toggle-label"><input id="inspect-toggle" type="checkbox" aria-describedby="inspection-help">Show simulated changes</label>
-          <span id="map-status" class="muted small">Coordinate map · add a public Mapbox token for a geographic basemap</span></div>
-        <p id="inspection-help" class="muted small">The simulation inspector exposes known injected changes to the audience. These labels never enter the models.</p>
+        <p class="intro-explanation">
+          Harbor planners need to know
+          <strong
+            >when a vessel will arrive—and when to question the
+            estimate.</strong
+          >
+          Follow recorded AIS traffic, introduce delayed or incorrect reports,
+          and compare three models against the same historical crossing. We
+          measure crossing-time error, output coverage, and the need for
+          verification.
+        </p>
+      </section>
+      <div id="error-banner" class="error-banner" role="alert" hidden></div>
+      <div id="loading-status" class="loading-status" role="status">
+        Loading the March arrival cohort and fitted models…
       </div>
-      <aside class="panel feed-panel" aria-labelledby="feed-title">
-        <p class="eyebrow">INPUT EVIDENCE</p><h2 id="feed-title">What reached the models?</h2>
-        <div class="age-box"><span class="muted">Latest report</span><strong id="report-age">—</strong>
-          <div class="clock-pair"><span>Generated <b id="observed-clock">—</b></span><span>Delivered <b id="delivered-clock">—</b></span></div></div>
-        <p id="window-description" class="muted small">Waiting for the received evidence window.</p>
-        <dl id="feed-counts" class="feed-counts"></dl>
-        <div class="guard-signals"><h3>C's observable checks</h3><div id="observable-signals"></div>
-          <p class="muted small">Consolidated reports are not a count of detected faults. Guard warnings are imperfect.</p></div>
-      </aside>
-    </section>
-    <section id="inspection-panel" class="panel inspection-panel" aria-labelledby="inspection-title" hidden>
-      <div class="inspection-overview"><p class="eyebrow coral">AUDIENCE ONLY / KNOWN INJECTED CHANGES</p><h2 id="inspection-title">Inspect the changed message</h2>
-        <p id="injection-summary"></p><label>Delivered record<select id="report-select"></select></label><p id="visible-report-note" class="muted small"></p></div>
-      <dl id="report-detail" class="report-detail"></dl>
-    </section>
-    <section class="panel playback-panel" aria-label="Replay playback">
-      <div class="playback-buttons"><button id="previous" type="button" aria-label="Previous decision" disabled>←</button><button id="play" class="primary-button" type="button" disabled>Play replay</button><button id="next" type="button" aria-label="Next decision" disabled>→</button></div>
-      <label class="timeline-slider-label"><span>Decision time <span id="decision-position" class="muted"></span></span><input id="decision-slider" type="range" min="0" max="0" value="0" aria-label="Replay decision index" disabled></label>
-      <label class="decision-select-label">Jump to UTC time<select id="decision" disabled></select></label>
-    </section>
-    <section aria-labelledby="forecasts-title">
-      <div class="section-heading"><div><p class="eyebrow">02 / COMPARE THE RESPONSE</p><h2 id="forecasts-title">Same reports. Three ETA models.</h2></div>
-        <div class="action-buttons"><button id="verify" type="button" disabled>Simulate verified update</button><button id="reveal" class="primary-button" type="button" disabled>Reveal crossing &amp; errors</button></div></div>
-      <div id="cards" class="model-cards" aria-live="polite"></div>
-      <div id="outcome" class="outcome" role="status" hidden></div>
-      <p class="muted small">Arrival means crossing our analytical reference at longitude −76.30, latitude 36.95–37.05. Docking at a terminal is not verified. ETA shifts compare the same model's normal-input replay at this clock.</p>
-      <p id="verification-note" class="muted small">Verification supplies a historical report measured by this replay time. It is logged as human assisted. Walkthrough time is not a validated operator-workload measure.</p>
-    </section>
-    <section class="panel chart-panel" aria-labelledby="timeline-title">
-      <div class="section-heading"><div><h2 id="timeline-title">How the ETA changes over time</h2><p class="muted small">Vertical: predicted arrival UTC · horizontal: decision UTC · no future decisions shown</p></div>
-        <div class="model-legend"><span class="model-a-text">● A</span><span class="model-b-text">● B</span><span class="model-c-text">● C</span></div></div>
-      <div id="eta-timeline"><p class="empty-state">Loading saved forecast history…</p></div>
-      <p id="timeline-note" class="muted small">Saved evaluation forecasts; verification does not rewrite the unattended comparison.</p>
-    </section>
-    <section class="evidence-section" aria-labelledby="evidence-title">
-      <div class="section-heading"><div><p class="eyebrow">03 / CHECK THE WHOLE COHORT</p><h2 id="evidence-title">The evidence beyond this vessel</h2></div><p id="cohort-summary" class="muted">Loading saved evaluation…</p></div>
-      <p class="muted">Average absolute ETA error, in minutes. Lower is better. Each approach receives equal weight; errors are measured before warnings or deferral.</p>
-      <div id="primary-metrics" class="table-scroll panel"></div>
-      <p class="muted small">¹ Coverage includes scheduled decisions with no supported forecast. Reserved gradual drift was excluded from training and calibration. Other than stale and combined inputs, improvement estimates remain uncertain.</p>
-      <details class="panel evidence-details"><summary>Report prevalence and volume evidence</summary><p class="muted small">Repetition had a small measured effect on B. Exact duplicates receive shared preprocessing in every model. More bad reports do not guarantee a dramatic failure.</p><div id="volume-metrics" class="table-scroll"></div></details>
-      <details class="panel evidence-details"><summary>Limits, failure examples &amp; human review</summary>
-        <p>C still makes large errors and loses to B on many individual approaches. These buttons deliberately select recorded failure examples; they are not a representative sample.</p><div id="failure-examples" class="failure-examples"></div>
-        <p id="review-policy-note">Loading the predeclared acceptance-policy evidence…</p>
-        <p class="muted small">The archive contains event timestamps; delays and corruptions here are simulated. This does not establish actual NOAA poisoning or measured receiver latency. Model C uses timestamped motion history, report age, consistency features, guarded summaries, and training with simulated degraded inputs.</p>
-      </details>
-    </section>
-    <details id="map-settings" class="panel map-settings"><summary>Map settings</summary><form id="map-settings-form">
-      <label>Public Mapbox token<input id="mapbox-token" type="password" placeholder="pk.…" autocomplete="off" spellcheck="false"></label>
-      <button id="connect-map" type="submit">Use Mapbox</button><button id="use-coordinates" type="button">Use coordinate map</button></form>
-      <p class="muted small">The server loads your public Mapbox token from the project's .env file automatically. A token entered here temporarily overrides it for this page. The renderer receives delivered positions and, when inspection is enabled, their original archive positions. ETA computation stays in Python.</p>
-    </details>
-    <footer class="page-footer"><span>THE ANTIDOTE · HAMPTON ROADS</span><span>Reproducible replay · simulated input corruption · research prototype</span></footer>
-  </main>
-</body>
+      <section
+        id="fleet-console"
+        class="fleet-console"
+        aria-label="Interactive harbor fleet replay"
+      >
+        <div class="console-toolbar">
+          <div
+            class="model-tabs"
+            role="tablist"
+            aria-label="Forecast model shown on the map"
+          >
+            <button
+              id="model-a"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              data-model="A"
+            >
+              <span class="model-code">A</span>Regression
+            </button>
+            <button
+              id="model-b"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              data-model="B"
+            >
+              <span class="model-code">B</span>XGBoost
+            </button>
+            <button
+              id="model-c"
+              type="button"
+              role="tab"
+              aria-selected="true"
+              data-model="C"
+            >
+              <span class="model-code">C</span>The Antidote<svg
+                viewBox="0 0 16 16"
+                aria-hidden="true"
+              >
+                <path d="m8 1 5 2v4c0 4-5 7-5 7S3 11 3 7V3z" />
+                <path d="m5.5 7 2 2 3-4" />
+              </svg>
+            </button>
+          </div>
+          <div class="console-tools">
+            <span class="replay-badge"><i></i>HISTORICAL REPLAY</span
+            ><button
+              id="fullscreen"
+              class="icon-button"
+              type="button"
+              aria-label="Expand product view"
+              title="Expand product view"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="fleet-workspace">
+          <div class="map-column">
+            <div class="map-stage" id="map-stage">
+              <div
+                id="fleet-geography"
+                class="geography"
+                aria-label="Hampton Roads geographic map"
+                hidden
+              ></div>
+              <svg
+                id="fleet-coordinates"
+                class="coordinate-plot"
+                viewBox="0 0 1000 560"
+                role="group"
+                aria-label="Vessel report positions plotted by longitude and latitude"
+              ></svg>
+              <div class="map-heading">
+                <span class="map-place">Hampton Roads</span
+                ><span id="fleet-count">Connecting to archive</span>
+              </div>
+              <div class="map-actions">
+                <button id="fit-fleet" type="button">Fit fleet</button>
+              </div>
+              <div id="map-empty" class="map-empty" hidden>
+                <strong>No active arrivals in this window.</strong
+                ><span>The replay preserves quiet periods in the archive.</span
+                ><button class="next-traffic" type="button">
+                  Jump to next traffic window →
+                </button>
+              </div>
+              <div class="map-legend">
+                <span title="Vessel movement interpolates already delivered positions and can trail the latest message."><i class="legend-track"></i>Delivered track</span
+                ><span><i class="legend-gate"></i>Crossing reference</span
+                ><span class="historical-label"
+                  >Error = retrospective scoring</span
+                >
+              </div>
+            </div>
+            <div id="antidote-alert" class="antidote-alert" role="status">
+              <span class="alert-symbol" aria-hidden="true"
+                ><svg viewBox="0 0 20 20">
+                  <path id="alert-mark" d="m5 10 3 3 7-7" /></svg
+              ></span>
+              <div>
+                <strong id="alert-title"
+                  >The Antidote is watching the incoming feed.</strong
+                >
+                <p id="alert-copy">
+                  Observable freshness and consistency checks—not hidden
+                  simulator labels.
+                </p>
+              </div>
+              <button id="inspect-alert" type="button" hidden>
+                Inspect vessel →
+              </button>
+            </div>
+          </div>
+          <aside class="feed-panel" aria-labelledby="feed-title">
+            <div class="feed-heading">
+              <h2 id="feed-title">Incoming reports</h2>
+              <span id="feed-connection"><i></i>ARCHIVE</span>
+            </div>
+            <div
+              id="ship-list"
+              class="ship-list"
+              aria-label="Vessels in the current window"
+            ></div>
+            <div id="vessel-detail" class="vessel-detail">
+              <p>
+                Select a vessel on the map to inspect its delivered reports.
+              </p>
+            </div>
+            <div class="report-heading">
+              <h3>Latest messages</h3>
+              <span>UTC · delivered feed</span>
+            </div>
+            <div class="report-table-wrap">
+              <table class="report-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Observed</th>
+                    <th scope="col">Position</th>
+                    <th scope="col">kn</th>
+                  </tr>
+                </thead>
+                <tbody id="report-rows">
+                  <tr>
+                    <td colspan="3">Waiting for the first frame…</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="feed-key">
+              <i></i>Red fields show known simulated changes for the audience.
+              These labels never enter the models.
+            </p>
+          </aside>
+        </div>
+        <div class="playback">
+          <div class="transport">
+            <button id="play" class="play-button" type="button" disabled>
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <path d="m7 4 9 6-9 6z" /></svg
+              ><span>Play</span></button
+            ><label class="speed-label"
+              ><span class="sr-only">Playback speed</span
+              ><select id="speed">
+                <option value="60">60× · 1 min / sec</option>
+                <option value="600">600× · 10 min / sec</option>
+                <option value="3600">3,600× · 1 hour / sec</option>
+              </select></label
+            >
+          </div>
+          <div class="clock-block">
+            <time id="replay-clock">—</time
+            ><span id="replay-date">MARCH 2024 · UTC</span>
+          </div>
+          <div class="timeline">
+            <label for="month-slider" class="sr-only">March replay time</label
+            ><input
+              id="month-slider"
+              type="range"
+              min="0"
+              max="1"
+              value="0"
+              step="60"
+              disabled
+            />
+            <div class="month-ticks">
+              <span>Mar 01</span><span>08</span><span>15</span><span>22</span
+              ><span>31</span>
+            </div>
+          </div>
+          <button
+            class="next-traffic next-traffic-button"
+            type="button"
+            title="Move forward to a recorded arrival window"
+          >
+            Next traffic <span aria-hidden="true">→</span>
+          </button>
+        </div>
+        <div class="fault-console">
+          <div class="fault-heading">
+            <div>
+              <h2>Change the incoming feed</h2>
+              <p>
+                Apply simulated faults to every model. Watch the messages, map,
+                and forecasts respond.
+              </p>
+            </div>
+            <button id="reset-faults" class="text-button" type="button">
+              Reset to clean reports
+            </button>
+          </div>
+          <div class="fault-controls">
+            <div class="fault-control">
+              <label for="delay-slider"
+                ><span>Stale reports</span
+                ><output id="delay-value" for="delay-slider"
+                  >0 min delay</output
+                ></label
+              ><input
+                id="delay-slider"
+                type="range"
+                min="0"
+                max="60"
+                value="0"
+                step="1"
+              />
+              <div class="range-labels">
+                <span>On time</span><span>60 min late</span>
+              </div>
+              <p>
+                Delivery is delayed. Original observation times stay intact.
+              </p>
+            </div>
+            <div class="fault-control">
+              <label for="quality-slider"
+                ><span>Incorrect positions</span
+                ><output id="quality-value" for="quality-slider"
+                  >0% affected</output
+                ></label
+              ><input
+                id="quality-slider"
+                type="range"
+                min="0"
+                max="100"
+                value="0"
+                step="5"
+              />
+              <div class="range-labels">
+                <span>Accurate</span><span>Every report</span>
+              </div>
+              <p>
+                Offset selected coordinates by
+                <label class="inline-select"
+                  ><span class="sr-only">Position offset</span
+                  ><select id="offset">
+                    <option value="0.1">0.1 nm</option>
+                    <option value="0.5" selected>0.5 nm</option>
+                    <option value="1">1.0 nm</option>
+                    <option value="2">2.0 nm</option>
+                  </select></label
+                >
+                at a fixed message count.
+              </p>
+            </div>
+            <div class="mitigation-control">
+              <div class="mitigation-title">
+                <span>The Antidote</span
+                ><label class="switch-label"
+                  ><input id="guard-toggle" type="checkbox" checked /><span
+                    >Input guard</span
+                  ></label
+                >
+              </div>
+              <p>
+                Consolidate minute bins and screen implausible position jumps.
+                Quality features and degraded-example training are built into C.
+              </p>
+              <span id="condition-label" class="condition-label"
+                >Clean reports · guard on</span
+              >
+            </div>
+          </div>
+          <div class="fault-presets" aria-label="Matched condition presets">
+            <span>Try a condition</span
+            ><button type="button" data-preset="clean" aria-pressed="true">
+              Normal</button
+            ><button type="button" data-preset="stale" aria-pressed="false">
+              Stale only</button
+            ><button type="button" data-preset="quality" aria-pressed="false">
+              Position only</button
+            ><button type="button" data-preset="combined" aria-pressed="false">
+              Combined</button
+            ><span id="frame-status" class="frame-status" role="status"
+              >All three models share the same delivered reports.</span
+            >
+          </div>
+        </div>
+      </section>
+      <section
+        id="comparison"
+        class="comparison-section"
+        aria-labelledby="comparison-title"
+      >
+        <div class="section-heading">
+          <div>
+            <h2 id="comparison-title">
+              Same traffic. Three different responses.
+            </h2>
+            <p id="comparison-caption">
+              Exploratory scores for the current replay window. Change a fault
+              to start a fresh comparison.
+            </p>
+          </div>
+          <label class="metric-label"
+            >Compare<select id="metric">
+              <option value="mae">Mean absolute error</option>
+              <option value="rmse">Root mean squared error</option>
+              <option value="mse">Mean squared error</option>
+            </select></label
+          >
+        </div>
+        <div id="comparison-charts" class="comparison-charts"></div>
+        <p class="scoring-note">
+          The graphs begin with measured forecasts from the preceding 30 minutes
+          at five-minute steps, then add live minute frames. Only common
+          supported, pre-crossing forecasts enter the comparison. Each observed
+          approach has equal weight. Missing forecasts remain visible in
+          coverage; they are never scored as zero error. Future crossing truth
+          is used only for historical scoring.
+        </p>
+        <details class="saved-evidence">
+          <summary>
+            Inspect the protected April evaluation
+            <span>Saved results · separate from the live window</span>
+          </summary>
+          <div id="saved-metrics" class="saved-metrics">
+            Loading the saved evaluation…
+          </div>
+          <p>
+            Calibration: April 1–7. Protected evaluation: April 8–21, 2024. Five
+            paired fault seeds; approach-weighted error. These saved results
+            stay fixed when the interactive controls change.
+          </p>
+        </details>
+      </section>
+      <section
+        id="research"
+        class="research-section"
+        aria-labelledby="research-title"
+      >
+        <div class="research-intro">
+          <h2 id="research-title">
+            A research prototype.<br />A practical question.
+          </h2>
+          <p>
+            Can we keep arrival estimates useful when incoming data becomes
+            stale or inconsistent—and make the need for verification visible?
+          </p>
+        </div>
+        <div class="research-notes">
+          <details open>
+            <summary>What you’re looking at</summary>
+            <p id="cohort-note">
+              A March 2024 replay of supported cargo and tanker approaches from
+              NOAA Marine Cadastre AIS.
+            </p>
+            <p>
+              “Arrival” means crossing the analytical gate at −76.30° longitude,
+              between 36.95° and 37.05° latitude. It is a crossing proxy, not
+              verified terminal docking. Vessels and tracks fade for eight
+              simulated minutes after that recorded event.
+            </p>
+            <p>
+              Map movement is smoothed between positions already received and
+              can trail the latest message while completing a segment. The feed,
+              ETA calculations, and scores use the original report values.
+            </p>
+          </details>
+          <details>
+            <summary>How the models and data are handled</summary>
+            <p>
+              Regression (A) and standard XGBoost (B) are frozen baselines. The
+              Antidote (C) adds motion, freshness and consistency features,
+              guarded input summaries, and training on simulated degraded feeds.
+              Turning off the guard is an exploratory serving ablation; it does
+              not retrain the model.
+            </p>
+            <p>
+              The actual dated partitions are used rather than an assumed
+              80/10/10 split: March 1–19 for training, March 20–24 for
+              development, and March 25–31 for previously inspected exploratory
+              work. April 1–7 calibrates intervals; April 8–21 is the protected
+              evaluation period.
+            </p>
+          </details>
+          <details>
+            <summary>Limits, assumptions, and responsible use</summary>
+            <p>
+              This is a conditional arrival cohort, not every vessel in the
+              harbor. Delay and position corruption are simulations; archive
+              timestamps do not measure receiver latency or establish actual
+              poisoning. Red field annotations are known injection truth for
+              demonstration, not detected faults.
+            </p>
+            <p>
+              Warnings use observable report age and consistency. They can miss
+              problems or raise false alarms. The fixed five-minute calibrated
+              policy can defer all forecasts; this fleet view’s alerts are
+              demonstrations, not an operational acceptance policy. Individual
+              forecasts can still be badly wrong.
+            </p>
+            <p>
+              Public vessel identifiers and movement records are shown for
+              research; no crew identities are needed. Confirm source terms,
+              data-use review, and named data/model/operations owners before a
+              pilot. No docking, safety, universal fairness, or measured savings
+              claim is made.
+            </p>
+          </details>
+          <details>
+            <summary>What comes next</summary>
+            <p>
+              Validate the crossing reference and useful timing tolerance with a
+              port reviewer, measure review effort, and assess a fresh held-out
+              period. Report subgroup coverage and failure cases before
+              considering operational use. The next step is iteration with those
+              checks and accountable owners.
+            </p>
+          </details>
+        </div>
+      </section>
+      <footer>
+        <span>THE ANTIDOTE · CASEATHON 2026</span
+        ><span
+          >Historical AIS · simulated faults · provisional crossing
+          estimates</span
+        ><a href="#page-title">Back to top ↑</a>
+      </footer>
+    </main>
+  </body>
 </html>

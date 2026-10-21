@@ -1,0 +1,850 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-21T23:15:13.113085Z",
+  "title": "Design System: The Antidote",
+  "extensions": {
+    "source": {
+      "files": [
+        "Frontend/eta_replay.html",
+        "Frontend/replay/fleet.css",
+        "Frontend/replay/fleet-app.js",
+        "Frontend/replay/fleet-map.js",
+        "Frontend/replay/fleet-charts.js",
+        "Frontend/replay/fleet-motion.js"
+      ],
+      "authority": [
+        "PRODUCT.md",
+        ".impeccable/direction.md"
+      ],
+      "scope": "Fleet replay, the sole product demo; the former single-vessel comparison is retired.",
+      "method": "Code extraction from the final cascade and current component markup. No new visual review or application tests were run for this documentation handoff."
+    },
+    "colorMeta": {
+      "paper": {
+        "role": "neutral",
+        "displayName": "Warm Paper",
+        "tonalRamp": [
+          "oklch(15% 0.0082 91.48)",
+          "oklch(26% 0.0082 91.48)",
+          "oklch(38% 0.0082 91.48)",
+          "oklch(49% 0.0082 91.48)",
+          "oklch(61% 0.0082 91.48)",
+          "oklch(72% 0.0082 91.48)",
+          "oklch(84% 0.0082 91.48)",
+          "oklch(95% 0.0082 91.48)"
+        ]
+      },
+      "sheet": {
+        "role": "neutral",
+        "displayName": "Clean Sheet",
+        "tonalRamp": [
+          "oklch(15% 0.0054 95.10)",
+          "oklch(26% 0.0054 95.10)",
+          "oklch(38% 0.0054 95.10)",
+          "oklch(49% 0.0054 95.10)",
+          "oklch(61% 0.0054 95.10)",
+          "oklch(72% 0.0054 95.10)",
+          "oklch(84% 0.0054 95.10)",
+          "oklch(95% 0.0054 95.10)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Harbor Ink",
+        "tonalRamp": [
+          "oklch(15% 0.0336 232.46)",
+          "oklch(26% 0.0336 232.46)",
+          "oklch(38% 0.0336 232.46)",
+          "oklch(49% 0.0336 232.46)",
+          "oklch(61% 0.0336 232.46)",
+          "oklch(72% 0.0336 232.46)",
+          "oklch(84% 0.0336 232.46)",
+          "oklch(95% 0.0336 232.46)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Measured Gray",
+        "tonalRamp": [
+          "oklch(15% 0.0215 227.66)",
+          "oklch(26% 0.0215 227.66)",
+          "oklch(38% 0.0215 227.66)",
+          "oklch(49% 0.0215 227.66)",
+          "oklch(61% 0.0215 227.66)",
+          "oklch(72% 0.0215 227.66)",
+          "oklch(84% 0.0215 227.66)",
+          "oklch(95% 0.0215 227.66)"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Rule Gray",
+        "tonalRamp": [
+          "oklch(15% 0.0081 139.44)",
+          "oklch(26% 0.0081 139.44)",
+          "oklch(38% 0.0081 139.44)",
+          "oklch(49% 0.0081 139.44)",
+          "oklch(61% 0.0081 139.44)",
+          "oklch(72% 0.0081 139.44)",
+          "oklch(84% 0.0081 139.44)",
+          "oklch(95% 0.0081 139.44)"
+        ]
+      },
+      "teal": {
+        "role": "primary",
+        "displayName": "Harbor Teal",
+        "tonalRamp": [
+          "oklch(15% 0.0856 182.87)",
+          "oklch(26% 0.0856 182.87)",
+          "oklch(38% 0.0856 182.87)",
+          "oklch(49% 0.0856 182.87)",
+          "oklch(61% 0.0856 182.87)",
+          "oklch(72% 0.0856 182.87)",
+          "oklch(84% 0.0856 182.87)",
+          "oklch(95% 0.0856 182.87)"
+        ]
+      },
+      "teal-light": {
+        "role": "primary",
+        "displayName": "Teal Wash",
+        "tonalRamp": [
+          "oklch(15% 0.0158 154.46)",
+          "oklch(26% 0.0158 154.46)",
+          "oklch(38% 0.0158 154.46)",
+          "oklch(49% 0.0158 154.46)",
+          "oklch(61% 0.0158 154.46)",
+          "oklch(72% 0.0158 154.46)",
+          "oklch(84% 0.0158 154.46)",
+          "oklch(95% 0.0158 154.46)"
+        ]
+      },
+      "red": {
+        "role": "tertiary",
+        "displayName": "Simulation Red",
+        "tonalRamp": [
+          "oklch(15% 0.1461 29.48)",
+          "oklch(26% 0.1461 29.48)",
+          "oklch(38% 0.1461 29.48)",
+          "oklch(49% 0.1461 29.48)",
+          "oklch(61% 0.1461 29.48)",
+          "oklch(72% 0.1461 29.48)",
+          "oklch(84% 0.1461 29.48)",
+          "oklch(95% 0.1461 29.48)"
+        ]
+      },
+      "red-light": {
+        "role": "tertiary",
+        "displayName": "Error Wash",
+        "tonalRamp": [
+          "oklch(15% 0.0163 46.57)",
+          "oklch(26% 0.0163 46.57)",
+          "oklch(38% 0.0163 46.57)",
+          "oklch(49% 0.0163 46.57)",
+          "oklch(61% 0.0163 46.57)",
+          "oklch(72% 0.0163 46.57)",
+          "oklch(84% 0.0163 46.57)",
+          "oklch(95% 0.0163 46.57)"
+        ]
+      },
+      "a": {
+        "role": "secondary",
+        "displayName": "Regression Ochre",
+        "tonalRamp": [
+          "oklch(15% 0.1065 67.45)",
+          "oklch(26% 0.1065 67.45)",
+          "oklch(38% 0.1065 67.45)",
+          "oklch(49% 0.1065 67.45)",
+          "oklch(61% 0.1065 67.45)",
+          "oklch(72% 0.1065 67.45)",
+          "oklch(84% 0.1065 67.45)",
+          "oklch(95% 0.1065 67.45)"
+        ]
+      },
+      "b": {
+        "role": "secondary",
+        "displayName": "XGBoost Blue",
+        "tonalRamp": [
+          "oklch(15% 0.1218 261.67)",
+          "oklch(26% 0.1218 261.67)",
+          "oklch(38% 0.1218 261.67)",
+          "oklch(49% 0.1218 261.67)",
+          "oklch(61% 0.1218 261.67)",
+          "oklch(72% 0.1218 261.67)",
+          "oklch(84% 0.1218 261.67)",
+          "oklch(95% 0.1218 261.67)"
+        ]
+      },
+      "c": {
+        "role": "primary",
+        "displayName": "Antidote Series",
+        "tonalRamp": [
+          "oklch(15% 0.0916 181.82)",
+          "oklch(26% 0.0916 181.82)",
+          "oklch(38% 0.0916 181.82)",
+          "oklch(49% 0.0916 181.82)",
+          "oklch(61% 0.0916 181.82)",
+          "oklch(72% 0.0916 181.82)",
+          "oklch(84% 0.0916 181.82)",
+          "oklch(95% 0.0916 181.82)"
+        ]
+      },
+      "sea": {
+        "role": "neutral",
+        "displayName": "Night Water",
+        "tonalRamp": [
+          "oklch(15% 0.0378 228.24)",
+          "oklch(26% 0.0378 228.24)",
+          "oklch(38% 0.0378 228.24)",
+          "oklch(49% 0.0378 228.24)",
+          "oklch(61% 0.0378 228.24)",
+          "oklch(72% 0.0378 228.24)",
+          "oklch(84% 0.0378 228.24)",
+          "oklch(95% 0.0378 228.24)"
+        ]
+      },
+      "subtle-surface": {
+        "role": "neutral",
+        "displayName": "Subtle Surface",
+        "tonalRamp": [
+          "oklch(15% 0.0098 125.68)",
+          "oklch(26% 0.0098 125.68)",
+          "oklch(38% 0.0098 125.68)",
+          "oklch(49% 0.0098 125.68)",
+          "oklch(61% 0.0098 125.68)",
+          "oklch(72% 0.0098 125.68)",
+          "oklch(84% 0.0098 125.68)",
+          "oklch(95% 0.0098 125.68)"
+        ]
+      },
+      "play-hover": {
+        "role": "primary",
+        "displayName": "Deep Teal",
+        "tonalRamp": [
+          "oklch(15% 0.0731 182.91)",
+          "oklch(26% 0.0731 182.91)",
+          "oklch(38% 0.0731 182.91)",
+          "oklch(49% 0.0731 182.91)",
+          "oklch(61% 0.0731 182.91)",
+          "oklch(72% 0.0731 182.91)",
+          "oklch(84% 0.0731 182.91)",
+          "oklch(95% 0.0731 182.91)"
+        ]
+      },
+      "tab-ink": {
+        "role": "neutral",
+        "displayName": "Tab Ink",
+        "tonalRamp": [
+          "oklch(15% 0.0266 213.84)",
+          "oklch(26% 0.0266 213.84)",
+          "oklch(38% 0.0266 213.84)",
+          "oklch(49% 0.0266 213.84)",
+          "oklch(61% 0.0266 213.84)",
+          "oklch(72% 0.0266 213.84)",
+          "oklch(84% 0.0266 213.84)",
+          "oklch(95% 0.0266 213.84)"
+        ]
+      },
+      "preset-ink": {
+        "role": "neutral",
+        "displayName": "Selected Preset Ink",
+        "tonalRamp": [
+          "oklch(15% 0.0781 177.76)",
+          "oklch(26% 0.0781 177.76)",
+          "oklch(38% 0.0781 177.76)",
+          "oklch(49% 0.0781 177.76)",
+          "oklch(61% 0.0781 177.76)",
+          "oklch(72% 0.0781 177.76)",
+          "oklch(84% 0.0781 177.76)",
+          "oklch(95% 0.0781 177.76)"
+        ]
+      },
+      "fault-ink": {
+        "role": "tertiary",
+        "displayName": "Altered Field Ink",
+        "tonalRamp": [
+          "oklch(15% 0.1416 29.59)",
+          "oklch(26% 0.1416 29.59)",
+          "oklch(38% 0.1416 29.59)",
+          "oklch(49% 0.1416 29.59)",
+          "oklch(61% 0.1416 29.59)",
+          "oklch(72% 0.1416 29.59)",
+          "oklch(84% 0.1416 29.59)",
+          "oklch(95% 0.1416 29.59)"
+        ]
+      },
+      "fault-surface": {
+        "role": "tertiary",
+        "displayName": "Altered Field Wash",
+        "tonalRamp": [
+          "oklch(15% 0.0209 43.85)",
+          "oklch(26% 0.0209 43.85)",
+          "oklch(38% 0.0209 43.85)",
+          "oklch(49% 0.0209 43.85)",
+          "oklch(61% 0.0209 43.85)",
+          "oklch(72% 0.0209 43.85)",
+          "oklch(84% 0.0209 43.85)",
+          "oklch(95% 0.0209 43.85)"
+        ]
+      },
+      "map-a": {
+        "role": "secondary",
+        "displayName": "Map Ochre",
+        "tonalRamp": [
+          "oklch(15% 0.1005 79.41)",
+          "oklch(26% 0.1005 79.41)",
+          "oklch(38% 0.1005 79.41)",
+          "oklch(49% 0.1005 79.41)",
+          "oklch(61% 0.1005 79.41)",
+          "oklch(72% 0.1005 79.41)",
+          "oklch(84% 0.1005 79.41)",
+          "oklch(95% 0.1005 79.41)"
+        ]
+      },
+      "map-b": {
+        "role": "secondary",
+        "displayName": "Map Blue",
+        "tonalRamp": [
+          "oklch(15% 0.0991 257.64)",
+          "oklch(26% 0.0991 257.64)",
+          "oklch(38% 0.0991 257.64)",
+          "oklch(49% 0.0991 257.64)",
+          "oklch(61% 0.0991 257.64)",
+          "oklch(72% 0.0991 257.64)",
+          "oklch(84% 0.0991 257.64)",
+          "oklch(95% 0.0991 257.64)"
+        ]
+      },
+      "map-c": {
+        "role": "primary",
+        "displayName": "Map Antidote",
+        "tonalRamp": [
+          "oklch(15% 0.0894 169.11)",
+          "oklch(26% 0.0894 169.11)",
+          "oklch(38% 0.0894 169.11)",
+          "oklch(49% 0.0894 169.11)",
+          "oklch(61% 0.0894 169.11)",
+          "oklch(72% 0.0894 169.11)",
+          "oklch(84% 0.0894 169.11)",
+          "oklch(95% 0.0894 169.11)"
+        ]
+      },
+      "map-label": {
+        "role": "neutral",
+        "displayName": "Map Label",
+        "tonalRamp": [
+          "oklch(15% 0.0383 224.16)",
+          "oklch(26% 0.0383 224.16)",
+          "oklch(38% 0.0383 224.16)",
+          "oklch(49% 0.0383 224.16)",
+          "oklch(61% 0.0383 224.16)",
+          "oklch(72% 0.0383 224.16)",
+          "oklch(84% 0.0383 224.16)",
+          "oklch(95% 0.0383 224.16)"
+        ]
+      },
+      "map-label-selected": {
+        "role": "neutral",
+        "displayName": "Selected Map Label",
+        "tonalRamp": [
+          "oklch(15% 0.0462 208.40)",
+          "oklch(26% 0.0462 208.40)",
+          "oklch(38% 0.0462 208.40)",
+          "oklch(49% 0.0462 208.40)",
+          "oklch(61% 0.0462 208.40)",
+          "oklch(72% 0.0462 208.40)",
+          "oklch(84% 0.0462 208.40)",
+          "oklch(95% 0.0462 208.40)"
+        ]
+      },
+      "map-text": {
+        "role": "neutral",
+        "displayName": "Map Text",
+        "tonalRamp": [
+          "oklch(15% 0.0159 148.41)",
+          "oklch(26% 0.0159 148.41)",
+          "oklch(38% 0.0159 148.41)",
+          "oklch(49% 0.0159 148.41)",
+          "oklch(61% 0.0159 148.41)",
+          "oklch(72% 0.0159 148.41)",
+          "oklch(84% 0.0159 148.41)",
+          "oklch(95% 0.0159 148.41)"
+        ]
+      },
+      "map-subtext": {
+        "role": "neutral",
+        "displayName": "Map Supporting Text",
+        "tonalRamp": [
+          "oklch(15% 0.0231 168.65)",
+          "oklch(26% 0.0231 168.65)",
+          "oklch(38% 0.0231 168.65)",
+          "oklch(49% 0.0231 168.65)",
+          "oklch(61% 0.0231 168.65)",
+          "oklch(72% 0.0231 168.65)",
+          "oklch(84% 0.0231 168.65)",
+          "oklch(95% 0.0231 168.65)"
+        ]
+      },
+      "response-surface": {
+        "role": "primary",
+        "displayName": "Response Teal",
+        "tonalRamp": [
+          "oklch(15% 0.0448 190.74)",
+          "oklch(26% 0.0448 190.74)",
+          "oklch(38% 0.0448 190.74)",
+          "oklch(49% 0.0448 190.74)",
+          "oklch(61% 0.0448 190.74)",
+          "oklch(72% 0.0448 190.74)",
+          "oklch(84% 0.0448 190.74)",
+          "oklch(95% 0.0448 190.74)"
+        ]
+      },
+      "response-text": {
+        "role": "primary",
+        "displayName": "Response Text",
+        "tonalRamp": [
+          "oklch(15% 0.0194 147.85)",
+          "oklch(26% 0.0194 147.85)",
+          "oklch(38% 0.0194 147.85)",
+          "oklch(49% 0.0194 147.85)",
+          "oklch(61% 0.0194 147.85)",
+          "oklch(72% 0.0194 147.85)",
+          "oklch(84% 0.0194 147.85)",
+          "oklch(95% 0.0194 147.85)"
+        ]
+      },
+      "review-surface": {
+        "role": "tertiary",
+        "displayName": "Review Umber",
+        "tonalRamp": [
+          "oklch(15% 0.0404 42.67)",
+          "oklch(26% 0.0404 42.67)",
+          "oklch(38% 0.0404 42.67)",
+          "oklch(49% 0.0404 42.67)",
+          "oklch(61% 0.0404 42.67)",
+          "oklch(72% 0.0404 42.67)",
+          "oklch(84% 0.0404 42.67)",
+          "oklch(95% 0.0404 42.67)"
+        ]
+      },
+      "review-text": {
+        "role": "tertiary",
+        "displayName": "Review Text",
+        "tonalRamp": [
+          "oklch(15% 0.0522 78.34)",
+          "oklch(26% 0.0522 78.34)",
+          "oklch(38% 0.0522 78.34)",
+          "oklch(49% 0.0522 78.34)",
+          "oklch(61% 0.0522 78.34)",
+          "oklch(72% 0.0522 78.34)",
+          "oklch(84% 0.0522 78.34)",
+          "oklch(95% 0.0522 78.34)"
+        ]
+      }
+    },
+    "tonalRampPolicy": "Eight-step OKLCH previews synthesized from observed sRGB hues/chroma; non-normative and not new app tokens. Alpha is retained in frontmatter but omitted from preview ramps. Out-of-gamut preview colors may be display-clipped.",
+    "typographyMeta": {
+      "display": {
+        "displayName": "Page Display",
+        "purpose": "The Antidote page title.",
+        "responsive": [
+          {
+            "maxWidth": "860px",
+            "fontSize": "48px"
+          },
+          {
+            "maxWidth": "650px",
+            "fontSize": "43px"
+          }
+        ]
+      },
+      "headline": {
+        "displayName": "Section Heading",
+        "purpose": "Comparison and research structure.",
+        "responsive": [
+          {
+            "maxWidth": "650px",
+            "selectorPurpose": "Comparison heading",
+            "fontSize": "23px"
+          }
+        ]
+      },
+      "research-headline": {
+        "displayName": "Research Heading",
+        "purpose": "Closing research question.",
+        "responsive": [
+          {
+            "maxWidth": "650px",
+            "fontSize": "27px"
+          }
+        ]
+      },
+      "body": {
+        "displayName": "Introduction Body",
+        "purpose": "Decision explanation, with 78ch maximum line length.",
+        "responsive": [
+          {
+            "maxWidth": "860px",
+            "fontSize": "13px"
+          },
+          {
+            "maxWidth": "650px",
+            "lineHeight": 1.6
+          }
+        ]
+      },
+      "supporting": {
+        "displayName": "Evidence Notes",
+        "purpose": "Final chart footnotes and scoring notes; report labels retain their contextual sizes."
+      },
+      "label": {
+        "displayName": "Control Label",
+        "purpose": "Native action and fault labels."
+      },
+      "tab": {
+        "displayName": "Model Tab",
+        "purpose": "Model selection.",
+        "responsive": [
+          {
+            "maxWidth": "860px",
+            "fontSize": "12px"
+          },
+          {
+            "maxWidth": "650px",
+            "fontSize": "11px"
+          }
+        ]
+      },
+      "metric": {
+        "displayName": "Comparison Metric",
+        "purpose": "Computed aggregate error with unit.",
+        "responsive": [
+          {
+            "maxWidth": "860px",
+            "fontSize": "31px"
+          },
+          {
+            "maxWidth": "650px",
+            "fontSize": "36px"
+          }
+        ]
+      },
+      "clock": {
+        "displayName": "Replay Clock",
+        "purpose": "UTC archive time.",
+        "responsive": [
+          {
+            "maxWidth": "650px",
+            "fontSize": "18px"
+          }
+        ]
+      },
+      "map-eta": {
+        "displayName": "Map Forecast",
+        "purpose": "Vessel crossing ETA or unavailable state.",
+        "responsive": [
+          {
+            "maxWidth": "650px",
+            "fontSize": "13px"
+          }
+        ]
+      }
+    },
+    "shadows": [
+      {
+        "name": "map-label",
+        "value": "0 3px 10px #04151c33",
+        "purpose": "Floating forecast labels only."
+      },
+      {
+        "name": "map-hull",
+        "value": "drop-shadow(0 2px 3px #041b22)",
+        "purpose": "Directional vessel hull filter over geography."
+      },
+      {
+        "name": "selected-model-rule",
+        "value": "inset 0 -3px 0 var(--teal)",
+        "purpose": "Selection indicator, not floating elevation."
+      },
+      {
+        "name": "altered-field-spread",
+        "value": "0 0 0 2px #fae9e2",
+        "purpose": "Extends the known simulated-change field wash, not floating elevation."
+      }
+    ],
+    "motion": [
+      {
+        "name": "control-color",
+        "value": "background-color 160ms ease-out, color 160ms ease-out, border-color 160ms ease-out",
+        "purpose": "Buttons and links only when prefers-reduced-motion is no-preference."
+      },
+      {
+        "name": "marker-opacity",
+        "value": "opacity 500ms ease-out",
+        "purpose": "Map marker opacity; removed for reduced motion."
+      },
+      {
+        "name": "post-crossing-fade",
+        "value": "8 simulated minutes",
+        "purpose": "Data-driven vessel and trail fade after recorded analytical crossing; not a real-time CSS duration."
+      },
+      {
+        "name": "page-scroll",
+        "value": "smooth",
+        "purpose": "CSS smooth scrolling becomes auto under reduced motion. The JavaScript inspect-vessel action still explicitly requests smooth scrolling."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "wide-console",
+        "value": "1150px",
+        "query": "(max-width: 1150px)",
+        "purpose": "28px page inset, 300px feed, tighter tools and control gaps."
+      },
+      {
+        "name": "compact-console",
+        "value": "860px",
+        "query": "(max-width: 860px)",
+        "purpose": "275px feed; playback wraps; mitigation occupies a full control row; smaller title and metrics."
+      },
+      {
+        "name": "stacked-console",
+        "value": "650px",
+        "query": "(max-width: 650px)",
+        "purpose": "16px page inset; map/feed, fault controls, charts, and research stack; vessel list scrolls horizontally."
+      }
+    ],
+    "layout": {
+      "maxPageWidth": "1640px",
+      "widePageInset": "44px",
+      "feedWidths": [
+        "346px",
+        "300px",
+        "275px"
+      ],
+      "mapMinimum": "480px",
+      "narrowMapMinimum": "400px",
+      "expandedViewport": "100vw \u00d7 100dvh",
+      "expandedMapHeight": "max(400px, calc(100dvh - 390px)) with final map minimum",
+      "narrowExpandedMapHeight": "54dvh with final 400px minimum",
+      "plotHeight": "126px; 130px at 650px and below",
+      "finalCascadeNotes": [
+        "Introduction is block layout, overriding the earlier two-column declaration.",
+        "Final reading-size overrides raise report text and chart footnotes.",
+        "Final narrow vessel facts use two columns, overriding an earlier four-column rule.",
+        "Map labels remain 150px wide at every breakpoint.",
+        "Map legend sits 38px from the bottom, or 34px at 650px and below."
+      ]
+    },
+    "accessibility": {
+      "observed": [
+        "3px teal focus-visible outline with 4px offset on buttons, links, inputs, selects, and summaries.",
+        "Focus-revealed skip link to fleet replay.",
+        "Semantic tablist with roving tabindex and ArrowLeft, ArrowRight, Home, and End navigation.",
+        "aria-pressed for vessel selection and condition presets.",
+        "Native range, select, checkbox, details, summary, and semantic data tables.",
+        "Accessible names for icon controls; inline decorative SVG uses aria-hidden.",
+        "Loading/frame/response status regions and service-error alert region.",
+        "Tabular numbers for numeric evidence.",
+        "Coordinate fallback has a descriptive accessible label and keyboard-selectable vessel groups."
+      ],
+      "limits": [
+        "This extraction is not a complete accessibility audit.",
+        "The inspect-vessel JavaScript action explicitly requests smooth scrolling even under reduced motion.",
+        "Small contextual labels remain in the implementation; do not interpret the type scale as a general minimum target-size or contrast certification."
+      ]
+    },
+    "states": {
+      "modelTabs": [
+        "A regression",
+        "B XGBoost",
+        "C The Antidote; only C shows the response banner"
+      ],
+      "response": [
+        "clear",
+        "handled",
+        "review; provisional human check with changed title, copy, color and SVG"
+      ],
+      "data": [
+        "loading",
+        "service error",
+        "quiet archive window",
+        "no delivered reports",
+        "no forecast",
+        "crossed and fading"
+      ],
+      "selection": [
+        "selected model",
+        "selected vessel",
+        "matching preset or custom condition"
+      ],
+      "controls": [
+        "enabled",
+        "disabled while unavailable; half opacity and wait cursor"
+      ],
+      "facts": [
+        "UTC time",
+        "historical error marked as retrospective scoring",
+        "known simulated changes marked for audience only"
+      ]
+    },
+    "researchIntegrity": {
+      "purpose": "Visual states and snippets must preserve source truth.",
+      "constraints": [
+        "Use actual fitted-model outputs; controls do not retrain models.",
+        "Common supported pre-crossing forecasts enter comparisons, with equal approach weight.",
+        "Missing forecasts remain visible in coverage and are never scored as zero error.",
+        "Retrospective analytical gate-crossing truth is used for scoring, not model features.",
+        "March is training/development/previously inspected exploratory data.",
+        "Protected April evaluation is separately labeled and stays fixed when controls change.",
+        "Arrival is an analytical gate proxy, not verified terminal docking.",
+        "Injected annotation labels are audience-only and never enter model features.",
+        "Guard alerts are provisional and imperfect; no calibrated operational policy or measured savings claim is implied."
+      ]
+    },
+    "replayMotion": {
+      "position": "Interpolate only between already delivered positions using the replay clock; the displayed vessel may trail the latest message.",
+      "heading": "Interpolate course along the shortest angular path.",
+      "trailUploadInterval": "100ms",
+      "pause": "Freeze the movement cursor.",
+      "seekAndFaultChange": "Snap to the requested snapshot.",
+      "reducedMotion": "Use report-by-report positions.",
+      "inference": "No changes to reports, forecasts or scoring inputs."
+    }
+  },
+  "components": [
+    {
+      "name": "Play control",
+      "kind": "button",
+      "refersTo": "play-control",
+      "description": "Filled replay action with the actual play icon and text.",
+      "html": "<button class=\"ds-play\" type=\"button\" aria-label=\"Play replay\"><svg viewBox=\"0 0 20 20\" aria-hidden=\"true\"><path d=\"m7 4 9 6-9 6z\"/></svg><span>Play</span></button>",
+      "css": ".ds-play{font-family:\"Avenir Next\",Avenir,\"Segoe UI\",sans-serif;display:flex;align-items:center;gap:8px;min-width:87px;min-height:37px;padding:8px 13px;background:var(--teal,#006d62);color:#fff;border:1px solid var(--teal,#006d62);border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;touch-action:manipulation}.ds-play svg{width:15px;height:15px;fill:currentColor;stroke:none}.ds-play:hover:not(:disabled){background:var(--play-hover,#00574e)}.ds-play:focus-visible{outline:3px solid var(--teal,#006d62);outline-offset:4px;}.ds-play:disabled{opacity:.5;cursor:wait}@media(prefers-reduced-motion:no-preference){.ds-play{transition:background-color 160ms ease-out,color 160ms ease-out,border-color 160ms ease-out;}}",
+      "behavior": "The app changes the icon and label to Pause. No special :active treatment is defined in the finished source."
+    },
+    {
+      "name": "Expand control",
+      "kind": "button",
+      "refersTo": "icon-control",
+      "description": "Compact toolbar action with the source inline expand icon.",
+      "html": "<button class=\"ds-expand\" type=\"button\" aria-label=\"Expand product view\" title=\"Expand product view\" aria-expanded=\"false\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5\"/></svg></button>",
+      "css": ".ds-expand{font-family:\"Avenir Next\",Avenir,\"Segoe UI\",sans-serif;display:grid;place-items:center;width:35px;height:35px;padding:7px;background:transparent;color:var(--ink,#192e39);border:1px solid #b8c3ba;border-radius:5px;cursor:pointer}.ds-expand svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.ds-expand:hover:not(:disabled){background:#e7ece5}.ds-expand:focus-visible{outline:3px solid var(--teal,#006d62);outline-offset:4px;}.ds-expand:disabled{opacity:.5;cursor:wait}@media(prefers-reduced-motion:no-preference){.ds-expand{transition:background-color 160ms ease-out,color 160ms ease-out,border-color 160ms ease-out;}}",
+      "behavior": "The app updates the label and aria-expanded state; Escape exits the expanded class-based view. The control becomes 30px square at 650px."
+    },
+    {
+      "name": "Reset text action",
+      "kind": "button",
+      "refersTo": "text-control",
+      "description": "Underlined reset action used beside the fault heading.",
+      "html": "<button class=\"ds-reset\" type=\"button\">Reset to clean reports</button>",
+      "css": ".ds-reset{font-family:\"Avenir Next\",Avenir,\"Segoe UI\",sans-serif;background:transparent;color:var(--teal,#006d62);border:0;border-radius:5px;padding:7px 0;font-size:12px;text-decoration:underline;text-underline-offset:4px;cursor:pointer}.ds-reset:hover:not(:disabled){background:#e7ece5}.ds-reset:focus-visible{outline:3px solid var(--teal,#006d62);outline-offset:4px;}.ds-reset:disabled{opacity:.5;cursor:wait}@media(prefers-reduced-motion:no-preference){.ds-reset{transition:background-color 160ms ease-out,color 160ms ease-out,border-color 160ms ease-out;}}",
+      "behavior": "Resets the simulated condition. At 650px the observed action uses 11px type, zero padding, and wraps with its heading."
+    },
+    {
+      "name": "Model tabs",
+      "kind": "nav",
+      "refersTo": "model-tab",
+      "description": "The actual three-model navigation with C selected.",
+      "html": "<div class=\"ds-tabs\" role=\"tablist\" aria-label=\"Forecast model shown on the map\"><button type=\"button\" role=\"tab\" aria-selected=\"false\" tabindex=\"-1\"><span class=\"ds-model-code\">A</span>Regression</button><button type=\"button\" role=\"tab\" aria-selected=\"false\" tabindex=\"-1\"><span class=\"ds-model-code\">B</span>XGBoost</button><button type=\"button\" role=\"tab\" aria-selected=\"true\"><span class=\"ds-model-code\">C</span>The Antidote<svg viewBox=\"0 0 16 16\" aria-hidden=\"true\"><path d=\"m8 1 5 2v4c0 4-5 7-5 7S3 11 3 7V3z\"/><path d=\"m5.5 7 2 2 3-4\"/></svg></button></div>",
+      "css": ".ds-tabs{display:flex;align-items:stretch;background:var(--subtle-surface,#ecefe8)}.ds-tabs button{font-family:\"Avenir Next\",Avenir,\"Segoe UI\",sans-serif;display:flex;align-items:center;gap:9px;padding:14px 24px;border:0;border-right:1px solid #cad2ca;border-radius:0;background:transparent;white-space:nowrap;font-size:14px;font-weight:600;color:var(--tab-ink,#4c6166);cursor:pointer}.ds-tabs button[aria-selected=\"true\"]{background:var(--sheet,#fffefa);color:var(--teal,#006d62);box-shadow:inset 0 -3px 0 var(--teal,#006d62)}.ds-tabs button:hover:not(:disabled):not([aria-selected=\"true\"]){background:#e7ece5}.ds-tabs button:focus-visible{outline:3px solid var(--teal,#006d62);outline-offset:4px;}.ds-model-code{display:grid;place-items:center;width:21px;height:21px;border:1px solid currentColor;border-radius:3px;font-size:11px;font-weight:700}.ds-tabs svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}@media(max-width:650px){.ds-tabs{width:100%}.ds-tabs button{flex:1;justify-content:center;padding:12px 10px;gap:6px;font-size:11px}.ds-model-code{width:17px;height:17px;font-size:9px}.ds-tabs svg{display:none}}@media(prefers-reduced-motion:no-preference){.ds-tabs button{transition:background-color 160ms ease-out,color 160ms ease-out,border-color 160ms ease-out;}}",
+      "behavior": "This render sample is static. The app provides roving tab focus, ArrowLeft/ArrowRight/Home/End selection, and the tabpanel relationship."
+    },
+    {
+      "name": "Fault range",
+      "kind": "input",
+      "refersTo": "fault-range",
+      "description": "Native stale-report slider with its output, end labels, and explanation.",
+      "html": "<div class=\"ds-fault\"><label for=\"ds-delay\"><span>Stale reports</span><output for=\"ds-delay\">0 min delay</output></label><input id=\"ds-delay\" type=\"range\" min=\"0\" max=\"60\" value=\"0\" step=\"1\"><div class=\"ds-range-labels\"><span>On time</span><span>60 min late</span></div><p>Delivery is delayed. Original observation times stay intact.</p></div>",
+      "css": ".ds-fault{font-family:\"Avenir Next\",Avenir,\"Segoe UI\",sans-serif;color:var(--ink,#192e39);max-width:420px}.ds-fault label{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;font-weight:600}.ds-fault output{font-size:12px;color:var(--teal,#006d62);font-weight:600;font-variant-numeric:tabular-nums}.ds-fault input{width:100%;height:5px;display:block;cursor:pointer;margin:16px 0 9px;accent-color:var(--teal,#006d62);touch-action:manipulation}.ds-fault input:focus-visible{outline:3px solid var(--teal,#006d62);outline-offset:4px;}.ds-fault input:disabled{opacity:.5;cursor:wait}.ds-range-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--muted,#54636a)}.ds-fault p{font-size:12px;color:var(--muted,#54636a);margin:10px 0 0;line-height:1.55}@media(max-width:650px){.ds-fault label{font-size:13px}}",
+      "behavior": "The actual app synchronizes the output and requests new fitted-model predictions. Native range focus and drag behavior remain intact; the static sample does not run calculations."
+    },
+    {
+      "name": "Condition preset",
+      "kind": "chip",
+      "refersTo": "condition-preset",
+      "description": "The four real preset buttons with Normal selected.",
+      "html": "<div class=\"ds-presets\" aria-label=\"Matched condition presets\"><span>Try a condition</span><button type=\"button\" aria-pressed=\"true\">Normal</button><button type=\"button\" aria-pressed=\"false\">Stale only</button><button type=\"button\" aria-pressed=\"false\">Position only</button><button type=\"button\" aria-pressed=\"false\">Combined</button></div>",
+      "css": ".ds-presets{font-family:\"Avenir Next\",Avenir,\"Segoe UI\",sans-serif;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;color:var(--ink,#192e39)}.ds-presets>span{margin-right:7px;color:var(--muted,#54636a)}.ds-presets button{font-family:\"Avenir Next\",Avenir,\"Segoe UI\",sans-serif;border:1px solid #d1d7ce;border-radius:5px;font-size:12px;padding:5px 8px;background:transparent;color:var(--ink,#192e39);min-height:28px;cursor:pointer}.ds-presets button[aria-pressed=\"true\"]{background:var(--teal-light,#e3eee6);color:var(--preset-ink,#075f51);border-color:#8faf99}.ds-presets button:hover:not(:disabled):not([aria-pressed=\"true\"]){background:#e7ece5}.ds-presets button:focus-visible{outline:3px solid var(--teal,#006d62);outline-offset:4px;}.ds-presets button:disabled{opacity:.5;cursor:wait}@media(max-width:650px){.ds-presets>span{flex-basis:100%;margin:0 0 3px}.ds-presets button{min-height:31px}}@media(prefers-reduced-motion:no-preference){.ds-presets button{transition:background-color 160ms ease-out,color 160ms ease-out,border-color 160ms ease-out;}}",
+      "behavior": "aria-pressed reflects the matching condition. The application supplies preset behavior; the snippet documents the selected and unselected visual states."
+    },
+    {
+      "name": "Selected vessel row",
+      "kind": "custom",
+      "refersTo": "vessel-row",
+      "description": "An actual unavailable-ETA row state with a neutral placeholder name.",
+      "html": "<button class=\"ds-vessel\" type=\"button\" aria-pressed=\"true\"><span class=\"ds-vessel-dot\" aria-hidden=\"true\"></span><strong>Vessel name</strong><span>No ETA</span></button>",
+      "css": ".ds-vessel{font-family:\"Avenir Next\",Avenir,\"Segoe UI\",sans-serif;display:flex;align-items:center;gap:9px;border:0;border-radius:3px;padding:8px 9px;text-align:left;font-size:12px;background:transparent;color:var(--ink,#192e39);min-height:34px;width:100%;max-width:310px;cursor:pointer}.ds-vessel[aria-pressed=\"true\"]{background:var(--teal-light,#e3eee6)}.ds-vessel:hover:not(:disabled){background:#e7ece5}.ds-vessel:focus-visible{outline:3px solid var(--teal,#006d62);outline-offset:4px;}.ds-vessel-dot{width:5px;height:5px;border-radius:50%;background:var(--teal,#006d62);flex-shrink:0}.ds-vessel strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:650}.ds-vessel>span:last-child{margin-left:auto;white-space:nowrap;color:var(--muted,#54636a);font-variant-numeric:tabular-nums}@media(max-width:650px){.ds-vessel{flex-shrink:0;border:1px solid #d7ddd4;max-width:190px}.ds-vessel strong{max-width:110px;font-size:11px}.ds-vessel>span:last-child{font-size:9px}}@media(prefers-reduced-motion:no-preference){.ds-vessel{transition:background-color 160ms ease-out,color 160ms ease-out,border-color 160ms ease-out;}}",
+      "behavior": "The application preserves selection via aria-pressed and restores list focus after frame rendering. Placeholder vessel text is a render sample, not archive data."
+    },
+    {
+      "name": "Antidote response",
+      "kind": "custom",
+      "refersTo": "response-banner",
+      "description": "Initial C-only response banner, with the actual check SVG.",
+      "html": "<div class=\"ds-response\" role=\"status\" data-state=\"clear\"><span class=\"ds-response-symbol\" aria-hidden=\"true\"><svg viewBox=\"0 0 20 20\"><path d=\"m5 10 3 3 7-7\"/></svg></span><div><strong>The Antidote is watching the incoming feed.</strong><p>Observable freshness and consistency checks\u2014not hidden simulator labels.</p></div></div>",
+      "css": ".ds-response{font-family:\"Avenir Next\",Avenir,\"Segoe UI\",sans-serif;display:flex;align-items:center;gap:12px;min-height:70px;padding:13px 22px;background:var(--response-surface,#163e3c);color:var(--response-text,#e5f1e6);border-top:1px solid #2e5c56;font-size:12px}.ds-response strong{font-size:13px;font-weight:600}.ds-response p{color:#bcd5ca;margin:3px 0 0;max-width:84ch;font-size:12px;line-height:1.55}.ds-response-symbol{display:grid;place-items:center;flex-shrink:0;width:23px;height:23px;border:1px solid #88bc9f;border-radius:50%}.ds-response-symbol svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.ds-response[data-state=\"review\"]{background:var(--review-surface,#4b3228);border-color:#886144;color:var(--review-text,#ffe8c5)}.ds-response[data-state=\"review\"] p{color:#e1c5a8}.ds-response[data-state=\"review\"] .ds-response-symbol{border-color:#d4b186}@media(max-width:650px){.ds-response{padding:12px 15px;gap:9px;min-height:72px;font-size:11px}.ds-response strong{font-size:11px}}",
+      "behavior": "Shown only for C. The app replaces title, copy and SVG path for clear/handled/review, and conditionally reveals Inspect vessel. As a noninteractive status region, it has no hover/focus state."
+    },
+    {
+      "name": "Comparison panel",
+      "kind": "card",
+      "refersTo": "comparison-card",
+      "description": "The initial C comparison panel with no fabricated score or line.",
+      "html": "<article class=\"ds-chart\"><div class=\"ds-chart-heading\"><span class=\"ds-chart-code\">C</span><h3>The Antidote</h3></div><div class=\"ds-chart-values\"><div class=\"ds-chart-value\">\u2014<small>min</small></div><div class=\"ds-chart-sample\">Waiting for a matched forecast</div></div><svg viewBox=\"0 0 400 126\" role=\"img\" aria-label=\"The Antidote error across the replay window\"><path d=\"M35 18H383M35 58H383M35 98H383\" stroke=\"#cbd4c9\" stroke-width=\".8\"/><text x=\"200\" y=\"65\" text-anchor=\"middle\">Play the replay to build a measured history.</text></svg><div class=\"ds-chart-meta\"><span>Mean absolute error</span><span>Coverage \u2014</span></div><p class=\"ds-chart-note\">* C uses quality features and degraded-example training; the input guard can be disabled above. March 1\u201319: train; 20\u201324: development; 25\u201331: inspected exploratory. This replay is not held-out evidence.</p></article>",
+      "css": ".ds-chart{font-family:\"Avenir Next\",Avenir,\"Segoe UI\",sans-serif;border-top:2px solid var(--c,#00776a);padding-top:14px;min-width:0;max-width:470px;color:var(--ink,#192e39)}.ds-chart-heading{display:flex;gap:10px;align-items:center}.ds-chart h3{margin:0;font-size:15px;letter-spacing:-.01em}.ds-chart-code{display:grid;place-items:center;width:21px;height:21px;border:1px solid currentColor;border-radius:3px;font-size:11px;font-weight:700;color:var(--c,#00776a)}.ds-chart-values{display:flex;justify-content:space-between;align-items:end;margin:20px 0 13px}.ds-chart-value{font-size:37px;font-weight:550;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}.ds-chart-value small{font-size:13px;font-weight:400;letter-spacing:normal;margin-left:5px;color:var(--muted,#54636a)}.ds-chart-sample{color:var(--muted,#54636a);font-size:11px;text-align:right;line-height:1.5}.ds-chart svg{width:100%;height:126px;overflow:visible;display:block;background:var(--subtle-surface,#ecefe8);border-radius:2px;fill:none}.ds-chart svg text{stroke:none;fill:#5e6e68;font:9px \"Avenir Next\",sans-serif}.ds-chart-meta{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid var(--rule,#cdd1cc);padding:10px 0;font-size:12px;color:var(--muted,#54636a)}.ds-chart-note{font-size:12px;line-height:1.6;color:var(--muted,#54636a);margin:11px 0 0}@media(max-width:650px){.ds-chart h3{font-size:16px}.ds-chart-values{margin:17px 0 13px}.ds-chart-value{font-size:36px}.ds-chart svg{height:130px}}",
+      "behavior": "A flat article has no hover/focus treatment. The real app draws measured history, uses a common plot scale, formats MAE/RMSE in min and MSE in min\u00b2, and reports current coverage. The snippet intentionally shows its actual empty state."
+    },
+    {
+      "name": "Vessel map marker",
+      "kind": "custom",
+      "refersTo": "map-marker-label",
+      "description": "A selected map-label unavailable state on a dark preview field.",
+      "html": "<div class=\"ds-marker-field\"><button class=\"ds-marker ds-marker-selected\" type=\"button\" aria-pressed=\"true\" aria-label=\"Inspect vessel\"><svg class=\"ds-marker-connector\" viewBox=\"0 0 26 34\" aria-hidden=\"true\"><path d=\"M13 17L34 17\"/></svg><span class=\"ds-marker-hull\"><svg viewBox=\"0 0 26 34\" aria-hidden=\"true\"><path d=\"M13 2 22 25l-9-4-9 4z\"/></svg></span><span class=\"ds-marker-label\"><strong>Vessel name</strong><span class=\"ds-marker-eta\">No estimate</span><br><span class=\"ds-marker-error\">Insufficient delivered history</span></span></button></div>",
+      "css": ".ds-marker-field{background:var(--sea,#102a35);padding:36px 24px;min-height:76px}.ds-marker{font-family:\"Avenir Next\",Avenir,\"Segoe UI\",sans-serif;position:relative;display:block;width:26px;height:34px;cursor:pointer;background:transparent;border:0;padding:0;color:var(--map-c,#89d9bc);text-align:left;transition:opacity 500ms ease-out}.ds-marker:hover:not(:disabled){background:transparent}.ds-marker:focus-visible{outline:3px solid var(--teal,#006d62);outline-offset:4px;}.ds-marker-hull{display:block;width:26px;height:34px;filter:drop-shadow(0 2px 3px #041b22)}.ds-marker-hull svg{width:100%;height:100%;fill:currentColor;stroke:#0c3038;stroke-width:1.3;stroke-linecap:round;stroke-linejoin:round}.ds-marker-connector{position:absolute;inset:0;width:26px;height:34px;overflow:visible;pointer-events:none;stroke:currentColor;stroke-width:1;opacity:.65;fill:none}.ds-marker-label{position:absolute;top:-10px;left:34px;padding:8px 10px;background:var(--map-label,#112d37ed);border:1px solid #587f7b;border-radius:4px;width:150px;min-width:150px;color:var(--map-text,#ecf6ed);font-size:10px;line-height:1.5;box-shadow:0 3px 10px #04151c33;font-variant-numeric:tabular-nums}.ds-marker-selected .ds-marker-label{border-color:#a7debd;background:var(--map-label-selected,#163f45)}.ds-marker-label strong{display:block;font-size:10px;font-weight:600;max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ds-marker-eta{font-size:14px;font-weight:600;letter-spacing:-.01em}.ds-marker-error{font-size:9px;color:var(--map-subtext,#c6d9d1)}@media(max-width:650px){.ds-marker-label{padding:6px 8px}.ds-marker-eta{font-size:13px}}@media(prefers-reduced-motion:reduce){.ds-marker{transition:none}}",
+      "behavior": "The sample uses a neutral placeholder name and unavailable state. The app anchors the hull to the real coordinate, positions labels to reduce overlap, sets model-specific color, and fades after the recorded crossing. The preview field is display scaffolding, not a product component."
+    }
+  ],
+  "narrative": {
+    "northStar": "Harbor Shift Logbook",
+    "overview": "Harbor Shift Logbook is a practical traffic console with a warm paper shell, measured sans typography, flat ruled groups, and a dark geographic chart. The identity comes from careful alignment, readable numbers, and restrained color. It has no simulated aging, decorative shoreline illustration, or ornamental motion.\n\nThe shell supports a presenter inspecting evidence. Controls, forecasts, delivered messages, and explanatory notes must remain legible together. Clear labels and source limits carry the meaning; visual status must never imply more certainty than the underlying research supports.",
+    "keyCharacteristics": [
+      "Warm paper and ink surrounding a dark harbor chart.",
+      "A familiar sans family with tabular numeric readouts.",
+      "Teal action and Antidote response; separate model and annotation colors.",
+      "Flat groups divided by rules, with compact native controls.",
+      "Restrained transitions that follow user action and the replay clock."
+    ],
+    "rules": [
+      {
+        "name": "The Meaning Before Color Rule",
+        "body": "Pair every model, condition, and warning color with a code, label, symbol, or explanatory text. Red field annotations mean known simulated changes for the audience; they do not mean the model detected a fault.",
+        "section": "colors"
+      },
+      {
+        "name": "The Shared Clock Rule",
+        "body": "Keep time, units, and retrospective scoring labels visible beside the evidence they describe. An unavailable value is shown as an em dash or an explicit unavailable state.",
+        "section": "typography"
+      },
+      {
+        "name": "The Ruled Surface Rule",
+        "body": "Separate ordinary content with borders, alignment, and tonal surfaces. Reserve floating shadows for vessel labels and hulls over the map.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do preserve the warm paper, ink, and dark chart relationship.",
+      "Do keep controls native, labeled, and visibly focusable.",
+      "Do use tabular numbers for time, outputs, metrics, reports, vessel facts, and map labels.",
+      "Do preserve selected, unavailable, loading, quiet-window, review, and error states with explicit text.",
+      "Do keep explanatory footnotes attached to charts and the protected evaluation clearly separate from interactive results.",
+      "Do let narrow layouts stack the console and charts while retaining the same evidence and units."
+    ],
+    "donts": [
+      "Don't add faux aged paper, illustrative geography, or decorative motion.",
+      "Don't turn every section into a raised or rounded card.",
+      "Don't use red simulated annotations as a detection-success claim or treat a clear guard state as proof that a forecast is correct.",
+      "Don't fill empty metrics with invented values or score missing forecasts as zero error.",
+      "Don't replace the coordinate fallback with an imitation basemap or omit its unavailability label.",
+      "Don't describe the analytical gate as verified docking or the March replay as protected evaluation evidence."
+    ]
+  }
+}

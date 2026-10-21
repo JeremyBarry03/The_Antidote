@@ -266,10 +266,13 @@ class DemoService:
 
 
 def serve(config: OptimizedConfig, port: int) -> None:
+    from .fleet import FleetReplay
+
     if not 1024 <= port <= 65535:
         raise ValueError("Choose a local port between 1024 and 65535.")
     mapbox_token = load_mapbox_public_token(MAPBOX_ENV_FILE)
     service = DemoService.load(config)
+    fleet = FleetReplay(service)
     page = FRONTEND_DIRECTORY / "eta_replay.html"
     assets = {f"/replay/{path.name}": path for path in (FRONTEND_DIRECTORY / "replay").iterdir()
               if path.is_file() and path.suffix in ASSET_TYPES}
@@ -302,6 +305,17 @@ def serve(config: OptimizedConfig, port: int) -> None:
                     self._send(200, {"mapbox_public_token": mapbox_token})
                 elif request.path == "/api/catalog":
                     self._send(200, service.catalog())
+                elif request.path == "/api/fleet/catalog":
+                    self._send(200, fleet.catalog())
+                elif request.path in ("/api/fleet/frame", "/api/fleet/history"):
+                    query = parse_qs(request.query)
+                    replay_method = fleet.frame if request.path.endswith("/frame") else fleet.history
+                    self._send(200, replay_method(
+                        float(query.get("time", [str(fleet.catalog()["initial_time"])])[0]),
+                        delay=float(query.get("delay", ["0"])[0]),
+                        fraction=float(query.get("fraction", ["0"])[0]),
+                        offset=float(query.get("offset", ["0.5"])[0]),
+                        guard=query.get("guard", ["true"])[0] == "true"))
                 elif request.path == "/api/metrics":
                     self._send(200, service.metrics())
                 elif request.path == "/api/attacks/missing-vessel-class":
