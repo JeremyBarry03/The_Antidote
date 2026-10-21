@@ -13,6 +13,8 @@ import numpy as np
 import pandas as pd
 from dotenv import dotenv_values
 
+from attacks import BaseAttack, ReportingGapAttack, ReportingGapConfig
+
 from .calibration import apply_review, load_calibration
 from .configuration import OptimizedConfig
 from .dataset import ReplayDataset, load_replay
@@ -110,14 +112,18 @@ class DemoService:
                                                               decision["decision_time"], reveal=reveal))
 
     def snapshot(self, decision_id: str, scenario_name: str, *, reveal: bool, verify: bool,
-                 inspect: bool = False) -> dict[str, object]:
+                 inspect: bool = False, attack: BaseAttack | None = None) -> dict[str, object]:
         decision = self._decision(decision_id)
         choices = demo_scenarios()
         if scenario_name not in choices:
             raise ValueError("Unknown predeclared replay scenario.")
+        if attack is not None and (scenario_name != "nominal" or verify):
+            raise ValueError("Standalone attacks require nominal reports and unattended replay.")
         reports = self.dataset.histories[decision["approach_id"]]
         seed = self.config.evaluation_seeds[0]
         stream = create_stream(reports, choices[scenario_name], seed, self.config.baseline.gate)
+        if attack is not None:
+            stream = attack.apply(stream.reports)
         available = stream.available(decision["decision_time"])
         verified_time = None
         if verify:
@@ -132,6 +138,8 @@ class DemoService:
         row = decision.to_dict()
         row.update(view_row(available, decision, self.extractor))
         row.update({"scenario": scenario_name, "condition": choices[scenario_name].condition.value, "seed": seed})
+        if attack is not None:
+            row.update({"scenario": attack.name, "condition": attack.condition.value})
         frame = pd.DataFrame([row])
         for column in (*OPTIMIZED_COLUMNS, *(f"raw_{column}" for column in RICH_COLUMNS)):
             if column not in frame:
@@ -140,7 +148,7 @@ class DemoService:
             if column not in frame:
                 frame[column] = pd.NaT
         predictions = predict_systems(frame, [system for system in self.systems if system.name in ("A", "B", "C")])
-        if self.calibration is not None:
+        if self.calibration is not None and attack is None:
             predictions = apply_review(predictions, self.calibration, self.config)
         cards = []
         for prediction in predictions.to_dict(orient="records"):
@@ -148,14 +156,15 @@ class DemoService:
                       "report_age_minutes", "interval_half_width_minutes", "calibration_approaches",
                       "review_reason", "accepted", "reasons", "guard_received_count", "guard_removed_count")
             card = {key: prediction.get(key) for key in fields}
-            if self.calibration is None:
-                card["review_reason"] = "not_calibrated_requires_review"
+            if self.calibration is None or attack is not None:
+                card["review_reason"] = ("attack_not_calibrated_requires_review" if attack is not None
+                                         else "not_calibrated_requires_review")
                 card["accepted"] = False
             if reveal:
                 card["error_minutes"] = prediction["error_minutes"]
             cards.append(card)
         result = {
-            "decision_id": decision_id, "scenario": scenario_name, "seed": seed,
+            "decision_id": decision_id, "scenario": attack.name if attack is not None else scenario_name, "seed": seed,
             "decision_time": decision["decision_time"], "cards": cards,
             "received_history": available[["record_id", "time", "delivered_time", "longitude", "latitude", "sog"]]
                 .tail(VISIBLE_REPORT_LIMIT).to_dict(orient="records"),
@@ -166,12 +175,30 @@ class DemoService:
                 "velocity_disagreement_mps", "maximum_gap_seconds", "occupied_minute_bins",
                 "guard_received_count", "guard_removed_count", "reasons")},
             "inspection": inspect_feed(stream, available, self.config.baseline.gate,
-                                       self.config.baseline.features.history_minutes) if inspect else None,
+                                       self.config.baseline.features.history_minutes) if inspect and attack is None else None,
             "human_assisted": verify, "verified_observation_time": verified_time,
             "reference_arrival": decision["arrival_time"] if reveal else None,
             "reference_bracket": [decision["crossing_before"], decision["crossing_after"]] if reveal else None,
         }
+        if attack is not None:
+            # Audit truth is added only after inference, never to the feature frame.
+            known = stream.modification_log.loc[stream.modification_log["time"] <= decision["decision_time"]]
+            withheld = known.loc[known["fault_applied"]]
+            result["attack"] = {"name": attack.name, "parameters": attack.parameters,
+                                "withheld_reports_so_far": len(withheld),
+                                "inspection": {"audience_only": True,
+                                               "records": withheld.tail(VISIBLE_REPORT_LIMIT).to_dict(orient="records"),
+                                               "truncated": len(withheld) > VISIBLE_REPORT_LIMIT} if inspect else None}
         return _json_value(result)
+
+    def reporting_gap_snapshot(
+        self, decision_id: str, config: ReportingGapConfig, *, reveal: bool = False, inspect: bool = False,
+    ) -> dict[str, object]:
+        """Paired frontend response: identical decision/reference, different feeds."""
+        original = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False)
+        attacked = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False,
+                                 inspect=inspect, attack=ReportingGapAttack(config))
+        return {"original": original, "attacked": attacked}
 
     def record_verification(self, decision_id: str, scenario_name: str, review_seconds: float) -> None:
         if not np.isfinite(review_seconds) or not 0 <= review_seconds <= 86400:
@@ -245,6 +272,18 @@ def serve(config: OptimizedConfig, port: int) -> None:
                     self._send(200, service.catalog())
                 elif request.path == "/api/metrics":
                     self._send(200, service.metrics())
+                elif request.path == "/api/attacks/reporting-gap":
+                    query = parse_qs(request.query)
+                    config = ReportingGapConfig(
+                        start_time=query.get("start_time", [""])[0],
+                        end_time=query.get("end_time", [""])[0],
+                        target_mmsi=query.get("target_mmsi", [None])[0],
+                    )
+                    self._send(200, service.reporting_gap_snapshot(
+                        query.get("decision", [""])[0], config,
+                        reveal=query.get("reveal", ["false"])[0] == "true",
+                        inspect=query.get("inspect", ["false"])[0] == "true",
+                    ))
                 elif request.path in ("/api/replay", "/api/timeline"):
                     query = parse_qs(request.query)
                     decision = query.get("decision", [""])[0]

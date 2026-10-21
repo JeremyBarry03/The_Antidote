@@ -1,0 +1,15 @@
+{
+  "model_unchanged": true,
+  "no_forecast_without_history": true,
+  "no_verification_intervention_on_original_feed": true,
+  "cutoff_age_invariant": true,
+  "scheduled_evaluation_decisions": 2402,
+  "evaluation_prediction_rows": 36030,
+  "examples": {
+    "largest_motion_recovery": "367862000_20240418T153717",
+    "largest_motion_failure": "352149000_20240421T090115",
+    "natural_gap": "209761000_20240411T212742"
+  },
+  "example_withholding_minutes": 15,
+  "original_and_15min_baseline_reproduced": true
+}

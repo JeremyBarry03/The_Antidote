@@ -23,6 +23,7 @@ from Optimized_Model.presentation import EvaluationEvidence, feed_counts, inspec
 from Optimized_Model.replay import Condition, Scenario, create_stream
 from Optimized_Model.service import DemoService
 from Optimized_Model.views import ReplayTask, _replay_approach, view_row
+from attacks import ReportingGapAttack, ReportingGapConfig
 
 
 @pytest.fixture
@@ -438,3 +439,34 @@ def test_empty_delayed_stream_has_honest_zero_inspection_counts(demo_service: De
     assert snapshot["inspection"]["records"] == []
     assert snapshot["inspection"]["actual_affected_share"] is None
     assert all(not card["available"] for card in snapshot["cards"])
+
+
+def test_reporting_gap_pairs_same_reference_and_hides_future_audit(demo_service: DemoService) -> None:
+    config = ReportingGapConfig(pd.Timestamp("2024-03-05 12:10"), pd.Timestamp("2024-03-05 12:20"))
+    result = demo_service.reporting_gap_snapshot("decision", config, reveal=True, inspect=True)
+    original, attacked = result["original"], result["attacked"]
+    assert original["reference_arrival"] == attacked["reference_arrival"]
+    assert original["decision_time"] == attacked["decision_time"]
+    assert len(attacked["cards"]) == 3
+    assert attacked["received_history"][-1]["time"] == "2024-03-05T12:09:00"
+    assert attacked["attack"]["withheld_reports_so_far"] == 6
+    assert all(row["time"] <= attacked["decision_time"] for row in attacked["attack"]["inspection"]["records"])
+    assert all(card["review_reason"] == "attack_not_calibrated_requires_review" for card in attacked["cards"])
+    assert attacked["inspection"] is None
+    assert "attack" not in original
+
+
+def test_reporting_gap_full_outage_has_no_forecasts_and_reveal_is_optional(demo_service: DemoService) -> None:
+    config = ReportingGapConfig(pd.Timestamp("2024-03-05 11:00"), pd.Timestamp("2024-03-05 13:00"))
+    result = demo_service.reporting_gap_snapshot("decision", config)
+    assert result["attacked"]["reference_arrival"] is None
+    assert result["attacked"]["attack"]["inspection"] is None
+    assert all(not card["available"] and "error_minutes" not in card for card in result["attacked"]["cards"])
+
+
+def test_reporting_gap_does_not_silently_combine_other_experiments(demo_service: DemoService) -> None:
+    attack = ReportingGapAttack(ReportingGapConfig(pd.Timestamp("2024-03-05 12:10"), pd.Timestamp("2024-03-05 12:20")))
+    with pytest.raises(ValueError, match="Standalone"):
+        demo_service.snapshot("decision", "stale_15", reveal=False, verify=False, attack=attack)
+    with pytest.raises(ValueError, match="Standalone"):
+        demo_service.snapshot("decision", "nominal", reveal=False, verify=True, attack=attack)
