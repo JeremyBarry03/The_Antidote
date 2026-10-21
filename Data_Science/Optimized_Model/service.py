@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 from dotenv import dotenv_values
 
-from attacks import BaseAttack, ReportingGapAttack, ReportingGapConfig
+from attacks import BaseAttack, MissingSpeedAttack, MissingSpeedConfig, ReportingGapAttack, ReportingGapConfig
 
 from .calibration import apply_review, load_calibration
 from .configuration import OptimizedConfig
@@ -183,12 +183,13 @@ class DemoService:
         if attack is not None:
             # Audit truth is added only after inference, never to the feature frame.
             known = stream.modification_log.loc[stream.modification_log["time"] <= decision["decision_time"]]
-            withheld = known.loc[known["fault_applied"]]
+            affected = known.loc[known["fault_applied"]]
             result["attack"] = {"name": attack.name, "parameters": attack.parameters,
-                                "withheld_reports_so_far": len(withheld),
+                                "withheld_reports_so_far": int(known["action"].eq("dropped").sum()),
+                                "injected_missing_speed_reports_so_far": int(known["action"].eq("speed_removed").sum()),
                                 "inspection": {"audience_only": True,
-                                               "records": withheld.tail(VISIBLE_REPORT_LIMIT).to_dict(orient="records"),
-                                               "truncated": len(withheld) > VISIBLE_REPORT_LIMIT} if inspect else None}
+                                               "records": affected.tail(VISIBLE_REPORT_LIMIT).to_dict(orient="records"),
+                                               "truncated": len(affected) > VISIBLE_REPORT_LIMIT} if inspect else None}
         return _json_value(result)
 
     def reporting_gap_snapshot(
@@ -198,6 +199,15 @@ class DemoService:
         original = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False)
         attacked = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False,
                                  inspect=inspect, attack=ReportingGapAttack(config))
+        return {"original": original, "attacked": attacked}
+
+    def missing_speed_snapshot(
+        self, decision_id: str, config: MissingSpeedConfig, *, reveal: bool = False, inspect: bool = False,
+    ) -> dict[str, object]:
+        """Same-clock comparison using current imputation, never zero-filled speed."""
+        original = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False)
+        attacked = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False,
+                                 inspect=inspect, attack=MissingSpeedAttack(config))
         return {"original": original, "attacked": attacked}
 
     def record_verification(self, decision_id: str, scenario_name: str, review_seconds: float) -> None:
@@ -272,6 +282,18 @@ def serve(config: OptimizedConfig, port: int) -> None:
                     self._send(200, service.catalog())
                 elif request.path == "/api/metrics":
                     self._send(200, service.metrics())
+                elif request.path == "/api/attacks/missing-speed":
+                    query = parse_qs(request.query)
+                    config = MissingSpeedConfig(
+                        affected_fraction=float(query.get("affected_fraction", ["0.25"])[0]),
+                        seed=int(query.get("seed", ["42"])[0]),
+                        target_mmsi=query.get("target_mmsi", [None])[0],
+                    )
+                    self._send(200, service.missing_speed_snapshot(
+                        query.get("decision", [""])[0], config,
+                        reveal=query.get("reveal", ["false"])[0] == "true",
+                        inspect=query.get("inspect", ["false"])[0] == "true",
+                    ))
                 elif request.path == "/api/attacks/reporting-gap":
                     query = parse_qs(request.query)
                     config = ReportingGapConfig(

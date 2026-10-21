@@ -4,10 +4,9 @@ from dataclasses import dataclass
 from typing import ClassVar
 
 import pandas as pd
-from pandas.api.types import is_datetime64_any_dtype
 
 from Optimized_Model.replay import Condition, ReportStream
-from attacks.base_attack import BaseAttack
+from attacks.base_attack import AttackParameters, BaseAttack
 
 
 @dataclass(frozen=True)
@@ -51,41 +50,19 @@ class ReportingGapAttack(BaseAttack):
     condition: ClassVar[Condition] = Condition.STALE
 
     @property
-    def parameters(self) -> dict[str, str | None]:
+    def parameters(self) -> AttackParameters:
         return {"start_time": self.config.start_time.isoformat(),
                 "end_time": self.config.end_time.isoformat(),
                 "target_mmsi": self.config.target_mmsi}
 
     def apply(self, reports: pd.DataFrame) -> ReportStream:
-        missing = {"mmsi", "time"} - set(reports.columns)
-        if missing:
-            raise ValueError(f"Missing reporting-gap columns: {sorted(missing)}.")
-        if reports.columns.duplicated().any():
-            raise ValueError("Report column names must be unique.")
-        if not is_datetime64_any_dtype(reports["time"]) or reports["time"].isna().any():
-            raise ValueError("Report time must contain parsed, nonmissing datetimes.")
-        if reports["mmsi"].isna().any():
-            raise ValueError("Report MMSI cannot be missing.")
+        prepared = self._prepare_reports(reports)
         try:
             affected = reports["time"].ge(self.config.start_time) & reports["time"].lt(self.config.end_time)
         except TypeError as error:
             raise ValueError("Gap window and report times must use compatible timezones.") from error
         if self.config.target_mmsi is not None:
             affected &= reports["mmsi"].astype(str).eq(self.config.target_mmsi)
-        prepared = reports.copy(deep=True)
-        if "delivered_time" not in prepared:
-            prepared["delivered_time"] = prepared["time"]
-        delivered = prepared["delivered_time"]
-        if not is_datetime64_any_dtype(delivered) or delivered.isna().any():
-            raise ValueError("delivered_time must contain parsed, nonmissing datetimes.")
-        try:
-            arrives_early = delivered.lt(prepared["time"]).any()
-        except TypeError as error:
-            raise ValueError("Measurement and delivery times must use compatible timezones.") from error
-        if arrives_early:
-            raise ValueError("Reports cannot be delivered before their measurement time.")
-        if "record_id" not in prepared:
-            prepared["record_id"] = [f"{row.mmsi}:{row.time.isoformat()}" for row in prepared.itertuples()]
         audit = prepared[["record_id", "mmsi", "time", "delivered_time"]].copy()
         audit["fault_applied"] = affected.to_numpy()
         audit["action"] = affected.map({True: "dropped", False: "retained"}).to_numpy()

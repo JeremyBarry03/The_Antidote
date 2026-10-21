@@ -23,7 +23,7 @@ from Optimized_Model.presentation import EvaluationEvidence, feed_counts, inspec
 from Optimized_Model.replay import Condition, Scenario, create_stream
 from Optimized_Model.service import DemoService
 from Optimized_Model.views import ReplayTask, _replay_approach, view_row
-from attacks import ReportingGapAttack, ReportingGapConfig
+from attacks import MissingSpeedConfig, ReportingGapAttack, ReportingGapConfig
 
 
 @pytest.fixture
@@ -470,3 +470,16 @@ def test_reporting_gap_does_not_silently_combine_other_experiments(demo_service:
         demo_service.snapshot("decision", "stale_15", reveal=False, verify=False, attack=attack)
     with pytest.raises(ValueError, match="Standalone"):
         demo_service.snapshot("decision", "nominal", reveal=False, verify=True, attack=attack)
+
+
+def test_missing_speed_replay_preserves_positions_and_handles_all_missing_speed(demo_service: DemoService) -> None:
+    pair = demo_service.missing_speed_snapshot('decision', MissingSpeedConfig(1), reveal=True, inspect=True)
+    original, attacked = pair['original'], pair['attacked']
+    assert original['reference_arrival'] == attacked['reference_arrival']
+    assert original['feed_counts']['received_total'] == attacked['feed_counts']['received_total']
+    assert attacked['attack']['withheld_reports_so_far'] == 0
+    assert attacked['attack']['injected_missing_speed_reports_so_far'] == len(attacked['received_history'])
+    assert all(row['sog'] is None for row in attacked['received_history'])
+    assert all(card['available'] for card in attacked['cards'])
+    assert all(row['time'] <= attacked['decision_time'] for row in attacked['attack']['inspection']['records'])
+    assert all(row['action'] == 'speed_removed' for row in attacked['attack']['inspection']['records'])
