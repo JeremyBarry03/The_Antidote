@@ -1,0 +1,20 @@
+{
+  "approaches": 112,
+  "vessels": 110,
+  "unique_decisions": 2402,
+  "configurations": 24,
+  "predictions": 180150,
+  "models": [
+    "A",
+    "B",
+    "C"
+  ],
+  "protected_hashes_unchanged": true,
+  "all_rows_and_non_position_fields_preserved": true,
+  "missing_coordinate_pattern_preserved": true,
+  "original_clocks_and_crossing_labels_preserved": true,
+  "raw_non_position_features_unchanged": true,
+  "audit_truth_excluded_from_features": true,
+  "minimum_forecast_coverage": 1.0,
+  "elapsed_seconds": 512.0147255999909
+}

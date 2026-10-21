@@ -1,0 +1,22 @@
+{
+  "python_suite": {
+    "command": "python -m pytest -q",
+    "passed": 257
+  },
+  "focused_attack_and_backend_suite": {
+    "command": "python -m pytest tests/test_position_jump_attack.py tests/test_optimized_model.py -q",
+    "passed": 85
+  },
+  "frontend": {
+    "changed": false,
+    "existing_tests_passed": 10,
+    "typecheck_passed": true
+  },
+  "experiment": {
+    "configurations_including_original": 25,
+    "model_forecasts": 180150,
+    "original_metrics_match_previous_experiment": true
+  },
+  "csv_outputs_ignored": true,
+  "source_and_model_hashes_unchanged": true
+}

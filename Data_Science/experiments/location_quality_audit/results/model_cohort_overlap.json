@@ -1,0 +1,8 @@
+{
+  "strict_jump_and_return_rows": 17,
+  "high_speed_leg_endpoint_events": 52,
+  "matching_cached_approaches": [],
+  "evaluation_approaches": 112,
+  "evaluation_decisions": 2402,
+  "status": "Checked all hash-validated cached model histories, including training and evaluation."
+}

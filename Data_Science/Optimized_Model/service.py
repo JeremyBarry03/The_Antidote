@@ -15,7 +15,8 @@ from dotenv import dotenv_values
 
 from attacks import (BaseAttack, MissingCourseAttack, MissingCourseConfig,
                      MissingSpeedAttack, MissingSpeedConfig, MissingVesselClassAttack, MissingVesselClassConfig,
-                     ReportingGapAttack, ReportingGapConfig, SensorDeteriorationAttack, SensorDeteriorationConfig)
+                     ReportingGapAttack, ReportingGapConfig, SensorDeteriorationAttack, SensorDeteriorationConfig,
+                     PositionJumpAttack, PositionJumpConfig)
 
 from .calibration import apply_review, load_calibration
 from .configuration import OptimizedConfig
@@ -26,6 +27,7 @@ from .presentation import EvaluationEvidence, VISIBLE_REPORT_LIMIT, demo_scenari
 from .replay import create_stream
 from .scenarios import primary_scenarios
 from .sensor_deterioration import deterioration_options, deterioration_presets, inspect_deterioration
+from .position_jump import position_jump_options, position_jump_presets, inspect_position_jump
 from .views import view_row
 
 logger = logging.getLogger(__name__)
@@ -90,7 +92,8 @@ class DemoService:
                 for row in group.itertuples()
             ]})
         return {"approaches": approaches, "scenarios": [scenario.name for scenario in primary_scenarios()],
-                "scenario_options": [*scenario_options(), *deterioration_options(self.config.evaluation_seeds[0])],
+                "scenario_options": [*scenario_options(), *deterioration_options(self.config.evaluation_seeds[0]),
+                                     *position_jump_options(self.config.evaluation_seeds[0])],
                 "replay_seed": self.config.evaluation_seeds[0],
                 "split": split, "calibrated": self.calibration is not None,
                 "gate": {"longitude": self.config.baseline.gate.longitude,
@@ -112,38 +115,53 @@ class DemoService:
         decision = self._decision(decision_id)
         presets = deterioration_presets(self.config.evaluation_seeds[0])
         if scenario_name in presets:
-            config = presets[scenario_name]
-            stream = SensorDeteriorationAttack(config).apply(self.dataset.histories[decision.approach_id])
-            past = self.dataset.decisions.loc[
-                self.dataset.decisions.approach_id.eq(decision.approach_id)
-                & self.dataset.decisions.decision_time.le(decision.decision_time)].sort_values("decision_time")
-            rows = []
-            for _, previous in past.iterrows():
-                row = previous.to_dict()
-                row.update(view_row(stream.available(previous.decision_time), previous, self.extractor))
-                row.update(scenario=scenario_name, condition="quality", seed=config.seed)
-                rows.append(row)
-            frame = pd.DataFrame(rows)
-            for column in (*OPTIMIZED_COLUMNS, *(f"raw_{c}" for c in RICH_COLUMNS)):
-                if column not in frame:
-                    frame[column] = np.nan
-            for column in ("observation_time", "raw_observation_time"):
-                if column not in frame:
-                    frame[column] = pd.NaT
-            predictions = predict_systems(frame, [s for s in self.systems if s.name in ("A", "B", "C")])
-            columns = ["decision_id", "decision_time", "system", "available", "predicted_arrival_time"]
-            if reveal:
-                columns.append("error_minutes")
-            return _json_value({"available": True, "seed": config.seed,
-                                "source": "Live historical replay with simulated Gaussian noise",
-                                "points": predictions[columns].to_dict(orient="records")})
+            return self._attack_timeline(decision, SensorDeteriorationAttack(presets[scenario_name]), scenario_name,
+                                         reveal, "Live historical replay with simulated Gaussian noise")
+        jumps = position_jump_presets(self.config.evaluation_seeds[0])
+        if scenario_name in jumps:
+            return self._attack_timeline(decision, PositionJumpAttack(jumps[scenario_name]), scenario_name,
+                                         reveal, "Live historical replay with simulated position jumps")
         if scenario_name not in demo_scenarios():
             raise ValueError("Unknown predeclared replay scenario.")
         return _json_value(self._evaluation_evidence().timeline(decision["approach_id"], scenario_name,
                                                               decision["decision_time"], reveal=reveal))
 
+    def _attack_timeline(self, decision: pd.Series, attack: BaseAttack, scenario_name: str,
+                         reveal: bool, source: str) -> dict[str, object]:
+        stream = attack.apply(self.dataset.histories[decision.approach_id])
+        past = self.dataset.decisions.loc[
+            self.dataset.decisions.approach_id.eq(decision.approach_id)
+            & self.dataset.decisions.decision_time.le(decision.decision_time)].sort_values("decision_time")
+        rows = []
+        for _, previous in past.iterrows():
+            row = previous.to_dict()
+            row.update(view_row(stream.available(previous.decision_time), previous, self.extractor))
+            row.update(scenario=scenario_name, condition=attack.condition.value, seed=attack.parameters["seed"])
+            rows.append(row)
+        frame = pd.DataFrame(rows)
+        for column in (*OPTIMIZED_COLUMNS, *(f"raw_{c}" for c in RICH_COLUMNS)):
+            if column not in frame:
+                frame[column] = np.nan
+        for column in ("observation_time", "raw_observation_time"):
+            if column not in frame:
+                frame[column] = pd.NaT
+        predictions = predict_systems(frame, [s for s in self.systems if s.name in ("A", "B", "C")])
+        columns = ["decision_id", "decision_time", "system", "available", "predicted_arrival_time"]
+        if reveal:
+            columns.append("error_minutes")
+        return _json_value({"available": True, "seed": attack.parameters["seed"], "source": source,
+                            "points": predictions[columns].to_dict(orient="records")})
+
     def snapshot(self, decision_id: str, scenario_name: str, *, reveal: bool, verify: bool,
                  inspect: bool = False, attack: BaseAttack | None = None) -> dict[str, object]:
+        jumps = position_jump_presets(self.config.evaluation_seeds[0])
+        if scenario_name in jumps:
+            if verify or attack is not None:
+                raise ValueError("Position jump presets require unattended replay without another attack.")
+            result = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False, inspect=inspect,
+                                   attack=PositionJumpAttack(jumps[scenario_name]))
+            result["scenario"] = scenario_name
+            return result
         presets = deterioration_presets(self.config.evaluation_seeds[0])
         if scenario_name in presets:
             if verify or attack is not None:
@@ -225,6 +243,9 @@ class DemoService:
             if isinstance(attack, SensorDeteriorationAttack) and inspect:
                 result["inspection"] = inspect_deterioration(
                     stream, available, self.config.baseline.features.history_minutes)
+            if isinstance(attack, PositionJumpAttack) and inspect:
+                result["inspection"] = inspect_position_jump(
+                    stream, available, self.config.baseline.features.history_minutes)
             known = stream.modification_log.loc[(stream.modification_log["time"] <= decision["decision_time"])
                 & (stream.modification_log["delivered_time"] <= decision["decision_time"])]
             affected = known.loc[known["fault_applied"]]
@@ -237,6 +258,15 @@ class DemoService:
                                                "records": affected.tail(VISIBLE_REPORT_LIMIT).to_dict(orient="records"),
                                                "truncated": len(affected) > VISIBLE_REPORT_LIMIT} if inspect else None}
         return _json_value(result)
+
+    def position_jump_snapshot(
+        self, decision_id: str, config: PositionJumpConfig, *, reveal: bool = False, inspect: bool = False,
+    ) -> dict[str, object]:
+        """Same decision and reference crossing; position measurements differ."""
+        original = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False)
+        attacked = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False,
+                                 inspect=inspect, attack=PositionJumpAttack(config))
+        return {"original": original, "attacked": attacked}
 
     def sensor_deterioration_snapshot(
         self, decision_id: str, config: SensorDeteriorationConfig, *, reveal: bool = False, inspect: bool = False,
@@ -355,6 +385,18 @@ def serve(config: OptimizedConfig, port: int) -> None:
                     self._send(200, service.catalog())
                 elif request.path == "/api/metrics":
                     self._send(200, service.metrics())
+                elif request.path == "/api/attacks/position-jump":
+                    query = parse_qs(request.query)
+                    bearing = query.get("bearing_degrees", [None])[0]
+                    config = PositionJumpConfig(
+                        displacement_meters=float(query.get("displacement_meters", ["2000"])[0]),
+                        affected_fraction=float(query.get("affected_fraction", ["0.25"])[0]),
+                        seed=int(query.get("seed", ["42"])[0]), target_mmsi=query.get("target_mmsi", [None])[0],
+                        bearing_degrees=float(bearing) if bearing is not None else None,
+                        start_time=query.get("start_time", [None])[0], end_time=query.get("end_time", [None])[0])
+                    self._send(200, service.position_jump_snapshot(query.get("decision", [""])[0], config,
+                        reveal=query.get("reveal", ["false"])[0] == "true",
+                        inspect=query.get("inspect", ["false"])[0] == "true"))
                 elif request.path == "/api/attacks/sensor-deterioration":
                     query = parse_qs(request.query)
                     defaults = SensorDeteriorationConfig.from_severity(query.get("severity", ["medium"])[0])

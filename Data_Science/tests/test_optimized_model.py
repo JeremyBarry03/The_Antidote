@@ -25,6 +25,7 @@ from Optimized_Model.service import DemoService
 from Optimized_Model.views import ReplayTask, _replay_approach, view_row
 from attacks import MissingCourseConfig, MissingSpeedConfig, ReportingGapAttack, ReportingGapConfig
 from attacks import SensorDeteriorationConfig
+from attacks import PositionJumpAttack, PositionJumpConfig
 
 
 @pytest.fixture
@@ -557,6 +558,89 @@ def test_deterioration_timeline_keeps_unavailable_forecasts(demo_service: DemoSe
     assert len(timeline["points"]) == 3
     assert all(not p["available"] and p["predicted_arrival_time"] is None
                and p["error_minutes"] is None for p in timeline["points"])
+
+
+def test_position_jump_pair_preserves_reference_and_non_position_fields(demo_service: DemoService) -> None:
+    config = PositionJumpConfig(2000,1,seed=99)
+    pair = demo_service.position_jump_snapshot("decision",config,reveal=True,inspect=True)
+    original,attacked = pair["original"],pair["attacked"]
+    assert original["decision_time"]==attacked["decision_time"]
+    assert original["reference_arrival"]==attacked["reference_arrival"]
+    assert original["reference_bracket"]==attacked["reference_bracket"]
+    assert [c["system"] for c in attacked["cards"]]==["A","B","C"]
+    assert all(not c["accepted"] and c["review_reason"]=="attack_not_calibrated_requires_review" for c in attacked["cards"])
+    assert attacked["seed"]==99 and attacked["inspection"]["kind"]=="position_jump"
+    assert len(original["received_history"])==len(attacked["received_history"])
+    for before,after in zip(original["received_history"],attacked["received_history"]):
+        for column in ("record_id","time","delivered_time","sog","cog","vessel_type"):
+            assert before[column]==after[column]
+    for record in attacked["inspection"]["records"]:
+        assert record["time"]<=attacked["decision_time"] and record["delivered_time"]<=attacked["decision_time"]
+        assert abs(record["offset_meters"]-2000)<1e-5
+    hidden = demo_service.position_jump_snapshot("decision",config)["attacked"]
+    assert hidden["reference_arrival"] is None and hidden["inspection"] is None
+    assert all("error_minutes" not in card for card in hidden["cards"])
+    plain = demo_service.position_jump_snapshot("decision",config,reveal=True)["attacked"]
+    assert plain["cards"]==attacked["cards"]
+
+
+def test_position_jump_presets_timeline_noop_and_future_window(demo_service: DemoService) -> None:
+    choices = [c for c in demo_service.catalog()["scenario_options"] if c["group"]=="position_jump"]
+    assert [c["affected_fraction"] for c in choices]==[.1,.2,.25,.5,1.]
+    result = demo_service.snapshot("decision","position_jump_20pct",reveal=False,verify=False)
+    timeline = demo_service.timeline("decision","position_jump_20pct",reveal=False)
+    assert len(timeline["points"])==3
+    assert all(p["decision_time"]<=result["decision_time"] and "error_minutes" not in p for p in timeline["points"])
+    assert {p["system"]:p["predicted_arrival_time"] for p in timeline["points"]}=={
+        c["system"]:c["predicted_arrival_time"] for c in result["cards"]}
+    with pytest.raises(ValueError,match="unattended"):
+        demo_service.snapshot("decision","position_jump_20pct",reveal=False,verify=True)
+    noop = demo_service.position_jump_snapshot("decision",PositionJumpConfig(displacement_meters=0),reveal=True)
+    assert noop["original"]["received_history"]==noop["attacked"]["received_history"]
+    future = PositionJumpConfig(start_time="2024-03-05 12:20",end_time="2024-03-05 12:30")
+    pair = demo_service.position_jump_snapshot("decision",future,reveal=True,inspect=True)
+    assert pair["original"]["received_history"]==pair["attacked"]["received_history"]
+    assert pair["attacked"]["attack"]["inspection"]["records"]==[]
+
+
+def test_position_jump_http_endpoint_reuses_paired_replay(demo_service: DemoService,monkeypatch) -> None:
+    from http.server import HTTPServer
+    from queue import Queue
+    from threading import Thread
+    from urllib.error import HTTPError
+    from urllib.request import urlopen
+    from Optimized_Model import service
+
+    ready = Queue()
+
+    def create_server(address,handler):
+        server = HTTPServer((address[0],0),handler)
+        ready.put(server)
+        return server
+
+    monkeypatch.setattr(service,"HTTPServer",create_server)
+    monkeypatch.setattr(DemoService,"load",classmethod(lambda cls,config:demo_service))
+    thread = Thread(target=service.serve,args=(demo_service.config,8765),daemon=True)
+    thread.start()
+    server = ready.get(timeout=5)
+    root = f"http://127.0.0.1:{server.server_port}"
+    try:
+        path = "/api/attacks/position-jump?decision=decision&affected_fraction=0.2&displacement_meters=500&seed=99&inspect=true"
+        with urlopen(root+path,timeout=5) as response:
+            pair = json.load(response)
+        assert pair["attacked"]["attack"]["parameters"]["displacement_meters"]==500
+        assert pair["attacked"]["attack"]["parameters"]["affected_fraction"]==.2
+        for invalid in ("&bearing_degrees=360","&start_time=2024-01-01"):
+            with pytest.raises(HTTPError) as error:
+                urlopen(root+path+invalid,timeout=5)
+            assert error.value.code==400
+        for route in ("/api/replay?decision=decision&scenario=position_jump_20pct",
+                      "/api/timeline?decision=decision&scenario=position_jump_20pct"):
+            with urlopen(root+route,timeout=5) as response:
+                assert response.status==200
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
 
 
 def test_reporting_gap_full_outage_has_no_forecasts_and_reveal_is_optional(demo_service: DemoService) -> None:

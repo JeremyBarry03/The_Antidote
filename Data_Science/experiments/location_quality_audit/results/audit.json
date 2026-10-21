@@ -1,0 +1,172 @@
+{
+  "sources": {
+    "march": "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\data\\hampton_roads_march_2024.csv",
+    "april": "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\data\\hampton_roads_april_2024.csv"
+  },
+  "source_sha256": {
+    "march": "de8946c04c3fa2dfd45c88f7c501d751c49091c30045a173020887c6cd69de71",
+    "april": "0bd05942c85247f2c5aadaca31df9945c2805f787b0d425fabeea5f2748a4fbd"
+  },
+  "source_hashes_unchanged": true,
+  "completeness": [
+    {
+      "month": "march",
+      "cohort": "all",
+      "row_count": 4495639,
+      "mmsis": 1166,
+      "missing_longitude": 0,
+      "missing_latitude": 0,
+      "unusable_coordinates": 0,
+      "outside_world_bounds": 0,
+      "zero_zero_positions": 0,
+      "unavailable_position_sentinels": 0,
+      "outside_extract_bounds": 0,
+      "invalid_times": 0,
+      "min_longitude": -76.6,
+      "max_longitude": -75.8,
+      "min_latitude": 36.7,
+      "max_latitude": 37.2
+    },
+    {
+      "month": "march",
+      "cohort": "cargo_tanker",
+      "row_count": 600738,
+      "mmsis": 397,
+      "missing_longitude": 0,
+      "missing_latitude": 0,
+      "unusable_coordinates": 0,
+      "outside_world_bounds": 0,
+      "zero_zero_positions": 0,
+      "unavailable_position_sentinels": 0,
+      "outside_extract_bounds": 0,
+      "invalid_times": 0,
+      "min_longitude": -76.59919,
+      "max_longitude": -75.8,
+      "min_latitude": 36.70031,
+      "max_latitude": 37.2
+    },
+    {
+      "month": "april",
+      "cohort": "all",
+      "row_count": 3229675,
+      "mmsis": 1179,
+      "missing_longitude": 0,
+      "missing_latitude": 0,
+      "unusable_coordinates": 0,
+      "outside_world_bounds": 0,
+      "zero_zero_positions": 0,
+      "unavailable_position_sentinels": 0,
+      "outside_extract_bounds": 0,
+      "invalid_times": 0,
+      "min_longitude": -76.6,
+      "max_longitude": -75.8,
+      "min_latitude": 36.7,
+      "max_latitude": 37.2
+    },
+    {
+      "month": "april",
+      "cohort": "cargo_tanker",
+      "row_count": 393613,
+      "mmsis": 225,
+      "missing_longitude": 0,
+      "missing_latitude": 0,
+      "unusable_coordinates": 0,
+      "outside_world_bounds": 0,
+      "zero_zero_positions": 0,
+      "unavailable_position_sentinels": 0,
+      "outside_extract_bounds": 0,
+      "invalid_times": 0,
+      "min_longitude": -76.6,
+      "max_longitude": -75.8,
+      "min_latitude": 36.74229,
+      "max_latitude": 37.2
+    }
+  ],
+  "motion": [
+    {
+      "month": "march",
+      "cohort": "all",
+      "comparable_pairs": 4200118,
+      "mmsis": 1140,
+      "pairs_over_60_knots": 68,
+      "mmsis_over_60_knots": 10,
+      "pairs_over_100_knots": 50,
+      "unchanged_position_while_reporting_motion": 49,
+      "stable_sog_disagreement_over_10_knots": 77,
+      "isolated_jump_and_return_candidates": 20,
+      "maximum_implied_speed_knots": 1108.4053220716692
+    },
+    {
+      "month": "march",
+      "cohort": "cargo_tanker",
+      "comparable_pairs": 574473,
+      "mmsis": 396,
+      "pairs_over_60_knots": 27,
+      "mmsis_over_60_knots": 4,
+      "pairs_over_100_knots": 25,
+      "unchanged_position_while_reporting_motion": 0,
+      "stable_sog_disagreement_over_10_knots": 0,
+      "isolated_jump_and_return_candidates": 13,
+      "maximum_implied_speed_knots": 910.9340769511526
+    },
+    {
+      "month": "april",
+      "cohort": "all",
+      "comparable_pairs": 3024908,
+      "mmsis": 1156,
+      "pairs_over_60_knots": 27,
+      "mmsis_over_60_knots": 10,
+      "pairs_over_100_knots": 20,
+      "unchanged_position_while_reporting_motion": 33,
+      "stable_sog_disagreement_over_10_knots": 86,
+      "isolated_jump_and_return_candidates": 10,
+      "maximum_implied_speed_knots": 1180.57159176436
+    },
+    {
+      "month": "april",
+      "cohort": "cargo_tanker",
+      "comparable_pairs": 381118,
+      "mmsis": 224,
+      "pairs_over_60_knots": 8,
+      "mmsis_over_60_knots": 2,
+      "pairs_over_100_knots": 8,
+      "unchanged_position_while_reporting_motion": 0,
+      "stable_sog_disagreement_over_10_knots": 1,
+      "isolated_jump_and_return_candidates": 4,
+      "maximum_implied_speed_knots": 1180.57159176436
+    }
+  ],
+  "key_audit": [
+    {
+      "month": "march",
+      "unique_vessel_time_keys": 4495531,
+      "conflicting_coordinate_keys": 0,
+      "extra_rows_on_keys": 108.0
+    },
+    {
+      "month": "april",
+      "unique_vessel_time_keys": 3229610,
+      "conflicting_coordinate_keys": 0,
+      "extra_rows_on_keys": 65.0
+    }
+  ],
+  "model_history_overlap": {
+    "strict_jump_and_return_rows": 17,
+    "high_speed_leg_endpoint_events": 52,
+    "matching_cached_approaches": [],
+    "evaluation_approaches": 112,
+    "evaluation_decisions": 2402,
+    "status": "Checked all hash-validated cached model histories, including training and evaluation."
+  },
+  "protocol": {
+    "coordinate_checks": "Raw CSV, before cargo filtering or model preprocessing",
+    "motion": "Unambiguous vessel/time keys; duplicates consolidated; great-circle displacement",
+    "intervals_seconds": [
+      30,
+      300
+    ],
+    "high_speed_threshold_knots": 60,
+    "caveat": "Consistency flags are review candidates, not independently verified bad coordinates",
+    "provenance": "Geographically filtered extracts can exclude missing or invalid coordinates upstream; absence here does not establish absence in original national broadcasts"
+  }
+}
