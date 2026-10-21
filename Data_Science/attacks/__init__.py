@@ -3,8 +3,9 @@
 from .base_attack import BaseAttack
 from .missingCourseAttack import MissingCourseAttack, MissingCourseConfig
 from .missingSpeedAttack import MissingSpeedAttack, MissingSpeedConfig
+from .missingVesselClassAttack import MissingVesselClassAttack, MissingVesselClassConfig
 from .reportingGapAttack import ReportingGapAttack, ReportingGapConfig
-from .unequalVessellRecordAttack import UnequalVessellRecordAttack, UnequalVessellRecordConfig
 
 __all__ = ["BaseAttack", "MissingCourseAttack", "MissingCourseConfig", "MissingSpeedAttack", "MissingSpeedConfig",
-           "ReportingGapAttack", "ReportingGapConfig", "UnequalVessellRecordAttack", "UnequalVessellRecordConfig"]
+           "MissingVesselClassAttack", "MissingVesselClassConfig",
+           "ReportingGapAttack", "ReportingGapConfig"]

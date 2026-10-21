@@ -9,6 +9,9 @@ Frontend/node_modules/
 *.[cC][sS][vV]
 !/data/**/*.[cC][sS][vV]
 
+# Retired experiment artifacts retained only on this machine.
+/Data_Science/experiments/unequal_vessell_record_attack/
+
 # Local runtime configuration
 .env
 .env.*

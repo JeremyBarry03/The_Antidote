@@ -15,7 +15,7 @@ sys.path.insert(0, str(SCIENCE))
 
 from attacks import MissingCourseAttack, MissingCourseConfig
 from eta_baselines.dataset import file_digest
-from eta_baselines.features import FEATURE_COLUMNS, FeatureBuilder
+from eta_baselines.features import FEATURE_COLUMNS, LEGACY_FEATURE_COLUMNS, FeatureBuilder
 from Optimized_Model.configuration import OptimizedConfig
 from Optimized_Model.dataset import load_replay
 from experiments.missing_speed_attack.run import metrics, paired_interval, table
@@ -44,7 +44,7 @@ def main() -> None:
     model_path = config.frozen_baseline_model('xgboost')
     model_hash = file_digest(model_path)
     predictor = joblib.load(model_path)
-    if tuple(predictor.feature_columns) != FEATURE_COLUMNS:
+    if tuple(predictor.feature_columns) != LEGACY_FEATURE_COLUMNS:
         raise ValueError('This evaluator requires the original ten-feature B contract.')
     builder = FeatureBuilder(config.baseline.gate, config.baseline.features)
     protocol = dict(model='frozen B / XGBoost', model_sha256=model_hash, removal_fractions=FRACTIONS,

@@ -7,6 +7,20 @@ Shared preparation and evaluation for **A: quadratic ridge regression** and
 **B: standard XGBoost**. These are nominal-data baselines, not model C and not
 the anomaly detector. All commands below run from `Data_Science`.
 
+The corrected vessel-class contract uses explicit `is_cargo`, `is_tanker` and
+`vessel_class_unknown` flags. Missing class becomes `(0, 0, 1)`, distinct from
+cargo `(1, 0, 0)` and tanker `(0, 1, 0)`, including after imputation. Use
+`--config config_vessel_class_v2.json` for the versioned A/B run. Existing frozen
+models retain their fitted historical schemas; loading them does not upgrade
+their learned behavior. Nominal training excludes unknown classes, so explicit
+representation alone does not establish robustness to missing metadata.
+
+The matched A/B rerun with fixed original hyperparameters is
+`python experiments/vessel_class_attacks/run.py --train`. Its report is under
+`experiments/vessel_class_attacks/results_vessel_class_v2/REPORT.md`; use `--legacy`
+to reproduce the old binary-model results. See the optimized-model README for
+the compatible A/B/C serving configuration.
+
 ## Run
 
 Python 3.11 is the verified runtime. CPU only; no GPU or external service needed.
@@ -15,15 +29,15 @@ Python 3.11 is the verified runtime. CPU only; no GPU or external service needed
 cd C:\Users\jerem\Downloads\the_antidote\2026_WM_Hackathon\Data_Science
 python -m venv .venv
 .\.venv\Scripts\python -m pip install -r requirements.txt
-.\.venv\Scripts\python -m eta_baselines all
+.\.venv\Scripts\python -m eta_baselines all --config config_vessel_class_v2.json
 ```
 
 Or run preparation once and reuse exactly the same examples:
 
 ```powershell
-python -m eta_baselines prepare
-python -m eta_baselines train --model quadratic
-python -m eta_baselines train --model xgboost
+python -m eta_baselines prepare --config config_vessel_class_v2.json
+python -m eta_baselines train --config config_vessel_class_v2.json --model quadratic
+python -m eta_baselines train --config config_vessel_class_v2.json --model xgboost
 ```
 
 Use `--config path/to/config.json` to change inputs, geometry, dates or tuning.
@@ -63,7 +77,7 @@ Short approaches with no scheduled prediction are counted separately.
 - Position is expressed in approximate local meters using a small-area
   equirectangular conversion; this is not precision navigation geometry.
 - Features: east/north offset, SOG, sine/cosine COG, recent mean speed and east
-  offset, speed trend, cargo/tanker indicator and missing-history flag.
+  offset, speed trend, cargo/tanker/unknown flags and missing-history flag.
 - Invalid SOG/COG become missing. Identical rows are removed. All rows sharing a
   conflicting vessel/timestamp key are excluded rather than guessed correct.
 - Median imputation and missing indicators are fitted on training only and shared.

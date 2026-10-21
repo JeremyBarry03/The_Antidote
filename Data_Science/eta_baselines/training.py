@@ -19,7 +19,7 @@ from XGBoost_Model.model import build_xgboost_regressor
 from .configuration import ExperimentConfig
 from .dataset import file_digest
 from .evaluation import approach_weights, score_predictions
-from .features import FEATURE_COLUMNS, TARGET_COLUMN
+from .features import FEATURE_COLUMNS, FEATURE_SCHEMA_VERSION, TARGET_COLUMN
 from .fitting import FitPartition, fit_imputer, fit_regressor
 from .prediction import EtaPredictor
 
@@ -46,6 +46,9 @@ def load_examples(config: ExperimentConfig) -> pd.DataFrame:
         if saved[name] != asdict(getattr(config, name)):
             raise ValueError(f"Prepared {name} differs from config. Rerun prepare.")
     manifest = json.loads((config.output_directory / "data_manifest.json").read_text())
+    if (manifest.get("feature_schema_version") != FEATURE_SCHEMA_VERSION
+            or manifest.get("feature_columns") != list(FEATURE_COLUMNS)):
+        raise ValueError("Prepared feature schema is outdated. Rerun prepare in a versioned output directory.")
     if (manifest["input_csv"] != str(config.input_csv)
             or manifest["input_sha256"] != file_digest(config.input_csv)):
         raise ValueError("Source CSV changed since preparation. Rerun prepare.")
@@ -116,7 +119,7 @@ class BaselineTrainer:
                 regressor, FitPartition(train.features, train.target, train.weights),
                 FitPartition(validation.features, validation.target, validation.weights),
             )
-            predictor = EtaPredictor(name, imputer, regressor)
+            predictor = EtaPredictor(name, imputer, regressor, FEATURE_COLUMNS)
             metrics = score_predictions(predictor.predict(validation.examples))
             error = float(metrics["approach_weighted_mae_minutes"])
             trials.append({**parameters, **metrics})
@@ -139,6 +142,7 @@ class BaselineTrainer:
         report = {
             "model": name, "selected_parameters": best_parameters,
             "feature_columns": list(FEATURE_COLUMNS),
+            "feature_schema_version": FEATURE_SCHEMA_VERSION,
             "target": TARGET_COLUMN, "scores": scores,
             "fit_and_export_seconds": time.perf_counter() - started,
             "versions": {package: version(package) for package in

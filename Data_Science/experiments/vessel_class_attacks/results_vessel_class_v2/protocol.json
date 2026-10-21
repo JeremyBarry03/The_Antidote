@@ -1,0 +1,64 @@
+{
+  "version": "vessel_class_v2",
+  "models": {
+    "A": "retrained quadratic ridge",
+    "B": "retrained XGBoost"
+  },
+  "feature_columns": [
+    "east_meters",
+    "north_meters",
+    "speed_knots",
+    "course_sin",
+    "course_cos",
+    "mean_speed_knots",
+    "mean_east_meters",
+    "speed_trend_knots_per_minute",
+    "is_tanker",
+    "history_missing",
+    "is_cargo",
+    "vessel_class_unknown"
+  ],
+  "model_paths": {
+    "A": "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\Data_Science\\artifacts\\march_2024_vessel_class_v2\\quadratic\\model.joblib",
+    "B": "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\Data_Science\\artifacts\\march_2024_vessel_class_v2\\xgboost\\model.joblib"
+  },
+  "protected_hashes": {
+    "A": "cb4e2f171405f45b6f03fbcf351eec2bf8f2e43f534de07199c3b5db15c24e10",
+    "B": "7affc0937d42d337d2fec712fe767b4ef7a4544e3592c8e2015f0ceafb253c16",
+    "March": "de8946c04c3fa2dfd45c88f7c501d751c49091c30045a173020887c6cd69de71",
+    "April": "0bd05942c85247f2c5aadaca31df9945c2805f787b0d425fabeea5f2748a4fbd"
+  },
+  "fractions": [
+    0.1,
+    0.25,
+    0.5,
+    1.0
+  ],
+  "partial_seeds": [
+    4201,
+    4202,
+    4203
+  ],
+  "full_selection": "Seed-independent; once",
+  "selection_units": [
+    "report",
+    "vessel"
+  ],
+  "row_policy": "Keep every original report; do not reapply the source cohort filter after injection",
+  "removal_encoding": "Cargo=(1,0,0), tanker=(0,1,0), unknown=(0,0,1) in is_cargo/is_tanker/vessel_class_unknown",
+  "interventions": "Mask vessel_type only; keep all other report values and rows.",
+  "features": "Only class flags can change; validate full snapshots at first/middle/last decisions per case/config",
+  "evaluation": "Same April 8-21 follow-up: original cases, clocks and crossing references; not verified docking",
+  "training": "March nominal only; original splits/selected hyperparameters/seed 42; no augmentation",
+  "mitigation": "No class reconstruction, metadata cache, forced ETA shifts or synthetic training examples",
+  "unknown_training_examples": 0,
+  "metrics": {
+    "MAE": "Equal approach weight; selection realizations pooled within each approach",
+    "MdAE": "Pooled absolute-error median over decision/seed pairs"
+  },
+  "limits": "Simulated class removal; requested fractions do not establish natural source fault rates.",
+  "legacy": "Prior missing_vessel_class_attack/results describes row exclusions and is superseded for this attack",
+  "attacks": [
+    "MissingVesselClassAttack"
+  ]
+}

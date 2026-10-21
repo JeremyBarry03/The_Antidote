@@ -15,7 +15,7 @@ sys.path.insert(0, str(SCIENCE))
 
 from attacks import MissingCourseAttack, MissingCourseConfig, MissingSpeedAttack, MissingSpeedConfig
 from eta_baselines.dataset import file_digest
-from eta_baselines.features import FEATURE_COLUMNS, FeatureBuilder
+from eta_baselines.features import FEATURE_COLUMNS, LEGACY_FEATURE_COLUMNS, FeatureBuilder
 from Optimized_Model.configuration import OptimizedConfig
 from Optimized_Model.dataset import load_replay
 from experiments.missing_speed_attack.run import metrics, paired_interval
@@ -107,7 +107,7 @@ def main() -> None:
     paths = {'A': config.frozen_baseline_model('quadratic'), 'B': config.frozen_baseline_model('xgboost')}
     hashes = {name: file_digest(path) for name, path in paths.items()}
     systems = {name: joblib.load(path) for name, path in paths.items()}
-    if any(tuple(getattr(p, 'feature_columns', FEATURE_COLUMNS)) != FEATURE_COLUMNS for p in systems.values()):
+    if any(tuple(p.feature_columns) != LEGACY_FEATURE_COLUMNS for p in systems.values()):
         raise ValueError('Both models must use the original ten-feature contract.')
     decisions = dataset.partition('evaluation').sort_values(['approach_id','decision_time'])
     builder = FeatureBuilder(config.baseline.gate, config.baseline.features)

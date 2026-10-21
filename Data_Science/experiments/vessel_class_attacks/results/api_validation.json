@@ -1,0 +1,5 @@
+{
+  "current": false,
+  "superseded_by": "../results_vessel_class_v2/api_validation.json",
+  "reason": "Historical runtime validation superseded by the current missing-class-only check."
+}

@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from sklearn.impute import SimpleImputer
 
-from .features import FEATURE_COLUMNS
+from .features import FEATURE_COLUMNS, LEGACY_FEATURE_COLUMNS
 
 
 class Regressor(Protocol):
@@ -22,9 +22,16 @@ class EtaPredictor:
     feature_columns: tuple[str, ...] = FEATURE_COLUMNS
     target_clock: Literal["observation", "decision"] = "observation"
 
+    def __setstate__(self, state: dict[str, object]) -> None:
+        """Recover the fitted schema of older bundles, not today's class default."""
+        self.__dict__.update(state)
+        if "feature_columns" not in state:
+            self.feature_columns = tuple(getattr(self.imputer, "feature_names_in_", LEGACY_FEATURE_COLUMNS))
+
     def predict(self, snapshots: pd.DataFrame) -> pd.DataFrame:
-        # getattr preserves joblib artifacts written before schemas were explicit.
-        columns = getattr(self, "feature_columns", FEATURE_COLUMNS)
+        columns = self.__dict__.get("feature_columns")
+        if columns is None:
+            columns = tuple(getattr(self.imputer, "feature_names_in_", LEGACY_FEATURE_COLUMNS))
         clock = getattr(self, "target_clock", "observation")
         if clock not in ("observation", "decision"):
             raise ValueError(f"Unknown prediction target clock: {clock}")

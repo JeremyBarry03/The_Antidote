@@ -16,6 +16,7 @@ from XGBoost_Model.model import build_xgboost_regressor
 from eta_baselines.dataset import file_digest
 from eta_baselines.evaluation import score_predictions
 from eta_baselines.fitting import FitPartition, fit_imputer, fit_regressor, training_weights
+from eta_baselines.features import FEATURE_SCHEMA_VERSION
 from eta_baselines.prediction import EtaPredictor
 
 from .configuration import OptimizedConfig
@@ -125,7 +126,7 @@ def train_models(
             "replay_manifest": json.loads((config.output_directory / "manifest.json").read_text()),
             "training_view_sha256": file_digest(config.output_directory / "views" / "training.csv"),
             "development_view_sha256": file_digest(config.output_directory / "views" / "development.csv"),
-            "feature_schema_version": 1,
+            "feature_schema_version": FEATURE_SCHEMA_VERSION,
             "inference_implementation": inference_implementation(),
             "config": config.snapshot(), "seed": settings.seed,
         }

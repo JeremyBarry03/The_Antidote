@@ -4,9 +4,30 @@ This package builds on the existing `eta_baselines`, `Simple_baseline` and
 `XGBoost_Model` code. It retains their analytical east-to-west crossing at
 longitude -76.30, latitude 36.95-37.05. It does not predict docking at VIG.
 
-The interactive demo is available with `python -m Optimized_Model serve` at
+The corrected interactive demo is available with
+`python -m Optimized_Model serve --config Optimized_Model/config_vessel_class_v2.json` at
 `http://127.0.0.1:8765`. See `../../Frontend/README.md` for the corruption inspector,
 optional Mapbox token, playback, saved evidence and frontend checks.
+
+The vessel-class v2 run keeps cargo, tanker and unknown distinct in both raw and
+guarded features. Its frozen A/B models and C/control models are separately
+retrained under `artifacts/optimized/march_gate_vessel_class_v2`, preserving the
+original benchmark. The old config/model manifests do not match the new shared
+feature implementation and must not be presented as current compatible models.
+Run the following from `Data_Science` to reproduce the corrected version:
+
+```powershell
+python experiments/vessel_class_attacks/run.py --train
+python -m Optimized_Model prepare --config Optimized_Model/config_vessel_class_v2.json
+python -m Optimized_Model train --config Optimized_Model/config_vessel_class_v2.json
+python -m Optimized_Model serve --config Optimized_Model/config_vessel_class_v2.json
+```
+
+The new run must be independently calibrated/evaluated before using accuracy
+tables, timelines or review envelopes from it. No previous calibration or saved
+evaluation evidence is copied across model versions. Explicit unknown encoding
+does not add unknown-class training examples, recover classes or guarantee better
+accuracy. There are no service or frontend code changes in this fix.
 
 ## Run the experiment
 
@@ -14,17 +35,17 @@ Use Python 3.11 and the existing pinned `Data_Science/requirements.txt`. No new
 Python dependencies or GPU are required. Run from `Data_Science`:
 
 ```powershell
-python -m Optimized_Model acquire
-python -m Optimized_Model prepare
-python -m Optimized_Model train
-python -m Optimized_Model calibrate
-python -m Optimized_Model evaluate
-python -m Optimized_Model evaluate --suite stress
-python -m Optimized_Model evaluate --suite volume
+python -m Optimized_Model acquire --config Optimized_Model/config_vessel_class_v2.json
+python -m Optimized_Model prepare --config Optimized_Model/config_vessel_class_v2.json
+python -m Optimized_Model train --config Optimized_Model/config_vessel_class_v2.json
+python -m Optimized_Model calibrate --config Optimized_Model/config_vessel_class_v2.json
+python -m Optimized_Model evaluate --config Optimized_Model/config_vessel_class_v2.json
+python -m Optimized_Model evaluate --config Optimized_Model/config_vessel_class_v2.json --suite stress
+python -m Optimized_Model evaluate --config Optimized_Model/config_vessel_class_v2.json --suite volume
 python -m pytest tests -q
 ```
 
-The existing A/B artifacts must already be present in `artifacts/march_2024`.
+The corrected A/B artifacts must already be present in `artifacts/march_2024_vessel_class_v2`.
 Preparation copies A/B into this run's `frozen_baselines/`; later commands load
 those checked snapshots without overwriting or refitting the upstream models. The `pilot`
 command uses the previously inspected March 25-31 period and labels it exploratory.
@@ -44,7 +65,7 @@ existing observation loader. The source CSVs are never modified.
 
 | Artifact | Inputs | Training views | Target clock |
 |---|---|---|---|
-| A / B | Original ten features | Original nominal March fit, frozen | Observation |
+| A / B | Twelve features, including explicit class flags | Nominal March fit, frozen per version | Observation |
 | A_guard / B_guard | Original features after guard | Same frozen models | Observation |
 | B_rich_nominal | Original plus causal motion features | Nominal | Observation |
 | C_nominal | Full C features and guard | Nominal | Decision |

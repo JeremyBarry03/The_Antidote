@@ -1,0 +1,34 @@
+{
+  "configuration": "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\Data_Science\\Optimized_Model\\config_vessel_class_v2.json",
+  "systems": [
+    "A",
+    "B",
+    "C"
+  ],
+  "paired_http_requests": 20,
+  "attacked_forecasts_matched": 60,
+  "post_imputation_unknown_checks": 12,
+  "fractions": [
+    0.0,
+    0.1,
+    0.25,
+    0.5,
+    1.0
+  ],
+  "selection_units": [
+    "report",
+    "vessel"
+  ],
+  "original_class_cohorts": [
+    "cargo",
+    "tanker"
+  ],
+  "every_received_report_retained": true,
+  "clocks_preserved": true,
+  "no_class_filter": true,
+  "full_removal_raw_class_is_null": true,
+  "all_saved_models_load_with_current_inference": true,
+  "service_code_unchanged": true,
+  "validation_server_stopped": true,
+  "calibration": "New runtime is uncalibrated; historical review envelopes are not reused"
+}

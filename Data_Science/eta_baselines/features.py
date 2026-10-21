@@ -7,12 +7,29 @@ from .approaches import Approach
 from .configuration import FeatureConfig, GateConfig
 
 METERS_PER_DEGREE = 111_195.0
-FEATURE_COLUMNS = (
+LEGACY_FEATURE_COLUMNS = (
     "east_meters", "north_meters", "speed_knots", "course_sin", "course_cos",
     "mean_speed_knots", "mean_east_meters", "speed_trend_knots_per_minute",
     "is_tanker", "history_missing",
 )
+VESSEL_CLASS_COLUMNS = ("is_cargo", "is_tanker", "vessel_class_unknown")
+FEATURE_COLUMNS = LEGACY_FEATURE_COLUMNS + ("is_cargo", "vessel_class_unknown")
+FEATURE_SCHEMA_VERSION = "vessel_class_v2"
 TARGET_COLUMN = "observation_to_arrival_minutes"
+
+
+def vessel_class_features(value: object) -> dict[str, float]:
+    """Encode known cargo/tanker and unavailable class as three distinct states.
+
+    Missing, unspecified and unsupported codes carry no cargo/tanker assertion.
+    Keep flags explicit so numeric imputation cannot turn unknown into cargo.
+    """
+    numeric = isinstance(value, (int, float, np.integer, np.floating)) and not isinstance(value, (bool, np.bool_))
+    valid = numeric and np.isfinite(value) and value % 1 == 0
+    cargo = bool(valid and 70 <= value <= 79)
+    tanker = bool(valid and 80 <= value <= 89)
+    return {"is_cargo": float(cargo), "is_tanker": float(tanker),
+            "vessel_class_unknown": float(not (cargo or tanker))}
 
 
 class FeatureBuilder:
@@ -46,7 +63,7 @@ class FeatureBuilder:
             "mean_speed_knots": float(recent["sog"].mean()),
             "mean_east_meters": float(((recent["longitude"] - self.gate.longitude) * longitude_scale).mean()),
             "speed_trend_knots_per_minute": trend,
-            "is_tanker": float(80 <= latest["vessel_type"] <= 89),
+            **vessel_class_features(latest["vessel_type"]),
             "history_missing": float(len(recent) < 2 or len(valid_speeds) < 2),
         }
 

@@ -9,7 +9,7 @@ import pandas as pd
 
 from .approaches import ApproachBuilder
 from .configuration import ExperimentConfig, SplitConfig
-from .features import FeatureBuilder
+from .features import FEATURE_COLUMNS, FEATURE_SCHEMA_VERSION, FeatureBuilder
 from .observations import load_observations
 
 logger = logging.getLogger(__name__)
@@ -57,6 +57,7 @@ def prepare_dataset(config: ExperimentConfig) -> Path:
         vessels=("mmsi", "nunique"),
     )
     manifest = {
+        "feature_schema_version": FEATURE_SCHEMA_VERSION, "feature_columns": list(FEATURE_COLUMNS),
         "input_csv": str(config.input_csv), "input_sha256": file_digest(config.input_csv),
         "audit": audit, "approach_audit": approach_audit,
         "crossings_without_examples": len(approaches) - len(episodes),

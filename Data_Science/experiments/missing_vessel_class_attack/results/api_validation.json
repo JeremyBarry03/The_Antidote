@@ -1,0 +1,5 @@
+{
+  "live_http_forecast_checks": 12,
+  "invalid_configuration_returns_400": true,
+  "child_server_stopped_after_verification": true
+}

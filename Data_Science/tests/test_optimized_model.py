@@ -10,7 +10,7 @@ import pytest
 from sklearn.dummy import DummyRegressor
 
 from eta_baselines.fitting import fit_imputer, training_weights
-from eta_baselines.features import FEATURE_COLUMNS
+from eta_baselines.features import FEATURE_COLUMNS, LEGACY_FEATURE_COLUMNS, VESSEL_CLASS_COLUMNS
 from eta_baselines.motion import circular_summary
 from eta_baselines.prediction import EtaPredictor
 from Optimized_Model.calibration import apply_review, fit_calibration, review_metrics
@@ -241,15 +241,29 @@ def test_saved_legacy_predictor_keeps_observation_anchor(demo_service: DemoServi
     predictor = demo_service.systems[0].predictor
     del predictor.__dict__["feature_columns"]
     del predictor.__dict__["target_clock"]
-    # Old bundles use the original ten-feature schema, exposed through class defaults.
-    snapshots = pd.DataFrame({column: [1.] for column in FEATURE_COLUMNS})
+    # Recover the original schema from fitted preprocessing, not current defaults.
+    snapshots = pd.DataFrame({column: [1.] for column in LEGACY_FEATURE_COLUMNS})
     snapshots["observation_time"] = pd.Timestamp("2024-03-05 12:00")
     snapshots["decision_time"] = pd.Timestamp("2024-03-05 12:10")
-    predictor.imputer = fit_imputer(snapshots, FEATURE_COLUMNS)
-    predictor.regressor = DummyRegressor(strategy="constant", constant=20).fit([[1.] * len(FEATURE_COLUMNS)], [20.])
+    predictor.imputer = fit_imputer(snapshots, LEGACY_FEATURE_COLUMNS)
+    predictor.regressor = DummyRegressor(strategy="constant", constant=20).fit([[1.] * len(LEGACY_FEATURE_COLUMNS)], [20.])
     result = predictor.predict(snapshots).iloc[0]
     assert result["predicted_arrival_time"] == pd.Timestamp("2024-03-05 12:20")
     assert result["predicted_remaining_minutes"] == 10
+
+
+@pytest.mark.parametrize("guarded", [False, True])
+def test_optimized_features_keep_unknown_class_distinct(optimized_config, vessel_reports, guarded):
+    extractor = OptimizedFeatures(optimized_config.baseline, optimized_config.guard)
+    decision = vessel_reports.time.iloc[-1]
+    cargo, _ = extractor.snapshot(vessel_reports, decision, guarded=guarded)
+    missing = vessel_reports.assign(vessel_type=np.nan)
+    unknown, _ = extractor.snapshot(missing, decision, guarded=guarded)
+    assert tuple(cargo.iloc[0][list(VESSEL_CLASS_COLUMNS)]) == (1., 0., 0.)
+    assert tuple(unknown.iloc[0][list(VESSEL_CLASS_COLUMNS)]) == (0., 0., 1.)
+    assert cargo.observation_time.iloc[0] == unknown.observation_time.iloc[0]
+    other = [column for column in cargo if column not in VESSEL_CLASS_COLUMNS]
+    pd.testing.assert_frame_equal(cargo[other], unknown[other])
 
 
 def test_prediction_rejects_missing_or_future_timestamp(demo_service: DemoService) -> None:
@@ -498,3 +512,37 @@ def test_missing_course_replay_uses_missing_angles_without_dropping_reports(demo
     assert attacked['attack']['injected_missing_course_reports_so_far'] == len(attacked['received_history'])
     assert all(row['time'] <= attacked['decision_time'] for row in attacked['attack']['inspection']['records'])
     assert all(row['action'] == 'course_removed' for row in attacked['attack']['inspection']['records'])
+
+
+def test_missing_vessel_class_retains_reports_and_calculates_eta(demo_service: DemoService) -> None:
+    from attacks import MissingVesselClassConfig
+
+    pair = demo_service.missing_vessel_class_snapshot('decision', MissingVesselClassConfig(1), reveal=True, inspect=True)
+    original, attacked = pair['original'], pair['attacked']
+    assert original['reference_arrival'] == attacked['reference_arrival']
+    assert original['decision_time'] == attacked['decision_time']
+    assert original['feed_counts'] == attacked['feed_counts']
+    assert all(card['available'] and card['error_minutes'] is not None for card in attacked['cards'])
+    for before, after in zip(original['received_history'], attacked['received_history']):
+        assert after['vessel_type'] is None
+        assert {key: value for key, value in before.items() if key != 'vessel_type'} == {
+            key: value for key, value in after.items() if key != 'vessel_type'}
+    assert 'classification_filter' not in attacked['attack']
+    assert attacked['attack']['injected_missing_vessel_class_reports_so_far'] == original['feed_counts']['received_total']
+    assert all(row['time'] <= attacked['decision_time'] for row in attacked['attack']['inspection']['records'])
+    assert all(row['action'] == 'vessel_class_removed' for row in attacked['attack']['inspection']['records'])
+    hidden = demo_service.missing_vessel_class_snapshot('decision', MissingVesselClassConfig(1))['attacked']
+    assert hidden['reference_arrival'] is None and hidden['attack']['inspection'] is None
+    assert all('error_minutes' not in card for card in hidden['cards'])
+
+
+def test_missing_vessel_class_zero_mask_matches_nominal_and_audit_cannot_change_cards(demo_service: DemoService) -> None:
+    from attacks import MissingVesselClassConfig
+
+    pair = demo_service.missing_vessel_class_snapshot('decision', MissingVesselClassConfig(0), reveal=True, inspect=True)
+    assert pair['original']['received_history'] == pair['attacked']['received_history']
+    assert [card['predicted_arrival_time'] for card in pair['original']['cards']] == [card['predicted_arrival_time'] for card in pair['attacked']['cards']]
+    plain = demo_service.missing_vessel_class_snapshot('decision', MissingVesselClassConfig(.5), reveal=True)['attacked']
+    inspected = demo_service.missing_vessel_class_snapshot('decision', MissingVesselClassConfig(.5), reveal=True, inspect=True)['attacked']
+    assert plain['cards'] == inspected['cards']
+    assert inspected['attack']['injected_missing_vessel_class_reports_so_far'] > 0

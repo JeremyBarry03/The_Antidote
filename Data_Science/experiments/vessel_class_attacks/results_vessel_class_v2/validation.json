@@ -1,0 +1,17 @@
+{
+  "legacy_baselines_reproduced": false,
+  "matched_original_feed_baselines_scored": true,
+  "every_report_retained": true,
+  "other_report_fields_equal": true,
+  "standard_feature_checks": 6720,
+  "original_clocks_and_crossing_references_preserved": true,
+  "all_summary_coverage_100_percent": true,
+  "source_and_model_hashes_unchanged": true,
+  "predictions": 105688,
+  "elapsed_seconds": 220.74436910000804,
+  "unknown_distinct_from_cargo_after_imputation": true,
+  "attacks": [
+    "MissingVesselClassAttack"
+  ],
+  "results_scope": "Retained missing-class scenarios; saved prediction/metric rows preserved."
+}

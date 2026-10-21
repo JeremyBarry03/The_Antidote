@@ -1,0 +1,11 @@
+{
+  "original_baselines_reproduced": true,
+  "original_crossing_references_unchanged": true,
+  "unaffected_fields_equal": true,
+  "all_scheduled_decisions_retained": true,
+  "standard_feature_checks": 5108,
+  "surviving_vessel_forecasts_unchanged": true,
+  "sources_and_models_unchanged": true,
+  "scheduled_prediction_rows": 105688,
+  "elapsed_seconds": 161.224172000002
+}
