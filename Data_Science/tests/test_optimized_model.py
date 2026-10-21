@@ -19,6 +19,7 @@ from Optimized_Model.dataset import ReplayDataset, _freeze_baselines
 from Optimized_Model.evaluation import PredictionSystem
 from Optimized_Model.features import OPTIMIZED_COLUMNS, OptimizedFeatures
 from Optimized_Model.quality import InputGuard
+from Optimized_Model.presentation import EvaluationEvidence, feed_counts, inspect_feed
 from Optimized_Model.replay import Condition, Scenario, create_stream
 from Optimized_Model.service import DemoService
 from Optimized_Model.views import ReplayTask, _replay_approach, view_row
@@ -345,3 +346,95 @@ def test_changed_run_local_snapshot_is_rejected(optimized_config: OptimizedConfi
     optimized_config.frozen_baseline_model("quadratic").write_bytes(b"changed snapshot")
     with pytest.raises(ValueError, match="Frozen baseline quadratic changed"):
         _freeze_baselines(optimized_config, expected)
+
+
+def test_inspector_does_not_change_forecasts_or_expose_future_reports(demo_service: DemoService) -> None:
+    plain = demo_service.snapshot("decision", "combined_15_0.5nm_25pct", reveal=False, verify=False)
+    inspected = demo_service.snapshot("decision", "combined_15_0.5nm_25pct", reveal=False, verify=False, inspect=True)
+    assert plain["inspection"] is None
+    assert plain["cards"] == inspected["cards"]
+    assert inspected["inspection"]["audience_only"]
+    for report in inspected["inspection"]["records"]:
+        assert pd.Timestamp(report["time"]) <= pd.Timestamp(inspected["decision_time"])
+        assert pd.Timestamp(report["delivered_time"]) <= pd.Timestamp(inspected["decision_time"])
+    assert inspected["reference_arrival"] is None
+    assert all("error_minutes" not in card for card in inspected["cards"])
+
+
+def test_inspector_recovers_original_coordinates_and_counts_every_copy(
+    optimized_config: OptimizedConfig, vessel_reports: pd.DataFrame,
+) -> None:
+    scenario = Scenario("all_bad", Condition.QUALITY, offset_nautical_miles=.5,
+                        affected_fraction=1, repetition=3, repetition_jitter_meters=.1)
+    stream = create_stream(vessel_reports, scenario, 4201, optimized_config.baseline.gate)
+    available = stream.available(vessel_reports["time"].iloc[15])
+    inspection = inspect_feed(stream, available, optimized_config.baseline.gate, 30)
+    counts = feed_counts(available, 30, 60)
+    assert counts["received_in_window"] == 48
+    assert inspection["affected_in_window"] == 48
+    assert counts["unique_in_window"] == 48
+    assert counts["occupied_bins"] == 16
+    for report in inspection["records"]:
+        original = vessel_reports.loc[vessel_reports["time"].eq(report["time"])].iloc[0]
+        assert report["original_longitude"] == pytest.approx(original["longitude"], abs=1e-12)
+        assert report["original_latitude"] == pytest.approx(original["latitude"], abs=1e-12)
+        assert report["offset_meters"] == pytest.approx(926, abs=.3)
+
+
+def test_demo_exposes_existing_volume_presets_and_preserves_shared_duplicate_treatment(demo_service: DemoService) -> None:
+    choices = demo_service.catalog()["scenario_options"]
+    assert {row["affected_fraction"] for row in choices if row["group"] == "prevalence"} == {.1, .25, .5}
+    original = demo_service.snapshot("decision", "reference_volume_1", reveal=False, verify=False)
+    repeated = demo_service.snapshot("decision", "reference_volume_5", reveal=False, verify=False, inspect=True)
+    assert original["cards"] == repeated["cards"]
+    assert repeated["feed_counts"]["received_in_window"] == 5 * original["feed_counts"]["received_in_window"]
+    assert repeated["feed_counts"]["unique_in_window"] == original["feed_counts"]["unique_in_window"]
+    assert repeated["inspection"]["affected_in_window"] == 0
+
+
+def test_saved_timeline_hides_future_decisions_outcomes_and_other_seeds(tmp_path: Path) -> None:
+    directory = tmp_path / "results" / "evaluation_primary"
+    directory.mkdir(parents=True)
+    rows = []
+    for seed in (4201, 4202):
+        for minute in (10, 20):
+            rows.append({"approach_id": "voyage", "decision_id": str(minute),
+                         "decision_time": f"2024-04-08 12:{minute}:00", "system": "C",
+                         "scenario": "nominal", "seed": seed, "available": True,
+                         "predicted_arrival_time": "2024-04-08 12:30:00", "error_minutes": -5})
+    pd.DataFrame(rows).to_csv(directory / "predictions.csv", index=False)
+    evidence = EvaluationEvidence(tmp_path, 4201)
+    hidden = evidence.timeline("voyage", "nominal", pd.Timestamp("2024-04-08 12:15"), reveal=False)
+    assert len(hidden["points"]) == 1
+    assert hidden["points"][0]["decision_id"] == "10"
+    assert "error_minutes" not in hidden["points"][0]
+    revealed = evidence.timeline("voyage", "nominal", pd.Timestamp("2024-04-08 12:15"), reveal=True)
+    assert revealed["points"][0]["error_minutes"] == -5
+
+
+def test_unknown_scenario_is_rejected_before_timeline_file_reads(demo_service: DemoService) -> None:
+    with pytest.raises(ValueError, match="Unknown predeclared"):
+        demo_service.timeline("decision", "invented_attack", reveal=False)
+
+
+def test_failure_examples_use_c_and_the_live_seed_instead_of_all_model_extremes(tmp_path: Path) -> None:
+    directory = tmp_path / "results" / "evaluation_primary"
+    directory.mkdir(parents=True)
+    base = {"approach_id": "voyage", "decision_id": "decision", "decision_time": "2024-04-08 12:10",
+            "system": "C", "scenario": "nominal", "seed": 4201, "available": True,
+            "predicted_arrival_time": "2024-04-08 12:30", "error_minutes": 30}
+    pd.DataFrame([base, {**base, "system": "A", "error_minutes": 1000},
+                  {**base, "seed": 4202, "error_minutes": 900}]).to_csv(directory / "predictions.csv", index=False)
+    examples = EvaluationEvidence(tmp_path, 4201).failure_examples()
+    assert len(examples) == 1
+    assert examples[0]["seed"] == 4201
+    assert examples[0]["error_minutes"] == 30
+
+
+def test_empty_delayed_stream_has_honest_zero_inspection_counts(demo_service: DemoService) -> None:
+    demo_service.dataset.decisions.loc[:, "decision_time"] = pd.Timestamp("2024-03-05 12:01")
+    snapshot = demo_service.snapshot("decision", "stale_15", reveal=False, verify=False, inspect=True)
+    assert snapshot["feed_counts"]["received_in_window"] == 0
+    assert snapshot["inspection"]["records"] == []
+    assert snapshot["inspection"]["actual_affected_share"] is None
+    assert all(not card["available"] for card in snapshot["cards"])

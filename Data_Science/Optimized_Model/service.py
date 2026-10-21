@@ -1,26 +1,49 @@
 """Local replay API; verified updates are explicit, logged human-assisted actions."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import logging
+import os
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import numpy as np
 import pandas as pd
+from dotenv import dotenv_values
 
 from .calibration import apply_review, load_calibration
 from .configuration import OptimizedConfig
 from .dataset import ReplayDataset, load_replay
 from .evaluation import PredictionSystem, load_systems, predict_systems
 from .features import OPTIMIZED_COLUMNS, RICH_COLUMNS, OptimizedFeatures
+from .presentation import EvaluationEvidence, VISIBLE_REPORT_LIMIT, demo_scenarios, feed_counts, inspect_feed, scenario_options
 from .replay import create_stream
 from .scenarios import primary_scenarios
 from .views import view_row
 
 logger = logging.getLogger(__name__)
+FRONTEND_DIRECTORY = Path(__file__).resolve().parents[2] / "Frontend"
+MAPBOX_ENV_FILE = FRONTEND_DIRECTORY.parent / ".env"
+MAPBOX_TOKEN_KEYS = ("MAPBOX_PUBLIC_TOKEN", "MAPBOX_TOKEN")
+ASSET_TYPES = {".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8"}
+
+
+def load_mapbox_public_token(env_file: Path) -> str | None:
+    """Read local configuration without changing the process environment.
+
+    Explicit environment settings take precedence over the repository's .env.
+    Secret tokens are never exposed by the browser configuration endpoint.
+    """
+    local_settings = dotenv_values(env_file, interpolate=False, encoding="utf-8-sig") if env_file.is_file() else {}
+    for source in (os.environ, local_settings):
+        for key in MAPBOX_TOKEN_KEYS:
+            value = source.get(key)
+            if value and value.strip():
+                token = value.strip()
+                return token if token.startswith("pk.") else None
+    return None
 
 
 def _json_value(value: object) -> object:
@@ -44,6 +67,7 @@ class DemoService:
     systems: list[PredictionSystem]
     extractor: OptimizedFeatures
     calibration: dict[str, object] | None
+    _evidence: EvaluationEvidence | None = field(default=None, init=False, repr=False)
 
     @classmethod
     def load(cls, config: OptimizedConfig) -> "DemoService":
@@ -53,29 +77,47 @@ class DemoService:
 
     def catalog(self) -> dict[str, object]:
         split = "evaluation" if len(self.dataset.partition("evaluation")) else "exploratory"
-        decisions = self.dataset.partition(split)
+        decisions = self.dataset.partition(split).sort_values(["decision_time", "approach_id"])
         approaches = []
         for identity, group in decisions.groupby("approach_id", sort=False):
-            approaches.append({"id": identity, "decisions": [
+            approaches.append({"id": identity, "mmsi": str(group["mmsi"].iloc[0]), "decisions": [
                 {"id": row.decision_id, "time": row.decision_time.isoformat()}
                 for row in group.itertuples()
             ]})
         return {"approaches": approaches, "scenarios": [scenario.name for scenario in primary_scenarios()],
+                "scenario_options": scenario_options(), "replay_seed": self.config.evaluation_seeds[0],
                 "split": split, "calibrated": self.calibration is not None,
                 "gate": {"longitude": self.config.baseline.gate.longitude,
                          "south": self.config.baseline.gate.south_latitude,
                          "north": self.config.baseline.gate.north_latitude}}
 
-    def snapshot(self, decision_id: str, scenario_name: str, *, reveal: bool, verify: bool) -> dict[str, object]:
+    def _decision(self, decision_id: str) -> pd.Series:
         selected = self.dataset.decisions.loc[self.dataset.decisions["decision_id"] == decision_id]
         if len(selected) != 1:
             raise ValueError("Unknown or ambiguous replay decision.")
-        decision = selected.iloc[0]
-        choices = {scenario.name: scenario for scenario in primary_scenarios()}
+        return selected.iloc[0]
+
+    def _evaluation_evidence(self) -> EvaluationEvidence:
+        if self._evidence is None:
+            self._evidence = EvaluationEvidence(self.config.output_directory, self.config.evaluation_seeds[0])
+        return self._evidence
+
+    def timeline(self, decision_id: str, scenario_name: str, *, reveal: bool) -> dict[str, object]:
+        decision = self._decision(decision_id)
+        if scenario_name not in demo_scenarios():
+            raise ValueError("Unknown predeclared replay scenario.")
+        return _json_value(self._evaluation_evidence().timeline(decision["approach_id"], scenario_name,
+                                                              decision["decision_time"], reveal=reveal))
+
+    def snapshot(self, decision_id: str, scenario_name: str, *, reveal: bool, verify: bool,
+                 inspect: bool = False) -> dict[str, object]:
+        decision = self._decision(decision_id)
+        choices = demo_scenarios()
         if scenario_name not in choices:
             raise ValueError("Unknown predeclared replay scenario.")
         reports = self.dataset.histories[decision["approach_id"]]
-        stream = create_stream(reports, choices[scenario_name], 1042, self.config.baseline.gate)
+        seed = self.config.evaluation_seeds[0]
+        stream = create_stream(reports, choices[scenario_name], seed, self.config.baseline.gate)
         available = stream.available(decision["decision_time"])
         verified_time = None
         if verify:
@@ -89,7 +131,7 @@ class DemoService:
             available = pd.concat([available, verified], ignore_index=True)
         row = decision.to_dict()
         row.update(view_row(available, decision, self.extractor))
-        row.update({"scenario": scenario_name, "condition": choices[scenario_name].condition.value, "seed": 1042})
+        row.update({"scenario": scenario_name, "condition": choices[scenario_name].condition.value, "seed": seed})
         frame = pd.DataFrame([row])
         for column in (*OPTIMIZED_COLUMNS, *(f"raw_{column}" for column in RICH_COLUMNS)):
             if column not in frame:
@@ -113,8 +155,18 @@ class DemoService:
                 card["error_minutes"] = prediction["error_minutes"]
             cards.append(card)
         result = {
+            "decision_id": decision_id, "scenario": scenario_name, "seed": seed,
             "decision_time": decision["decision_time"], "cards": cards,
-            "received_history": available[["time", "longitude", "latitude", "sog"]].tail(150).to_dict(orient="records"),
+            "received_history": available[["record_id", "time", "delivered_time", "longitude", "latitude", "sog"]]
+                .tail(VISIBLE_REPORT_LIMIT).to_dict(orient="records"),
+            "feed_counts": feed_counts(available, self.config.baseline.features.history_minutes,
+                                       self.config.guard.bin_seconds),
+            "observable_diagnostics": {key: row.get(key) for key in (
+                "latest_received_age_minutes", "latest_usable_age_minutes", "maximum_bin_spread_meters",
+                "velocity_disagreement_mps", "maximum_gap_seconds", "occupied_minute_bins",
+                "guard_received_count", "guard_removed_count", "reasons")},
+            "inspection": inspect_feed(stream, available, self.config.baseline.gate,
+                                       self.config.baseline.features.history_minutes) if inspect else None,
             "human_assisted": verify, "verified_observation_time": verified_time,
             "reference_arrival": decision["arrival_time"] if reveal else None,
             "reference_bracket": [decision["crossing_before"], decision["crossing_after"]] if reveal else None,
@@ -141,44 +193,68 @@ class DemoService:
                   "paired_comparisons": pd.read_csv(directory / "paired_uncertainty.csv").to_dict(orient="records")}
         review = directory / "review_summary.csv"
         result["review"] = pd.read_csv(review).to_dict(orient="records") if review.exists() else []
+        if review.exists():
+            policies = pd.DataFrame(result["review"])
+            selected = policies.loc[policies["system"].eq("C") & policies["policy"].eq("calibrated")
+                                    & policies["tolerance_minutes"].eq(self.config.review.maximum_half_width_minutes)]
+            result["review_policy"] = {"tolerance_minutes": self.config.review.maximum_half_width_minutes,
+                                       "scheduled": int(selected["scheduled"].sum()),
+                                       "accepted": int(selected["accepted"].sum())}
+        volume = self.config.output_directory / "results" / "evaluation_volume" / "condition_summary.csv"
+        result["volume_summary"] = pd.read_csv(volume).to_dict(orient="records") if volume.exists() else []
+        result["failures"] = self._evaluation_evidence().failure_examples()
         return _json_value(result)
 
 
 def serve(config: OptimizedConfig, port: int) -> None:
     if not 1024 <= port <= 65535:
         raise ValueError("Choose a local port between 1024 and 65535.")
+    mapbox_token = load_mapbox_public_token(MAPBOX_ENV_FILE)
     service = DemoService.load(config)
-    page = Path(__file__).resolve().parents[2] / "Frontend" / "eta_replay.html"
+    page = FRONTEND_DIRECTORY / "eta_replay.html"
+    assets = {f"/replay/{path.name}": path for path in (FRONTEND_DIRECTORY / "replay").iterdir()
+              if path.is_file() and path.suffix in ASSET_TYPES}
 
     class ReplayRequest(BaseHTTPRequestHandler):
+        def _send_bytes(self, status: int, body: bytes, content_type: str, cache_control: str) -> None:
+            try:
+                self.send_response(status)
+                self.send_header("Content-Type", content_type)
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Cache-Control", cache_control)
+                self.end_headers()
+                self.wfile.write(body)
+            except (BrokenPipeError, ConnectionResetError):
+                logger.debug("Replay browser cancelled the response")
+
         def _send(self, status: int, payload: object) -> None:
             body = json.dumps(_json_value(payload), allow_nan=False).encode()
-            self.send_response(status)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body)))
-            self.send_header("Cache-Control", "no-store")
-            self.end_headers()
-            self.wfile.write(body)
+            self._send_bytes(status, body, "application/json", "no-store")
 
         def do_GET(self) -> None:
             request = urlparse(self.path)
             try:
                 if request.path == "/":
-                    body = page.read_bytes()
-                    self.send_response(200)
-                    self.send_header("Content-Type", "text/html; charset=utf-8")
-                    self.send_header("Content-Length", str(len(body)))
-                    self.end_headers()
-                    self.wfile.write(body)
+                    self._send_bytes(200, page.read_bytes(), "text/html; charset=utf-8", "no-cache")
+                elif request.path in assets:
+                    path = assets[request.path]
+                    self._send_bytes(200, path.read_bytes(), ASSET_TYPES[path.suffix], "no-cache")
+                elif request.path == "/api/config":
+                    self._send(200, {"mapbox_public_token": mapbox_token})
                 elif request.path == "/api/catalog":
                     self._send(200, service.catalog())
                 elif request.path == "/api/metrics":
                     self._send(200, service.metrics())
-                elif request.path == "/api/replay":
+                elif request.path in ("/api/replay", "/api/timeline"):
                     query = parse_qs(request.query)
-                    self._send(200, service.snapshot(query.get("decision", [""])[0],
-                        query.get("scenario", ["nominal"])[0],
-                        reveal=query.get("reveal", ["false"])[0] == "true", verify=False))
+                    decision = query.get("decision", [""])[0]
+                    scenario = query.get("scenario", ["nominal"])[0]
+                    reveal = query.get("reveal", ["false"])[0] == "true"
+                    if request.path == "/api/timeline":
+                        self._send(200, service.timeline(decision, scenario, reveal=reveal))
+                    else:
+                        self._send(200, service.snapshot(decision, scenario, reveal=reveal, verify=False,
+                            inspect=query.get("inspect", ["false"])[0] == "true"))
                 else:
                     self._send(404, {"error": "Unknown route."})
             except (ValueError, KeyError) as error:
@@ -199,7 +275,8 @@ def serve(config: OptimizedConfig, port: int) -> None:
                 if not 0 < length <= 4096:
                     raise ValueError("Invalid verification request length.")
                 payload = json.loads(self.rfile.read(length))
-                result = service.snapshot(payload["decision"], payload["scenario"], reveal=False, verify=True)
+                result = service.snapshot(payload["decision"], payload["scenario"], reveal=False, verify=True,
+                                          inspect=payload.get("inspect") is True)
                 service.record_verification(payload["decision"], payload["scenario"], float(payload["review_seconds"]))
                 self._send(200, result)
             except (ValueError, KeyError, TypeError) as error:

@@ -4,6 +4,10 @@ This package builds on the existing `eta_baselines`, `Simple_baseline` and
 `XGBoost_Model` code. It retains their analytical east-to-west crossing at
 longitude -76.30, latitude 36.95-37.05. It does not predict docking at VIG.
 
+The interactive demo is available with `python -m Optimized_Model serve` at
+`http://127.0.0.1:8765`. See `../../Frontend/README.md` for the corruption inspector,
+optional Mapbox token, playback, saved evidence and frontend checks.
+
 ## Run the experiment
 
 Use Python 3.11 and the existing pinned `Data_Science/requirements.txt`. No new

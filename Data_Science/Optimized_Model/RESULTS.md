@@ -1,6 +1,7 @@
 # Model C implementation and measured results
 
-Completed October 20, 2026. UI work is deferred at the user's request.
+Model results completed October 20, 2026. The interactive replay is now documented
+in [the frontend guide](../../Frontend/README.md).
 
 Model C and all three learned controls are implemented and trained. A/B prediction
 behavior and nominal preprocessing remain compatible. Upstream baseline files were

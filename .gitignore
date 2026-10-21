@@ -3,3 +3,9 @@ Data_Science/.pytest_cache/
 Data_Science/.venv/
 Data_Science/artifacts/
 data
+Frontend/node_modules/
+
+# Local runtime configuration
+.env
+.env.*
+!.env.example
