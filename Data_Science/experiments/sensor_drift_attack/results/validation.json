@@ -1,0 +1,19 @@
+{
+  "baseline_mae_and_mdae_reproduced": true,
+  "every_source_report_retained": true,
+  "other_report_fields_and_missing_speed_pattern_preserved": true,
+  "unaffected_model_features_equal": true,
+  "original_clocks_and_arrival_labels_preserved": true,
+  "standard_feature_builder_used_for_every_decision": true,
+  "audit_truth_excluded_from_model_features": true,
+  "all_forecasts_finite": true,
+  "coverage_100_percent": true,
+  "protected_hashes_unchanged": true,
+  "approaches": 112,
+  "vessels": 110,
+  "unique_decisions": 2402,
+  "predictions": 91276,
+  "summary_rows": 14,
+  "drift_configurations": 18,
+  "elapsed_seconds": 253.91533050000726
+}

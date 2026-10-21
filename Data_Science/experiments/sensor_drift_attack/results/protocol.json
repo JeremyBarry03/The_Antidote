@@ -1,0 +1,55 @@
+{
+  "attack": "SensorDriftAttack",
+  "configuration": "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\Data_Science\\Optimized_Model\\config_vessel_class_v2.json",
+  "model_paths": {
+    "A": "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\Data_Science\\artifacts\\optimized\\march_gate_vessel_class_v2\\frozen_baselines\\quadratic\\model.joblib",
+    "B": "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\Data_Science\\artifacts\\optimized\\march_gate_vessel_class_v2\\frozen_baselines\\xgboost\\model.joblib"
+  },
+  "protected_hashes": {
+    "A": "cb4e2f171405f45b6f03fbcf351eec2bf8f2e43f534de07199c3b5db15c24e10",
+    "B": "7affc0937d42d337d2fec712fe767b4ef7a4544e3592c8e2015f0ceafb253c16",
+    "March": "de8946c04c3fa2dfd45c88f7c501d751c49091c30045a173020887c6cd69de71",
+    "April": "0bd05942c85247f2c5aadaca31df9945c2805f787b0d425fabeea5f2748a4fbd",
+    "service": "cda3295c89203c31f7ded75498ba406f33a3f7c3145f7574763a51128a88ced1",
+    "baseline_training": "d3c060cc0692f7d998940609a2767fbe6acd1352a77c27b93a597796e8f27374",
+    "optimized_training": "1201efef668b7023eb968491d0a412311288339e9df878314695b1e7dd26780c",
+    "features": "dd58103f61dcbb8039f2989ce15f437cc7f6b36cdae84f7ff81599e1ef05da9b",
+    "prediction": "66c92331ca318f2fe45e4f813b10f5d90bad804fbc6e6a4fad5a05d9904d811d"
+  },
+  "signed_rates_knots_per_minute": [
+    -0.025,
+    -0.05,
+    -0.1,
+    0.025,
+    0.05,
+    0.1
+  ],
+  "profile_seeds": [
+    4201,
+    4202,
+    4203
+  ],
+  "training": "None; saved A/B remain frozen",
+  "defaults": {
+    "drift_rate_knots_per_minute": -0.1,
+    "rate_variation_fraction": 0.25,
+    "variation_period_minutes": 20.0,
+    "maximum_bias_knots": 3.0,
+    "seed": 42,
+    "target_mmsi": null,
+    "start_time": null
+  },
+  "start_policy": "Each supplied approach begins at its first report",
+  "profile": "Integrated sinusoidal variation of signed rate; smoothly bounded with maximum_bias*tanh(q/maximum_bias)",
+  "speed_bounds_knots": [
+    0.0,
+    102.2
+  ],
+  "simulation": "Original reported speed is a reference, not verified physical truth",
+  "MAE": "Equal approach weight, with scenario realizations averaged within each approach",
+  "MdAE": "Pooled absolute-error median over decision/profile-seed pairs",
+  "P95": "Pooled 95th percentile of absolute errors",
+  "bootstrap": "1,000 paired vessel-cluster draws; fixed seed 20261021",
+  "scope": "No service, frontend, shared feature/model-training, calibration or mitigation changes",
+  "evaluation": "Same April 8-21 cases/clocks/analytical crossing references; previously inspected"
+}

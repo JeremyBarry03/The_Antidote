@@ -5,7 +5,8 @@ from .missingCourseAttack import MissingCourseAttack, MissingCourseConfig
 from .missingSpeedAttack import MissingSpeedAttack, MissingSpeedConfig
 from .missingVesselClassAttack import MissingVesselClassAttack, MissingVesselClassConfig
 from .reportingGapAttack import ReportingGapAttack, ReportingGapConfig
+from .sensorDriftAttack import SensorDriftAttack, SensorDriftConfig
 
 __all__ = ["BaseAttack", "MissingCourseAttack", "MissingCourseConfig", "MissingSpeedAttack", "MissingSpeedConfig",
            "MissingVesselClassAttack", "MissingVesselClassConfig",
-           "ReportingGapAttack", "ReportingGapConfig"]
+           "ReportingGapAttack", "ReportingGapConfig", "SensorDriftAttack", "SensorDriftConfig"]
