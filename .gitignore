@@ -5,6 +5,10 @@ Data_Science/artifacts/
 data
 Frontend/node_modules/
 
+# Generated CSV outputs; keep source data under its existing folder policy.
+*.[cC][sS][vV]
+!/data/**/*.[cC][sS][vV]
+
 # Local runtime configuration
 .env
 .env.*

@@ -13,7 +13,8 @@ import numpy as np
 import pandas as pd
 from dotenv import dotenv_values
 
-from attacks import BaseAttack, MissingSpeedAttack, MissingSpeedConfig, ReportingGapAttack, ReportingGapConfig
+from attacks import (BaseAttack, MissingCourseAttack, MissingCourseConfig,
+                     MissingSpeedAttack, MissingSpeedConfig, ReportingGapAttack, ReportingGapConfig)
 
 from .calibration import apply_review, load_calibration
 from .configuration import OptimizedConfig
@@ -166,7 +167,7 @@ class DemoService:
         result = {
             "decision_id": decision_id, "scenario": attack.name if attack is not None else scenario_name, "seed": seed,
             "decision_time": decision["decision_time"], "cards": cards,
-            "received_history": available[["record_id", "time", "delivered_time", "longitude", "latitude", "sog"]]
+            "received_history": available[["record_id", "time", "delivered_time", "longitude", "latitude", "sog", "cog"]]
                 .tail(VISIBLE_REPORT_LIMIT).to_dict(orient="records"),
             "feed_counts": feed_counts(available, self.config.baseline.features.history_minutes,
                                        self.config.guard.bin_seconds),
@@ -187,6 +188,7 @@ class DemoService:
             result["attack"] = {"name": attack.name, "parameters": attack.parameters,
                                 "withheld_reports_so_far": int(known["action"].eq("dropped").sum()),
                                 "injected_missing_speed_reports_so_far": int(known["action"].eq("speed_removed").sum()),
+                                "injected_missing_course_reports_so_far": int(known["action"].eq("course_removed").sum()),
                                 "inspection": {"audience_only": True,
                                                "records": affected.tail(VISIBLE_REPORT_LIMIT).to_dict(orient="records"),
                                                "truncated": len(affected) > VISIBLE_REPORT_LIMIT} if inspect else None}
@@ -208,6 +210,15 @@ class DemoService:
         original = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False)
         attacked = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False,
                                  inspect=inspect, attack=MissingSpeedAttack(config))
+        return {"original": original, "attacked": attacked}
+
+    def missing_course_snapshot(
+        self, decision_id: str, config: MissingCourseConfig, *, reveal: bool = False, inspect: bool = False,
+    ) -> dict[str, object]:
+        """Same-clock course masking using current imputation, not a northward default."""
+        original = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False)
+        attacked = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False,
+                                 inspect=inspect, attack=MissingCourseAttack(config))
         return {"original": original, "attacked": attacked}
 
     def record_verification(self, decision_id: str, scenario_name: str, review_seconds: float) -> None:
@@ -282,6 +293,18 @@ def serve(config: OptimizedConfig, port: int) -> None:
                     self._send(200, service.catalog())
                 elif request.path == "/api/metrics":
                     self._send(200, service.metrics())
+                elif request.path == "/api/attacks/missing-course":
+                    query = parse_qs(request.query)
+                    config = MissingCourseConfig(
+                        affected_fraction=float(query.get("affected_fraction", ["0.25"])[0]),
+                        seed=int(query.get("seed", ["42"])[0]),
+                        target_mmsi=query.get("target_mmsi", [None])[0],
+                    )
+                    self._send(200, service.missing_course_snapshot(
+                        query.get("decision", [""])[0], config,
+                        reveal=query.get("reveal", ["false"])[0] == "true",
+                        inspect=query.get("inspect", ["false"])[0] == "true",
+                    ))
                 elif request.path == "/api/attacks/missing-speed":
                     query = parse_qs(request.query)
                     config = MissingSpeedConfig(

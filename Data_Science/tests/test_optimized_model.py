@@ -23,7 +23,7 @@ from Optimized_Model.presentation import EvaluationEvidence, feed_counts, inspec
 from Optimized_Model.replay import Condition, Scenario, create_stream
 from Optimized_Model.service import DemoService
 from Optimized_Model.views import ReplayTask, _replay_approach, view_row
-from attacks import MissingSpeedConfig, ReportingGapAttack, ReportingGapConfig
+from attacks import MissingCourseConfig, MissingSpeedConfig, ReportingGapAttack, ReportingGapConfig
 
 
 @pytest.fixture
@@ -483,3 +483,18 @@ def test_missing_speed_replay_preserves_positions_and_handles_all_missing_speed(
     assert all(card['available'] for card in attacked['cards'])
     assert all(row['time'] <= attacked['decision_time'] for row in attacked['attack']['inspection']['records'])
     assert all(row['action'] == 'speed_removed' for row in attacked['attack']['inspection']['records'])
+
+
+def test_missing_course_replay_uses_missing_angles_without_dropping_reports(demo_service: DemoService) -> None:
+    pair = demo_service.missing_course_snapshot('decision', MissingCourseConfig(1), reveal=True, inspect=True)
+    original, attacked = pair['original'], pair['attacked']
+    assert original['reference_arrival'] == attacked['reference_arrival']
+    for before, after in zip(original['received_history'], attacked['received_history']):
+        assert after['cog'] is None
+        assert {k: v for k, v in before.items() if k != 'cog'} == {k: v for k, v in after.items() if k != 'cog'}
+    assert all(card['available'] for card in attacked['cards'])
+    assert attacked['attack']['withheld_reports_so_far'] == 0
+    assert attacked['attack']['injected_missing_speed_reports_so_far'] == 0
+    assert attacked['attack']['injected_missing_course_reports_so_far'] == len(attacked['received_history'])
+    assert all(row['time'] <= attacked['decision_time'] for row in attacked['attack']['inspection']['records'])
+    assert all(row['action'] == 'course_removed' for row in attacked['attack']['inspection']['records'])

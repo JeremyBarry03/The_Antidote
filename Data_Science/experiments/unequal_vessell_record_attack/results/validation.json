@@ -1,0 +1,19 @@
+{
+  "baseline_max_forecast_difference_minutes": {
+    "A": 0.0,
+    "B": 0.0
+  },
+  "exact_replication_values_checked": true,
+  "evaluation_rows_unchanged": true,
+  "equal_approach_training_totals_checked": true,
+  "protected_hashes_unchanged": true,
+  "elapsed_seconds": 22.23081579999416,
+  "predictions": 48040,
+  "versions": {
+    "numpy": "2.4.4",
+    "pandas": "2.3.3",
+    "scikit-learn": "1.6.1",
+    "xgboost": "3.1.1",
+    "joblib": "1.5.3"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "model": "frozen B / XGBoost",
+  "model_sha256": "d4133001b881ecf03c7adb0a6d1ba07bc1e0a27093b3ba757df1ff473362090e",
+  "removal_fractions": [
+    0.1,
+    0.25,
+    0.5,
+    1.0
+  ],
+  "partial_selection_seeds": [
+    4201,
+    4202,
+    4203
+  ],
+  "full_selection": "100% is seed independent, evaluated once",
+  "field": "cog / course over ground, not heading",
+  "current_pipeline": "Preserve missing course, then apply existing trained feature imputation",
+  "zero_fill_control": "Fill missing cog with zero degrees before sine/cosine encoding; includes naturally missing values",
+  "feature_reuse": "Only course_sin and course_cos depend on cog in B. Reuse other columns; verify against standard extraction per approach/seed/config.",
+  "reference": "Same original analytical crossing, not docking; no retraining",
+  "period": "April 8-21 follow-up; previously inspected data",
+  "rates": "10-100% are stress assumptions, much greater than observed missing-course prevalence",
+  "MAE": "Equal approach weights; seeds averaged within approaches",
+  "MdAE": "Pooled median absolute error over decision/seed pairs",
+  "bootstrap_seed": 20261021,
+  "bootstrap_samples": 1000
+}
