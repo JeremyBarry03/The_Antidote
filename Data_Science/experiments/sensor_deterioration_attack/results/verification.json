@@ -1,0 +1,30 @@
+{
+  "python_tests": {
+    "command": "python -m pytest -q",
+    "passed": 216,
+    "elapsed_seconds": 13.99
+  },
+  "frontend_types": {
+    "command": "npm run check",
+    "passed": true
+  },
+  "frontend_tests": {
+    "command": "npm test",
+    "passed": 12
+  },
+  "live_browser": {
+    "models": [
+      "A",
+      "B",
+      "C"
+    ],
+    "preset": "sensor_deterioration_high",
+    "vessel": "255803201",
+    "decision_utc": "2024-04-08T06:30:00",
+    "cards_timeline_and_measurement_inspection_verified": true,
+    "temporary_browser_and_server_closed_after_check": true
+  },
+  "original_A_B_baselines_reproduced_atol_minutes": 1e-07,
+  "protected_source_and_model_hashes_rechecked": true,
+  "expanded_single_field_and_partial_fraction_cohort_experiments_run": false
+}

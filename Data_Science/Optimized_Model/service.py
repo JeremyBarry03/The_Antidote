@@ -15,7 +15,7 @@ from dotenv import dotenv_values
 
 from attacks import (BaseAttack, MissingCourseAttack, MissingCourseConfig,
                      MissingSpeedAttack, MissingSpeedConfig, MissingVesselClassAttack, MissingVesselClassConfig,
-                     ReportingGapAttack, ReportingGapConfig)
+                     ReportingGapAttack, ReportingGapConfig, SensorDeteriorationAttack, SensorDeteriorationConfig)
 
 from .calibration import apply_review, load_calibration
 from .configuration import OptimizedConfig
@@ -25,6 +25,7 @@ from .features import OPTIMIZED_COLUMNS, RICH_COLUMNS, OptimizedFeatures
 from .presentation import EvaluationEvidence, VISIBLE_REPORT_LIMIT, demo_scenarios, feed_counts, inspect_feed, scenario_options
 from .replay import create_stream
 from .scenarios import primary_scenarios
+from .sensor_deterioration import deterioration_options, deterioration_presets, inspect_deterioration
 from .views import view_row
 
 logger = logging.getLogger(__name__)
@@ -89,7 +90,8 @@ class DemoService:
                 for row in group.itertuples()
             ]})
         return {"approaches": approaches, "scenarios": [scenario.name for scenario in primary_scenarios()],
-                "scenario_options": scenario_options(), "replay_seed": self.config.evaluation_seeds[0],
+                "scenario_options": [*scenario_options(), *deterioration_options(self.config.evaluation_seeds[0])],
+                "replay_seed": self.config.evaluation_seeds[0],
                 "split": split, "calibrated": self.calibration is not None,
                 "gate": {"longitude": self.config.baseline.gate.longitude,
                          "south": self.config.baseline.gate.south_latitude,
@@ -108,6 +110,33 @@ class DemoService:
 
     def timeline(self, decision_id: str, scenario_name: str, *, reveal: bool) -> dict[str, object]:
         decision = self._decision(decision_id)
+        presets = deterioration_presets(self.config.evaluation_seeds[0])
+        if scenario_name in presets:
+            config = presets[scenario_name]
+            stream = SensorDeteriorationAttack(config).apply(self.dataset.histories[decision.approach_id])
+            past = self.dataset.decisions.loc[
+                self.dataset.decisions.approach_id.eq(decision.approach_id)
+                & self.dataset.decisions.decision_time.le(decision.decision_time)].sort_values("decision_time")
+            rows = []
+            for _, previous in past.iterrows():
+                row = previous.to_dict()
+                row.update(view_row(stream.available(previous.decision_time), previous, self.extractor))
+                row.update(scenario=scenario_name, condition="quality", seed=config.seed)
+                rows.append(row)
+            frame = pd.DataFrame(rows)
+            for column in (*OPTIMIZED_COLUMNS, *(f"raw_{c}" for c in RICH_COLUMNS)):
+                if column not in frame:
+                    frame[column] = np.nan
+            for column in ("observation_time", "raw_observation_time"):
+                if column not in frame:
+                    frame[column] = pd.NaT
+            predictions = predict_systems(frame, [s for s in self.systems if s.name in ("A", "B", "C")])
+            columns = ["decision_id", "decision_time", "system", "available", "predicted_arrival_time"]
+            if reveal:
+                columns.append("error_minutes")
+            return _json_value({"available": True, "seed": config.seed,
+                                "source": "Live historical replay with simulated Gaussian noise",
+                                "points": predictions[columns].to_dict(orient="records")})
         if scenario_name not in demo_scenarios():
             raise ValueError("Unknown predeclared replay scenario.")
         return _json_value(self._evaluation_evidence().timeline(decision["approach_id"], scenario_name,
@@ -115,6 +144,14 @@ class DemoService:
 
     def snapshot(self, decision_id: str, scenario_name: str, *, reveal: bool, verify: bool,
                  inspect: bool = False, attack: BaseAttack | None = None) -> dict[str, object]:
+        presets = deterioration_presets(self.config.evaluation_seeds[0])
+        if scenario_name in presets:
+            if verify or attack is not None:
+                raise ValueError("Sensor deterioration presets require unattended replay without another attack.")
+            result = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False, inspect=inspect,
+                                   attack=SensorDeteriorationAttack(presets[scenario_name]))
+            result["scenario"] = scenario_name
+            return result
         decision = self._decision(decision_id)
         choices = demo_scenarios()
         if scenario_name not in choices:
@@ -126,6 +163,7 @@ class DemoService:
         stream = create_stream(reports, choices[scenario_name], seed, self.config.baseline.gate)
         if attack is not None:
             stream = attack.apply(stream.reports)
+            seed = attack.parameters.get("seed", seed)
         available = stream.available(decision["decision_time"])
         verified_time = None
         if verify:
@@ -184,7 +222,11 @@ class DemoService:
         }
         if attack is not None:
             # Audit truth is added only after inference, never to the feature frame.
-            known = stream.modification_log.loc[stream.modification_log["time"] <= decision["decision_time"]]
+            if isinstance(attack, SensorDeteriorationAttack) and inspect:
+                result["inspection"] = inspect_deterioration(
+                    stream, available, self.config.baseline.features.history_minutes)
+            known = stream.modification_log.loc[(stream.modification_log["time"] <= decision["decision_time"])
+                & (stream.modification_log["delivered_time"] <= decision["decision_time"])]
             affected = known.loc[known["fault_applied"]]
             result["attack"] = {"name": attack.name, "parameters": attack.parameters,
                                 "withheld_reports_so_far": int(known["action"].eq("dropped").sum()),
@@ -195,6 +237,15 @@ class DemoService:
                                                "records": affected.tail(VISIBLE_REPORT_LIMIT).to_dict(orient="records"),
                                                "truncated": len(affected) > VISIBLE_REPORT_LIMIT} if inspect else None}
         return _json_value(result)
+
+    def sensor_deterioration_snapshot(
+        self, decision_id: str, config: SensorDeteriorationConfig, *, reveal: bool = False, inspect: bool = False,
+    ) -> dict[str, object]:
+        """Pair original and corrupted feeds at identical clocks and references."""
+        original = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False)
+        attacked = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False,
+                                 inspect=inspect, attack=SensorDeteriorationAttack(config))
+        return {"original": original, "attacked": attacked}
 
     def reporting_gap_snapshot(
         self, decision_id: str, config: ReportingGapConfig, *, reveal: bool = False, inspect: bool = False,
@@ -304,6 +355,19 @@ def serve(config: OptimizedConfig, port: int) -> None:
                     self._send(200, service.catalog())
                 elif request.path == "/api/metrics":
                     self._send(200, service.metrics())
+                elif request.path == "/api/attacks/sensor-deterioration":
+                    query = parse_qs(request.query)
+                    defaults = SensorDeteriorationConfig.from_severity(query.get("severity", ["medium"])[0])
+                    config = SensorDeteriorationConfig(
+                        sog_sigma_knots=float(query.get("sog_sigma_knots", [str(defaults.sog_sigma_knots)])[0]),
+                        cog_sigma_degrees=float(query.get("cog_sigma_degrees", [str(defaults.cog_sigma_degrees)])[0]),
+                        affected_fraction=float(query.get("affected_fraction", ["1"])[0]),
+                        seed=int(query.get("seed", ["42"])[0]), target_mmsi=query.get("target_mmsi", [None])[0],
+                    )
+                    self._send(200, service.sensor_deterioration_snapshot(
+                        query.get("decision", [""])[0], config,
+                        reveal=query.get("reveal", ["false"])[0] == "true",
+                        inspect=query.get("inspect", ["false"])[0] == "true"))
                 elif request.path == "/api/attacks/missing-vessel-class":
                     query = parse_qs(request.query)
                     config = MissingVesselClassConfig(

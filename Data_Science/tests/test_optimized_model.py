@@ -24,6 +24,7 @@ from Optimized_Model.replay import Condition, Scenario, create_stream
 from Optimized_Model.service import DemoService
 from Optimized_Model.views import ReplayTask, _replay_approach, view_row
 from attacks import MissingCourseConfig, MissingSpeedConfig, ReportingGapAttack, ReportingGapConfig
+from attacks import SensorDeteriorationConfig
 
 
 @pytest.fixture
@@ -468,6 +469,94 @@ def test_reporting_gap_pairs_same_reference_and_hides_future_audit(demo_service:
     assert all(card["review_reason"] == "attack_not_calibrated_requires_review" for card in attacked["cards"])
     assert attacked["inspection"] is None
     assert "attack" not in original
+
+
+def test_deterioration_replay_keeps_all_models_and_hides_future_truth(demo_service: DemoService) -> None:
+    config = SensorDeteriorationConfig.from_severity("high", seed=99)
+    pair = demo_service.sensor_deterioration_snapshot("decision", config, reveal=True, inspect=True)
+    original, attacked = pair["original"], pair["attacked"]
+    assert original["reference_arrival"] == attacked["reference_arrival"]
+    assert original["decision_time"] == attacked["decision_time"]
+    assert [c["system"] for c in attacked["cards"]] == ["A", "B", "C"]
+    assert all(c["available"] and not c["accepted"] for c in attacked["cards"])
+    assert attacked["seed"] == 99
+    assert len(original["received_history"]) == len(attacked["received_history"])
+    assert attacked["inspection"]["kind"] == "sensor_deterioration"
+    for row in attacked["inspection"]["records"]:
+        assert row["time"] <= attacked["decision_time"]
+        assert row["delivered_time"] <= attacked["decision_time"]
+        assert row["longitude"] == row["original_longitude"]
+    plain = demo_service.sensor_deterioration_snapshot("decision", config, reveal=True)["attacked"]
+    assert plain["cards"] == attacked["cards"]
+    hidden = demo_service.sensor_deterioration_snapshot("decision", config)["attacked"]
+    assert hidden["reference_arrival"] is None and hidden["inspection"] is None
+    assert all("error_minutes" not in card for card in hidden["cards"])
+
+
+def test_deterioration_presets_timeline_and_noop_use_normal_replay(demo_service: DemoService) -> None:
+    choices = [c for c in demo_service.catalog()["scenario_options"] if c["group"] == "deterioration"]
+    assert len(choices) == 4
+    result = demo_service.snapshot("decision", "sensor_deterioration_low", reveal=False, verify=False, inspect=True)
+    assert result["scenario"] == "sensor_deterioration_low"
+    timeline = demo_service.timeline("decision", "sensor_deterioration_low", reveal=False)
+    assert len(timeline["points"]) == 3
+    assert all(p["decision_time"] <= result["decision_time"] and "error_minutes" not in p for p in timeline["points"])
+    assert {p["system"]: p["predicted_arrival_time"] for p in timeline["points"]} == {
+        c["system"]: c["predicted_arrival_time"] for c in result["cards"]}
+    with pytest.raises(ValueError, match="unattended"):
+        demo_service.snapshot("decision", "sensor_deterioration_low", reveal=False, verify=True)
+    pair = demo_service.sensor_deterioration_snapshot("decision", SensorDeteriorationConfig(0, 0), reveal=True)
+    assert pair["original"]["received_history"] == pair["attacked"]["received_history"]
+    for left, right in zip(pair["original"]["cards"], pair["attacked"]["cards"]):
+        assert left["predicted_arrival_time"] == right["predicted_arrival_time"]
+
+
+def test_deterioration_http_endpoint_and_existing_routes(demo_service: DemoService, monkeypatch) -> None:
+    from http.server import HTTPServer
+    from queue import Queue
+    from threading import Thread
+    from urllib.error import HTTPError
+    from urllib.request import urlopen
+    from Optimized_Model import service
+
+    ready = Queue()
+
+    def create_server(address, handler):
+        server = HTTPServer((address[0], 0), handler)
+        ready.put(server)
+        return server
+
+    monkeypatch.setattr(service, "HTTPServer", create_server)
+    monkeypatch.setattr(DemoService, "load", classmethod(lambda cls, config: demo_service))
+    thread = Thread(target=service.serve, args=(demo_service.config, 8765), daemon=True)
+    thread.start()
+    server = ready.get(timeout=5)
+    root = f"http://127.0.0.1:{server.server_port}"
+    try:
+        path = "/api/attacks/sensor-deterioration?decision=decision&severity=high&affected_fraction=0.25&cog_sigma_degrees=0&seed=99&inspect=true"
+        with urlopen(root+path, timeout=5) as response:
+            pair = json.load(response)
+        assert pair["attacked"]["attack"]["parameters"]["cog_sigma_degrees"] == 0
+        assert pair["attacked"]["seed"] == 99
+        with pytest.raises(HTTPError) as error:
+            urlopen(root+path+"&sog_sigma_knots=-1", timeout=5)
+        assert error.value.code == 400
+        for path in ("/api/catalog", "/api/replay?decision=decision&scenario=nominal",
+                     "/api/replay?decision=decision&scenario=sensor_deterioration_extreme",
+                     "/api/timeline?decision=decision&scenario=sensor_deterioration_low"):
+            with urlopen(root+path, timeout=5) as response:
+                assert response.status == 200
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+
+
+def test_deterioration_timeline_keeps_unavailable_forecasts(demo_service: DemoService) -> None:
+    demo_service.dataset.histories["voyage"] = demo_service.dataset.histories["voyage"].iloc[:0]
+    timeline = demo_service.timeline("decision", "sensor_deterioration_low", reveal=True)
+    assert len(timeline["points"]) == 3
+    assert all(not p["available"] and p["predicted_arrival_time"] is None
+               and p["error_minutes"] is None for p in timeline["points"])
 
 
 def test_reporting_gap_full_outage_has_no_forecasts_and_reveal_is_optional(demo_service: DemoService) -> None:
