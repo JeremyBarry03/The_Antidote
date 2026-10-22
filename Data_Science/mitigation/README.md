@@ -30,3 +30,8 @@ to the observed feed regardless of whether its gaps are natural or simulated.
 It detects per-vessel reporting silence; it does not reconstruct positions,
 modify features, or retrain models. The former projection adapter and experiment
 outputs have been removed.
+
+`MissingSpeedMitigation` reconstructs supported missing speed from prior trusted
+positions without retraining C. Its frozen-model adapter is opt-in. See
+[the module README](missing_speed_mitigation/README.md) and
+[the paired experiment report](../experiments/missing_speed_mitigation/results/REPORT.md).

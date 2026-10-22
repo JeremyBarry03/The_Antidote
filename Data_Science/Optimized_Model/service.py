@@ -15,6 +15,8 @@ from dotenv import dotenv_values
 
 from api.anamoly_detector import AnomalyDetector
 from mitigation.gap_mitigation import GapMitigation, GapMitigationConfig
+from mitigation.missing_speed_mitigation import MissingSpeedMitigation, SpeedStatus
+from mitigation.missing_speed_mitigation.optimized_model import missing_speed_snapshot
 
 from attacks import (BaseAttack, MissingCourseAttack, MissingCourseConfig,
                      MissingSpeedAttack, MissingSpeedConfig, MissingVesselClassAttack, MissingVesselClassConfig,
@@ -156,7 +158,11 @@ class DemoService:
                             "points": predictions[columns].to_dict(orient="records")})
 
     def snapshot(self, decision_id: str, scenario_name: str, *, reveal: bool, verify: bool,
-                 inspect: bool = False, attack: BaseAttack | None = None) -> dict[str, object]:
+                 inspect: bool = False, attack: BaseAttack | None = None,
+                 mitigate_missing_speed: bool = False) -> dict[str, object]:
+        if mitigate_missing_speed and (scenario_name != "nominal" or verify
+                                       or (attack is not None and not isinstance(attack, MissingSpeedAttack))):
+            raise ValueError("Missing-speed mitigation currently supports unattended nominal/missing-speed replay only.")
         jumps = position_jump_presets(self.config.evaluation_seeds[0])
         if scenario_name in jumps:
             if verify or attack is not None:
@@ -198,6 +204,14 @@ class DemoService:
             available = pd.concat([available, verified], ignore_index=True)
         row = decision.to_dict()
         row.update(view_row(available, decision, self.extractor))
+        speed_mitigation = None
+        if mitigate_missing_speed:
+            speed_mitigation = missing_speed_snapshot(
+                available, decision["decision_time"], self.extractor,
+                MissingSpeedMitigation(self.config.baseline.gate))
+            if not speed_mitigation.mitigated_features.empty:
+                # Only guarded C inputs change. Poly and ordinary XGBoost use raw_*.
+                row.update(speed_mitigation.mitigated_features.iloc[0].to_dict())
         row.update({"scenario": scenario_name, "condition": choices[scenario_name].condition.value, "seed": seed})
         if attack is not None:
             row.update({"scenario": attack.name, "condition": attack.condition.value})
@@ -221,6 +235,10 @@ class DemoService:
                 card["review_reason"] = ("attack_not_calibrated_requires_review" if attack is not None
                                          else "not_calibrated_requires_review")
                 card["accepted"] = False
+            if (prediction["system"] == "C" and speed_mitigation is not None
+                    and any(item.status == SpeedStatus.ESTIMATED for item in speed_mitigation.repair.audit)):
+                card.update(review_reason="missing_speed_mitigation_not_calibrated", accepted=False,
+                            interval_half_width_minutes=None, calibration_approaches=None)
             if reveal:
                 card["error_minutes"] = prediction["error_minutes"]
             cards.append(card)
@@ -243,6 +261,14 @@ class DemoService:
             "anomaly_detection": AnomalyDetector(GapMitigation(self.config.baseline.gate)).evaluate(
                 available, decision["decision_time"]),
         }
+        if speed_mitigation is not None:
+            result["missing_speed_mitigation"] = {
+                "enabled": True, "model_retrained": False,
+                "anomaly_detected": bool(speed_mitigation.repair.audit),
+                "estimated_reports": sum(item.status == SpeedStatus.ESTIMATED for item in speed_mitigation.repair.audit),
+                "unsupported_reports": sum(item.status == SpeedStatus.UNSUPPORTED for item in speed_mitigation.repair.audit),
+                "audit": [item.to_dict() for item in speed_mitigation.repair.audit],
+            }
         if attack is not None:
             # Audit truth is added only after inference, never to the feature frame.
             if isinstance(attack, SensorDeteriorationAttack) and inspect:
@@ -310,11 +336,14 @@ class DemoService:
 
     def missing_speed_snapshot(
         self, decision_id: str, config: MissingSpeedConfig, *, reveal: bool = False, inspect: bool = False,
+        mitigate_missing_speed: bool = False,
     ) -> dict[str, object]:
         """Same-clock comparison using current imputation, never zero-filled speed."""
-        original = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False)
+        original = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False,
+                                 mitigate_missing_speed=mitigate_missing_speed)
         attacked = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False,
-                                 inspect=inspect, attack=MissingSpeedAttack(config))
+                                 inspect=inspect, attack=MissingSpeedAttack(config),
+                                 mitigate_missing_speed=mitigate_missing_speed)
         return {"original": original, "attacked": attacked}
 
     def missing_course_snapshot(
@@ -478,6 +507,9 @@ def serve(config: OptimizedConfig, port: int) -> None:
                     ))
                 elif request.path == "/api/attacks/missing-speed":
                     query = parse_qs(request.query)
+                    mitigation_flag = query.get("mitigate_missing_speed", ["false"])[0]
+                    if mitigation_flag not in ("true", "false"):
+                        raise ValueError("mitigate_missing_speed must be true or false.")
                     config = MissingSpeedConfig(
                         affected_fraction=float(query.get("affected_fraction", ["0.25"])[0]),
                         seed=int(query.get("seed", ["42"])[0]),
@@ -487,6 +519,7 @@ def serve(config: OptimizedConfig, port: int) -> None:
                         query.get("decision", [""])[0], config,
                         reveal=query.get("reveal", ["false"])[0] == "true",
                         inspect=query.get("inspect", ["false"])[0] == "true",
+                        mitigate_missing_speed=mitigation_flag == "true",
                     ))
                 elif request.path == "/api/attacks/reporting-gap":
                     query = parse_qs(request.query)

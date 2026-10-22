@@ -28,6 +28,77 @@ from attacks import SensorDeteriorationConfig
 from attacks import PositionJumpAttack, PositionJumpConfig
 
 
+def test_missing_speed_mitigation_updates_only_antidote_inputs(demo_service, monkeypatch):
+    from Optimized_Model import service
+
+    config = MissingSpeedConfig(affected_fraction=1.)
+    original_predict = service.predict_systems
+    captured = []
+
+    def capture(frame, systems):
+        captured.append(frame.copy(deep=True))
+        return original_predict(frame, systems)
+
+    monkeypatch.setattr(service, "predict_systems", capture)
+    ordinary = demo_service.missing_speed_snapshot("decision", config)
+    mitigated = demo_service.missing_speed_snapshot("decision", config, mitigate_missing_speed=True)
+    original_frame, repaired_frame = captured[1], captured[3]
+    assert original_frame.speed_knots.isna().all()
+    assert repaired_frame.speed_knots.notna().all()
+    assert repaired_frame.missing_speed_fraction.iloc[0] == 1
+    for column in original_frame:
+        if column.startswith("raw_"):
+            pd.testing.assert_series_equal(original_frame[column], repaired_frame[column])
+    assert mitigated["attacked"]["missing_speed_mitigation"]["estimated_reports"] > 0
+    for arm in ("original", "attacked"):
+        assert ordinary[arm]["received_history"] == mitigated[arm]["received_history"]
+        for system in ("A", "B"):
+            assert next(c for c in ordinary[arm]["cards"] if c["system"] == system) == next(
+                c for c in mitigated[arm]["cards"] if c["system"] == system)
+    card = next(c for c in mitigated["attacked"]["cards"] if c["system"] == "C")
+    assert card["review_reason"] == "missing_speed_mitigation_not_calibrated"
+    assert not card["accepted"] and card["interval_half_width_minutes"] is None
+    with pytest.raises(ValueError, match="nominal/missing-speed"):
+        demo_service.snapshot("decision", "delayed_15_minutes", reveal=False, verify=False,
+                              mitigate_missing_speed=True)
+
+
+def test_missing_speed_mitigation_http_option(demo_service, monkeypatch):
+    from http.server import HTTPServer
+    from queue import Queue
+    from threading import Thread
+    from urllib.error import HTTPError
+    from urllib.request import urlopen
+    from Optimized_Model import service
+
+    ready = Queue()
+
+    def create_server(address, handler):
+        server = HTTPServer((address[0], 0), handler)
+        ready.put(server)
+        return server
+
+    monkeypatch.setattr(service, "HTTPServer", create_server)
+    monkeypatch.setattr(DemoService, "load", classmethod(lambda cls, config: demo_service))
+    thread = Thread(target=service.serve, args=(demo_service.config, 8765), daemon=True)
+    thread.start()
+    server = ready.get(timeout=5)
+    root = f"http://127.0.0.1:{server.server_port}"
+    path = "/api/attacks/missing-speed?decision=decision&affected_fraction=1"
+    try:
+        with urlopen(root + path + "&mitigate_missing_speed=true", timeout=5) as response:
+            payload = json.load(response)
+        assert payload["attacked"]["missing_speed_mitigation"]["estimated_reports"] > 0
+        with urlopen(root + path, timeout=5) as response:
+            assert "missing_speed_mitigation" not in json.load(response)["attacked"]
+        with pytest.raises(HTTPError) as error:
+            urlopen(root + path + "&mitigate_missing_speed=bad", timeout=5)
+        assert error.value.code == 400
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+
+
 def test_gap_anomaly_notifications_are_causal_and_do_not_change_model_cards(demo_service, monkeypatch):
     from api.anamoly_detector import AnomalyDetector
 
