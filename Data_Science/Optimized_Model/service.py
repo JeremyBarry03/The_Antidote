@@ -13,6 +13,9 @@ import numpy as np
 import pandas as pd
 from dotenv import dotenv_values
 
+from api.anamoly_detector import AnomalyDetector
+from mitigation.gap_mitigation import GapMitigation, GapMitigationConfig
+
 from attacks import (BaseAttack, MissingCourseAttack, MissingCourseConfig,
                      MissingSpeedAttack, MissingSpeedConfig, MissingVesselClassAttack, MissingVesselClassConfig,
                      ReportingGapAttack, ReportingGapConfig, SensorDeteriorationAttack, SensorDeteriorationConfig,
@@ -237,6 +240,8 @@ class DemoService:
             "human_assisted": verify, "verified_observation_time": verified_time,
             "reference_arrival": decision["arrival_time"] if reveal else None,
             "reference_bracket": [decision["crossing_before"], decision["crossing_after"]] if reveal else None,
+            "anomaly_detection": AnomalyDetector(GapMitigation(self.config.baseline.gate)).evaluate(
+                available, decision["decision_time"]),
         }
         if attack is not None:
             # Audit truth is added only after inference, never to the feature frame.
@@ -276,6 +281,23 @@ class DemoService:
         attacked = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False,
                                  inspect=inspect, attack=SensorDeteriorationAttack(config))
         return {"original": original, "attacked": attacked}
+
+    def anomaly_snapshot(
+        self, decision_id: str, *, clock: str | None = None,
+        gap_config: ReportingGapConfig | None = None,
+        detector_config: GapMitigationConfig = GapMitigationConfig(),
+        stream_ended: bool = False,
+    ) -> dict[str, object]:
+        """Poll independently of ETA inference; never use reference crossing labels."""
+        decision = self._decision(decision_id)
+        reports = self.dataset.histories[decision.approach_id]
+        if gap_config is not None:
+            reports = ReportingGapAttack(gap_config).apply(reports).reports
+        result = AnomalyDetector(GapMitigation(self.config.baseline.gate, detector_config)).evaluate(
+            reports, clock if clock is not None else decision.decision_time, stream_ended=stream_ended)
+        result["decision_id"] = decision_id
+        result["simulated_disruption"] = gap_config is not None
+        return result
 
     def reporting_gap_snapshot(
         self, decision_id: str, config: ReportingGapConfig, *, reveal: bool = False, inspect: bool = False,
@@ -385,6 +407,24 @@ def serve(config: OptimizedConfig, port: int) -> None:
                     self._send(200, service.catalog())
                 elif request.path == "/api/metrics":
                     self._send(200, service.metrics())
+                elif request.path == "/api/anomalies":
+                    query = parse_qs(request.query)
+                    has_start = "start_time" in query
+                    has_end = "end_time" in query
+                    if has_start != has_end:
+                        raise ValueError("Supply both start_time and end_time for a simulated gap.")
+                    gap = ReportingGapConfig(
+                        start_time=query["start_time"][0], end_time=query["end_time"][0],
+                        target_mmsi=query.get("target_mmsi", [None])[0]) if has_start else None
+                    ended = query.get("stream_ended", ["false"])[0]
+                    if ended not in ("true", "false"):
+                        raise ValueError("stream_ended must be true or false.")
+                    detector = GapMitigationConfig(
+                        minimum_silence_minutes=float(query.get("minimum_silence_minutes", ["5"])[0]),
+                        cadence_multiplier=float(query.get("cadence_multiplier", ["3"])[0]))
+                    self._send(200, service.anomaly_snapshot(
+                        query.get("decision", [""])[0], clock=query.get("at", [None])[0],
+                        gap_config=gap, detector_config=detector, stream_ended=ended == "true"))
                 elif request.path == "/api/attacks/position-jump":
                     query = parse_qs(request.query)
                     bearing = query.get("bearing_degrees", [None])[0]

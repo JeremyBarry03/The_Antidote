@@ -28,6 +28,68 @@ from attacks import SensorDeteriorationConfig
 from attacks import PositionJumpAttack, PositionJumpConfig
 
 
+def test_gap_anomaly_notifications_are_causal_and_do_not_change_model_cards(demo_service, monkeypatch):
+    from api.anamoly_detector import AnomalyDetector
+
+    config = ReportingGapConfig(start_time="2024-03-05 12:05", end_time="2024-03-05 12:20")
+    pair = demo_service.reporting_gap_snapshot("decision", config)
+    assert not pair["original"]["anomaly_detection"]["anomaly_detected"]
+    assert pair["attacked"]["anomaly_detection"]["anomaly_detected"]
+    notification = pair["attacked"]["anomaly_detection"]["anomalies"][0]
+    assert notification["mmsi"] == "123456789" and notification["silence_minutes"] == 11
+    assert "arrival_time" not in notification and "fault_applied" not in notification
+    monkeypatch.setattr(AnomalyDetector, "evaluate", lambda *args, **kwargs: {})
+    without_detection = demo_service.reporting_gap_snapshot("decision", config)
+    for arm in ("original", "attacked"):
+        assert without_detection[arm]["cards"] == pair[arm]["cards"]
+
+
+def test_anomaly_http_polling_ticks_gap_recovery_and_stream_end(demo_service, monkeypatch):
+    from http.server import HTTPServer
+    from queue import Queue
+    from threading import Thread
+    from urllib.error import HTTPError
+    from urllib.request import urlopen
+    from Optimized_Model import service
+
+    ready = Queue()
+
+    def create_server(address, handler):
+        server = HTTPServer((address[0], 0), handler)
+        ready.put(server)
+        return server
+
+    monkeypatch.setattr(service, "HTTPServer", create_server)
+    monkeypatch.setattr(DemoService, "load", classmethod(lambda cls, config: demo_service))
+    thread = Thread(target=service.serve, args=(demo_service.config, 8765), daemon=True)
+    thread.start()
+    server = ready.get(timeout=5)
+    root = f"http://127.0.0.1:{server.server_port}"
+    path = "/api/anomalies?decision=decision&start_time=2024-03-05T12:05&end_time=2024-03-05T12:20"
+
+    def poll(suffix):
+        with urlopen(root + path + suffix, timeout=5) as response:
+            return json.load(response)
+
+    try:
+        assert not poll("&at=2024-03-05T12:09")["anomaly_detected"]
+        flagged = poll("&at=2024-03-05T12:10")
+        assert flagged["anomaly_detected"] and flagged["simulated_disruption"]
+        assert not flagged["forecast_modified"]
+        assert not poll("&at=2024-03-05T12:20")["anomaly_detected"]
+        assert not poll("&stream_ended=true")["anomaly_detected"]
+        for suffix in ("&at=bad", "&minimum_silence_minutes=-1", "&stream_ended=bad"):
+            with pytest.raises(HTTPError) as error:
+                poll(suffix)
+            assert error.value.code == 400
+        with pytest.raises(HTTPError) as error:
+            urlopen(root + "/api/anomalies?decision=decision&start_time=2024-03-05T12:05", timeout=5)
+        assert error.value.code == 400
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+
+
 @pytest.fixture
 def optimized_config(tmp_path: Path) -> OptimizedConfig:
     root = Path(__file__).resolve().parents[1]
