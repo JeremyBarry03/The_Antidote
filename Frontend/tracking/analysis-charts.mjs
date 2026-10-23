@@ -35,7 +35,7 @@ export function createAnalysisChart(root,{kind,onRetry=()=>{}}){
   const y=value=>top+(extent-value)/extent*(height-top-bottom);
   geometry={x,y,width,left,right,maximum};svg.setAttribute('viewBox',`0 0 ${width} ${height}`);
   svg.append(node('title',{},convergence?'Average absolute ETA error in the final hour before crossing':'Average absolute ETA error under increasing reporting delay'));
-  svg.append(node('desc',{},convergence?'Three models, aligned by recorded gate crossing. Five-minute bins; lower error is better. Missing bins are gaps and the contributing approaches can change.':'Three models at zero, two, five, ten and fifteen minutes of reporting delay. Identical supported checkpoints across all models and delay levels; lower error is better.'));
+  svg.append(node('desc',{},context.smoothed?'Smoothed model results. Extra points interpolate between measured checkpoints.':convergence?'Three models aligned by time before crossing; lower error is better. Missing bins are gaps and the contributing approaches can change.':'Three models at zero, two, five, ten and fifteen minutes of reporting delay. Identical supported checkpoints across all models and delay levels; lower error is better.'));
   for(let tick=0;tick<=4;tick++){const value=extent*tick/4;svg.append(node('line',{x1:left,x2:width-right,y1:y(value),y2:y(value),class:tick===0?'chart-zero':'chart-grid'}));svg.append(node('text',{x:left-8,y:y(value)+3,'text-anchor':'end'},Number(value.toFixed(2))));}
   const ticks=convergence?[60,45,30,15,0]:(width<340?[0,5,10,15]:[0,2,5,10,15]);
   for(const minute of ticks)svg.append(node('text',{x:x(minute),y:height-24,'text-anchor':'middle'},minute));
@@ -45,7 +45,7 @@ export function createAnalysisChart(root,{kind,onRetry=()=>{}}){
   for(const model of models)if(shown.has(model)){
    const style=`--series-color:var(--model-${model})`;
    svg.append(node('path',{d:maePath(result.samples,model,x,y),class:`chart-line ${kind}-line`,'data-series':model,style}));
-   for(const sample of result.samples)if(finite(sample.models[model]?.mae))svg.append(node('circle',{cx:x(sample.minute),cy:y(sample.models[model].mae),r:2,class:'chart-dot',style}));
+   for(const sample of result.samples)if(!sample.interpolated&&finite(sample.models[model]?.mae))svg.append(node('circle',{cx:x(sample.minute),cy:y(sample.models[model].mae),r:2,class:'chart-dot',style}));
   }
  }
  function inspect(index){
@@ -61,7 +61,7 @@ export function createAnalysisChart(root,{kind,onRetry=()=>{}}){
    cell(row,'td',format(sample.models[model]?.mae));if(showClean)cell(row,'td',format(sample.models[model]?.clean_mae));
   }
   inspector.append(table);
-  const note=document.createElement('p');note.textContent=`${sample.matched_decisions}/${sample.scheduled_decisions} matched checkpoints · ${sample.approaches} approaches. Lower is better.`;inspector.append(note);
+  const note=document.createElement('p');note.textContent=`${sample.matched_decisions}/${sample.scheduled_decisions} matched checkpoints · ${sample.approaches} approaches. Lower is better.`;if(sample.interpolated)note.textContent='Interpolated between measured convergence checkpoints, not an additional observed forecast.';if(context.simulation)note.textContent='Simulation mode. Synthetic convergence values, not observed forecasts.';inspector.append(note);
   if(!convergence){const unavailable=document.createElement('p');unavailable.textContent='Unavailable at this delay: '+models.filter(model=>shown.has(model)).map(model=>`${modelNames[model]} ${sample.models[model].unavailable_decisions}`).join(' · ');inspector.append(unavailable);}
   if(!sample.matched_decisions){const empty=document.createElement('p');empty.textContent='No common supported forecasts in this bin; this is a gap, not zero error.';inspector.append(empty);}
   const {x,y,width}=geometry;inspector.style.left=`${x(sample.minute)>width/2?4:Math.max(4,width-Math.min(290,width-8)-4)}px`;inspector.hidden=false;

@@ -1,4 +1,6 @@
-import {createMonthlyChart} from './monthly-chart.mjs';
+import {simulationScenario,simulateRows} from './simulation-graphs.mjs';
+import {smoothScenario} from './smoothed-graphs.mjs';
+import {createMonthlyChart,weeklyRows} from './monthly-chart.mjs';
 import {createAnalysisChart} from './analysis-charts.mjs';
 import {createEvidenceChart} from './insights.mjs';
 
@@ -17,20 +19,51 @@ export function validateGraphBundle(data){
  return data;
 }
 
-export function createPreloadedGraphs(root,{fetcher=fetch}={}){
+export function createPreloadedGraphs(root,{fetcher=fetch,initialMode='measured'}={}){
  const document=root.ownerDocument,$=id=>document.getElementById(id);
  const fieldset=root.querySelector('fieldset'),options=root.querySelector('.scenario-options');
  const summary=root.querySelector('[role=status]'),reset=root.querySelector('.scenario-reset'),retry=root.querySelector('.scenario-retry');
- let bundle=null,mask=0,destroyed=false;
+ const mode=root.querySelector('.graph-data-mode'),disclosure=root.querySelector('.graph-data-disclosure');
+ mode.value=initialMode;
+ const panels=['monthly-eta','arrival-convergence','paired-impact','forecast-stability'].map($);
+ let bundle=null,fullBundle=null,mask=0,destroyed=false;
  const controller=new AbortController(),onRetry=()=>void load();
- const monthly=createMonthlyChart($('monthly-eta'),{onRetry});
+ const monthly=createMonthlyChart($('monthly-eta'),{onRetry,weekly:true});
  const convergence=createAnalysisChart($('arrival-convergence'),{kind:'convergence',onRetry});
  const impact=createEvidenceChart($('paired-impact'),{kind:'impact',onRetry});
  const stability=createEvidenceChart($('forecast-stability'),{kind:'stability',onRetry});
  const charts=[monthly,convergence,impact,stability];
  function render(){
   if(!bundle)return;
-  const data=bundle.scenarios[mask];
+  const full=mode.value==='full';
+  if(full&&!fullBundle?.scenarios[String(mask)]){
+   const message=fullBundle?'This combination is not cached for the full March cohort. Choose a completed single fault or another graph data mode.':'Full-March results are being prepared. Retry loading graphs shortly.';
+   for(const panel of panels){panel.querySelector('.graph-coverage')?.remove();panel.dataset.origin='pending';panel.querySelector('header').dataset.simulation='false';}
+   for(const chart of charts)chart.setStatus({status:'empty',message});
+   disclosure.textContent=message;summary.textContent=message;retry.hidden=false;return;
+  }
+  const smoothed=mode.value==='smoothed';
+  const simulation=mode.value==='simulation',source=full?fullBundle.scenarios[mask]:bundle.scenarios[mask];
+  const data=simulation?simulationScenario(source):smoothed?smoothScenario(source):source;
+  if(simulation)data.weekly_curve=simulateRows(weeklyRows(source),'day',100,4201,time=>source.poisoning_active&&time>=source.cutover);
+  for(const panel of panels){
+   panel.dataset.origin=full?'full':simulation?'simulation':smoothed?'smoothed':'measured';
+   panel.querySelector('header').dataset.simulation=String(simulation);
+  }
+  const sample=`March sample: ${source.approaches} approaches, ${source.vessels} vessels, ${(source.evaluation_checkpoints??source.scheduled_decisions).toLocaleString()} archived checkpoints. All 256 combinations cached at 25% strength; selected faults begin 15 March. Sample results, not a full-cohort benchmark.`;
+  disclosure.textContent=full?`Full March: ${source.approaches} approaches, ${source.vessels} vessels, ${source.evaluation_checkpoints.toLocaleString()} archived checkpoints. Cached actual forecasts with conditional repairs; selected faults begin 15 March.`:simulation?'Simulation mode: 100 synthetic points per curve with seeded variation. Assumed error changes: Antidote −30%, XGBoost −10% on clean inputs and +5% on poisoned inputs, Poly +20%. Not measured performance.':smoothed?`${sample} Curves interpolate between saved predictions; extra points are visual estimates.`:sample;
+  root.title=disclosure.textContent;
+  document.querySelector('.analytics-featured')?.setAttribute('aria-label',full?'Full March cohort, actual frozen-model forecasts':simulation?'Simulation mode, hypothetical model performance':smoothed?'Smoothed model comparison, interpolated between measured checkpoints':`Measured model comparison, ${source.approaches} sampled March approaches`);
+  for(const panel of panels)panel.querySelector('.graph-coverage')?.remove();
+  if(!simulation){
+   const counts=[
+    `${source.scheduled_decisions.toLocaleString()} checkpoints across ${source.days.length} days, daily/weekly summaries`,
+    `${source.convergence.matched_decisions.toLocaleString()} final-hour checkpoints in five-minute bins`,
+    `${source.insights.impact.matched_decisions.toLocaleString()} matched clean/scenario checkpoints after 15 Mar`,
+    `${source.insights.stability.instances} complete approaches at seven offsets; ${source.insights.stability.short_or_incomplete} incomplete`,
+   ];
+   panels.forEach((panel,index)=>{const text=document.createElement('p');text.className='graph-coverage';text.textContent=counts[index];panel.append(text);});
+  }
   monthly.setResult(data);
   for(const chart of [convergence,impact,stability])chart.setResult(data);
   const labels=bundle.controls.filter((_,bit)=>mask&(1<<bit)).map(control=>control.label);
@@ -47,25 +80,41 @@ export function createPreloadedGraphs(root,{fetcher=fetch}={}){
    const response=await fetcher(new URL('./data/scenarios.json',import.meta.url),{signal:controller.signal,cache:'no-store'});
    if(!response.ok)throw Error('Saved graph data could not be loaded.');
    const next=validateGraphBundle(await response.json());if(destroyed)return;bundle=next;
-   options.replaceChildren();
-   for(const [bit,control] of bundle.controls.entries()){
-    const label=document.createElement('label'),input=document.createElement('input'),name=document.createElement('span'),strength=document.createElement('span');
-    input.type='checkbox';input.value=String(bit);input.addEventListener('change',()=>select(mask^(1<<bit)));
-    name.textContent=control.label;strength.className='scenario-strength';strength.textContent=control.unit==='min'?`${control.maximum*.25} min`:'25%';
-    label.append(input,name,strength);options.append(label);
-   }
-   if(bundle.scope?.sampled){
-    const scope=bundle.scope;
-    root.title=`March demo sample: ${scope.approaches} of ${scope.total_approaches} approaches. Not a full-month accuracy benchmark. Each selected attack is at 25% of its maximum.`;
-    document.querySelector('.analytics-featured')?.setAttribute('aria-label',`Model comparison · fixed demo sample of ${scope.approaches}/${scope.total_approaches} March approaches`);
-   }
-   fieldset.disabled=false;render();
+   showControls(bundle.controls);
+   fieldset.disabled=false;
+   if(mode.value==='full'){await loadFull();}else render();
   }catch(error){
    if(destroyed||error.name==='AbortError')return;
    const message=error.message||'Saved comparisons are unavailable.';summary.textContent=message;retry.hidden=false;
    for(const chart of charts)chart.setStatus({status:'error',message});
   }
  }
- void load();
- return {destroy(){destroyed=true;controller.abort();for(const chart of charts)chart.destroy();}};
+ async function loadFull(){
+  try{
+   const response=await fetcher(new URL('./data/full-month.json',import.meta.url),{signal:controller.signal,cache:'no-store'});
+   if(response.ok){
+    const result=await response.json();
+    if(result.version!==1||result.scope?.sampled!==false||!result.scenarios?.['0'])throw Error('Invalid full-March graph bundle.');
+    fullBundle=result;
+   }
+   if(!destroyed){retry.hidden=Boolean(fullBundle);render();}
+  }catch(error){if(!destroyed&&error.name!=='AbortError'){summary.textContent=error.message;retry.hidden=false;}}
+ }
+ function showControls(list){
+  options.replaceChildren();
+  for(const [bit,control] of list.entries()){
+   const label=document.createElement('label'),input=document.createElement('input'),name=document.createElement('span'),strength=document.createElement('span');
+   input.type='checkbox';input.value=String(bit);input.addEventListener('change',()=>select(mask^(1<<bit)));
+   name.textContent=control.label;strength.className='scenario-strength';strength.textContent=control.unit==='min'?`${control.maximum*.25} min`:'25%';
+   label.append(input,name,strength);options.append(label);
+  }
+ }
+ function changeMode(){
+  retry.hidden=true;
+  if(bundle){showControls(bundle.controls);fieldset.disabled=false;if(mode.value==='full'&&!fullBundle)void loadFull();else render();}
+  else void load();
+ }
+ mode.addEventListener('change',changeMode);
+ changeMode();
+ return {destroy(){mode.removeEventListener('change',changeMode);destroyed=true;controller.abort();for(const chart of charts)chart.destroy();}};
 }

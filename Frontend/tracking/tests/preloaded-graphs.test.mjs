@@ -34,26 +34,81 @@ it('loads once and switches combined graph results without network requests',asy
  document.documentElement.innerHTML=readFileSync('tracking/index.html','utf8').replace(/<!doctype html>/i,'').replace(/<\/?html[^>]*>/gi,'');
  vi.stubGlobal('ResizeObserver',class{observe(){}disconnect(){}});
  const fetcher=vi.fn(async()=>({ok:true,json:async()=>makeBundle()}));
- const root=document.getElementById('graph-scenarios'),graphs=createPreloadedGraphs(root,{fetcher});
+ const root=document.getElementById('graph-scenarios'),graphs=createPreloadedGraphs(root,{fetcher,initialMode:'measured'});
  await vi.waitFor(()=>expect(root.querySelectorAll('input')).toHaveLength(8));
  const original=document.querySelector('#monthly-eta svg').innerHTML;
  root.querySelector('input[value="0"]').click();root.querySelector('input[value="6"]').click();
  expect(root.querySelector('[role=status]').textContent).toContain('reporting_gap + sensor_deterioration');
  expect(root.querySelectorAll('input:checked')).toHaveLength(2);
+ expect(document.querySelectorAll('#paired-impact .chart-cutover,#paired-impact .clean-line')).toHaveLength(0);
+ expect(document.querySelector('#paired-impact .insight-key').hidden).toBe(true);
+ expect(document.querySelectorAll('#paired-impact .impact-line')).toHaveLength(3);
  expect(scenarioSettings(65,controls)).toEqual({reporting_gap:15,sensor_deterioration:25});
  expect(document.querySelector('#monthly-eta svg').innerHTML).not.toBe(original);
  expect(fetcher).toHaveBeenCalledTimes(1);
  root.querySelector('.scenario-reset').click();
  expect(root.querySelectorAll('input:checked')).toHaveLength(0);
  expect(root.querySelector('[role=status]').textContent).toContain('Clean reference');
+ expect(document.querySelectorAll('#paired-impact .impact-line')).toHaveLength(3);
+ expect(document.querySelector('#paired-impact .monthly-loading').hidden).toBe(true);
  expect(fetcher).toHaveBeenCalledTimes(1);graphs.destroy();
 });
 
 it('shows a recoverable error for missing saved data and never requests live inference',async()=>{
  const fetcher=vi.fn(async()=>({ok:false})),root=document.getElementById('graph-scenarios');
- const graphs=createPreloadedGraphs(root,{fetcher});
+ const graphs=createPreloadedGraphs(root,{fetcher,initialMode:'measured'});
  await vi.waitFor(()=>expect(root.querySelector('.scenario-retry').hidden).toBe(false));
  expect(root.querySelector('fieldset').disabled).toBe(true);
  expect(String(fetcher.mock.calls[0][0])).toContain('/data/scenarios.json');
+ expect(fetcher).toHaveBeenCalledTimes(1);graphs.destroy();
+});
+
+it('smooths measured results with one fetch and restores the original sample',async()=>{
+ const bundle=makeBundle(),snapshot=JSON.stringify(bundle),fetcher=vi.fn(async()=>({ok:true,json:async()=>bundle}));
+ const root=document.getElementById('graph-scenarios'),graphs=createPreloadedGraphs(root,{fetcher,initialMode:'smoothed'});
+ await vi.waitFor(()=>expect(document.querySelectorAll('[data-origin="smoothed"]')).toHaveLength(4));
+ expect(root.querySelector('.graph-data-disclosure').textContent).toContain('not new predictions');
+ const mode=root.querySelector('.graph-data-mode');mode.value='simulation';mode.dispatchEvent(new Event('change'));
+ expect(document.querySelectorAll('[data-origin="simulation"]')).toHaveLength(4);
+ expect(root.querySelector('.graph-data-disclosure').textContent).toContain('Not measured performance');
+ mode.value='measured';mode.dispatchEvent(new Event('change'));
+ const measured=document.querySelector('#monthly-eta svg').innerHTML;
+ mode.value='smoothed';mode.dispatchEvent(new Event('change'));
+ root.querySelector('input[value="0"]').click();root.querySelector('.scenario-reset').click();
+ mode.value='measured';mode.dispatchEvent(new Event('change'));
+ expect(document.querySelector('#monthly-eta svg').innerHTML).toBe(measured);
+ expect(fetcher).toHaveBeenCalledTimes(1);
+ expect(JSON.stringify(bundle)).toBe(snapshot);graphs.destroy();
+});
+
+it('uses full-cohort results and never silently substitutes a sampled combination',async()=>{
+ const full=result(0);full.evaluation_checkpoints=5382;full.scope={sampled:false};
+ full.convergence.matched_decisions=2908;full.insights.stability.short_or_incomplete=2;
+ const fetcher=vi.fn(async url=>({ok:true,json:async()=>String(url).includes('full-month')?{version:1,scope:{sampled:false},scenarios:{'0':full}}:makeBundle()}));
+ const root=document.getElementById('graph-scenarios'),graphs=createPreloadedGraphs(root,{fetcher,initialMode:'full'});
+ await vi.waitFor(()=>expect(document.querySelectorAll('[data-origin="full"]')).toHaveLength(4));
+ expect(root.querySelector('.graph-data-disclosure').textContent).toContain('5,382 archived checkpoints');
+ expect(document.querySelectorAll('.graph-coverage')).toHaveLength(4);
+ const grouping=document.querySelector('.eta-grouping select');grouping.value='weekly';grouping.dispatchEvent(new Event('change'));
+ expect(document.querySelector('#monthly-title').textContent).toBe('Weekly ETA error');
+ grouping.value='daily';grouping.dispatchEvent(new Event('change'));
+ expect(document.querySelector('#monthly-title').textContent).toBe('Daily ETA error');
+ root.querySelector('input[value="0"]').click();
+ expect(root.querySelector('[role=status]').textContent).toContain('not cached');
+ expect(document.querySelectorAll('#monthly-eta path[data-series]')).toHaveLength(0);
+ graphs.destroy();
+});
+
+it('defaults to the complete combination sample and reports actual sample coverage',async()=>{
+ const bundle=makeBundle();
+ for(const data of Object.values(bundle.scenarios))Object.assign(data,{approaches:31,vessels:31,evaluation_checkpoints:552});
+ const fetcher=vi.fn(async()=>({ok:true,json:async()=>bundle}));
+ const root=document.getElementById('graph-scenarios'),graphs=createPreloadedGraphs(root,{fetcher});
+ await vi.waitFor(()=>expect(root.querySelectorAll('input')).toHaveLength(8));
+ expect(root.querySelector('.graph-data-mode').value).toBe('measured');
+ expect(root.querySelector('.graph-data-disclosure').textContent).toContain('31 approaches, 31 vessels, 552 archived checkpoints');
+ for(const input of root.querySelectorAll('input'))input.click();
+ expect(root.querySelectorAll('input:checked')).toHaveLength(8);
+ expect(document.querySelectorAll('[data-origin="measured"]')).toHaveLength(4);
  expect(fetcher).toHaveBeenCalledTimes(1);graphs.destroy();
 });

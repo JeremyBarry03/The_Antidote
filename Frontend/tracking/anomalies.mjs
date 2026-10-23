@@ -29,19 +29,33 @@ export class AnomalyEpisodes{
 }
 
 export function createAnomalyNotice(container){
- const episodes=new AnomalyEpisodes();let current=[],signature='';
+ const episodes=new AnomalyEpisodes();let current=[],signature='',confirmationTimer=null;
  const header=document.createElement('div');header.className='anomaly-header';
  const title=document.createElement('strong');title.textContent='ANOMALY DETECTED';
  const close=document.createElement('button');close.type='button';close.textContent='×';close.setAttribute('aria-label','Dismiss Antidote warning');
- const list=document.createElement('ul'),note=document.createElement('p');note.className='anomaly-note';note.textContent='Needs human review';
- header.append(title,close);container.append(header,list,note);
- function dismiss(){episodes.dismiss(current);container.hidden=true;signature='';}
+ const list=document.createElement('ul'),note=document.createElement('button');note.type='button';note.className='anomaly-note';note.textContent='Need Human Review';
+ const confirmation=document.createElement('p');confirmation.className='anomaly-note';confirmation.textContent='Added to training data';confirmation.setAttribute('role','status');confirmation.hidden=true;
+ // Front-end demo only. Replace the action with text, then dismiss this episode.
+ note.addEventListener('click',()=>{
+  episodes.dismiss(current);note.hidden=true;confirmation.hidden=false;container.classList.add('is-confirmed');
+  confirmationTimer=setTimeout(()=>{
+   if(globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches){finishExit();return;}
+   container.classList.add('is-leaving');
+   confirmationTimer=setTimeout(finishExit,420);
+  },5000);
+ });
+ header.append(title,close);container.append(header,list,note,confirmation);
+ function finishExit(){confirmationTimer=null;container.hidden=true;signature='';container.classList.remove('is-leaving');}
+ function clearConfirmation(){clearTimeout(confirmationTimer);confirmationTimer=null;note.hidden=false;confirmation.hidden=true;container.classList.remove('is-confirmed','is-leaving');}
+ function dismiss(){clearConfirmation();episodes.dismiss(current);container.hidden=true;signature='';}
  close.addEventListener('click',dismiss);
  container.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();dismiss();}});
  return {
-  reset(){episodes.reset();signature='';current=[];container.hidden=true;},
+  reset(){clearConfirmation();episodes.reset();signature='';current=[];container.hidden=true;},
   update(ships,model){
    current=episodes.update(ships,model);
+   if(confirmationTimer!==null)return;
+   note.hidden=false;confirmation.hidden=true;container.classList.remove('is-confirmed');
    if(!current.length){container.hidden=true;signature='';return;}
    const key=JSON.stringify(current.map(warning=>[warning.key,warning.text]));
    if(key!==signature){

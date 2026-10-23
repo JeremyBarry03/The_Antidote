@@ -2,9 +2,9 @@
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#090a0c">
 <title>Antidote · Historical Replay</title><link rel="preload" href="./assets/geist-mono-variable.ttf" as="font" type="font/ttf" crossorigin><link rel="icon" href="data:,">
-<link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/v3.32.0/mapbox-gl.css"><link rel="stylesheet" href="./style.css"><link rel="stylesheet" href="./arc-components.css"><link rel="stylesheet" href="./arc-date-time.css"><link rel="stylesheet" href="./arc-feedback.css">
+<link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/v3.32.0/mapbox-gl.css"><link rel="stylesheet" href="./style.css?v=review-confirmation-dark-green-exit"><link rel="stylesheet" href="./arc-components.css"><link rel="stylesheet" href="./arc-date-time.css"><link rel="stylesheet" href="./arc-feedback.css">
 <link rel="stylesheet" href="./introduction.css"><link rel="stylesheet" href="./monthly-chart.css"><link rel="stylesheet" href="./insights.css">
-<script src="https://api.mapbox.com/mapbox-gl-js/v3.32.0/mapbox-gl.js" defer></script><script src="./coastal.js" defer></script><script src="./app.mjs" type="module"></script>
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.32.0/mapbox-gl.js" defer></script><script src="./coastal.js" defer></script><script src="./app.mjs?v=review-confirmation-dark-green-exit" type="module"></script>
 </head><body>
 <div id="replay-workspace">
 <nav class="project-nav" aria-label="Primary navigation"><div class="project-brand"><h1 class="project-name">The Antidote</h1><span>Harbor arrival intelligence</span></div><div><a class="overview-link" href="/overview/" target="_blank" rel="noopener">Overview<span class="sr-only"> (opens in a new tab)</span></a></div></nav>
@@ -43,18 +43,19 @@
   <section id="paired-impact" class="graph-panel insight-panel" aria-labelledby="paired-impact-title">
    <header class="section-bar feed-bar"><h2 id="paired-impact-title">Poisoning impact</h2></header>
    <div class="insight-body">
-    <div class="insight-toolbar"><div class="insight-tabs" role="group" aria-label="Accuracy measure"><button type="button" data-metric="error" aria-pressed="true">Absolute error</button><button type="button" data-metric="impact" aria-pressed="false">Added error</button></div><div class="insight-key"><span class="key-clean">Clean</span><span class="key-selected">Selected</span></div></div>
+    <div class="insight-toolbar"><div class="insight-tabs" role="group" aria-label="Accuracy measure"><button type="button" data-metric="error" aria-pressed="true">Absolute error</button><button type="button" data-metric="impact" aria-pressed="false">Added error</button></div><div class="insight-key" hidden></div></div>
     <div class="insight-context sr-only">One model per lane · shared scale · post-cutover summary at right</div>
-    <div class="insight-plot impact-plot" tabindex="0" role="group" aria-label="Paired clean and poisoned accuracy by day. Use arrow keys to inspect days." aria-describedby="paired-impact-note"><svg role="img" aria-label="Daily absolute ETA error, clean versus selected scenario"></svg><div class="monthly-inspector" hidden></div><div class="monthly-loading" role="status" aria-label="Waiting for paired evaluation forecasts…"><span aria-hidden="true">0%</span><button type="button" class="monthly-retry" hidden>Retry</button></div></div>
+    <div class="insight-plot impact-plot" tabindex="0" role="group" aria-label="Poisoned-input accuracy after the cutover. Use arrow keys to inspect days." aria-describedby="paired-impact-note"><svg role="img" aria-label="Absolute ETA error during the poisoned period"></svg><div class="monthly-inspector" hidden></div><div class="monthly-loading" role="status" aria-label="Waiting for paired evaluation forecasts…"><span aria-hidden="true">0%</span><button type="button" class="monthly-retry" hidden>Retry</button></div></div>
     <p id="paired-impact-note" class="insight-note sr-only">Absolute error keeps early and late misses from cancelling. Added error isolates the effect of the selected poisoning on the same predictions.</p>
    </div>
   </section>
   <section id="monthly-eta" class="graph-panel" aria-labelledby="monthly-title">
-   <header class="section-bar feed-bar"><h2 id="monthly-title">Daily ETA error</h2></header>
+   <header class="section-bar feed-bar"><h2 id="monthly-title">Weekly ETA error</h2></header>
    <div class="monthly-body">
-    <div class="monthly-tools"><span>ETA − actual (min)</span><div class="monthly-legend" role="group" aria-label="Visible model lines"></div></div>
-    <div class="monthly-plot" tabindex="0" role="group" aria-label="Daily ETA error chart. Use left and right arrows to inspect days." aria-describedby="monthly-help monthly-details"><svg class="monthly-svg" role="img" aria-label="Monthly ETA prediction errors"></svg><div class="monthly-inspector" id="monthly-details" hidden></div><div class="monthly-loading" role="status" aria-label="Waiting for March data…"><span aria-hidden="true">0%</span><button type="button" class="monthly-retry" hidden>Retry</button></div></div>
-    <p id="monthly-help" class="sr-only">Use arrow keys, Home and End to inspect each day. Model buttons show or hide lines. Error is predicted ETA minus actual arrival: negative is early, positive is late.</p>
+    <div class="monthly-tools"><span>ETA − actual (min)</span><label class="eta-grouping">Group by <select aria-label="ETA grouping"><option value="daily">Day</option><option value="weekly">Week</option></select></label><div class="monthly-legend" role="group" aria-label="Visible model lines"></div></div>
+    <div class="monthly-plot" tabindex="0" role="group" aria-label="Weekly ETA error chart. Use left and right arrows to inspect days." aria-describedby="monthly-help monthly-details"><svg class="monthly-svg" role="img" aria-label="Weekly ETA prediction errors"></svg><div class="monthly-inspector" id="monthly-details" hidden></div><div class="monthly-loading" role="status" aria-label="Waiting for March data…"><span aria-hidden="true">0%</span><button type="button" class="monthly-retry" hidden>Retry</button></div></div>
+    <p id="monthly-help" class="sr-only">Use arrow keys, Home and End to inspect weekly averages of sampled daily errors. Weeks are split at the poisoning boundary. Model buttons show or hide lines. Negative error is early, positive error is late.</p>
+    <p class="weekly-method">Weekly averages of sampled days · poisoning begins 15 Mar when selected.</p>
    </div>
   </section>
   <section id="forecast-stability" class="graph-panel insight-panel" aria-labelledby="forecast-stability-title">
@@ -77,6 +78,8 @@
   </section>
   <section id="graph-scenarios" class="graph-scenarios" aria-labelledby="graph-scenarios-title">
    <div class="scenario-heading"><h2 id="graph-scenarios-title">Compare data poisoning</h2><button class="scenario-reset" type="button" disabled>Clear selection</button></div>
+   <label class="graph-mode-control">Graph data <select class="graph-data-mode"><option value="measured">Representative March sample</option><option value="full">Full March results</option><option value="smoothed">Smoothed sample</option><option value="simulation">Simulation mode</option></select></label>
+   <p class="graph-data-disclosure">Curves interpolate between saved model results. Extra points are visual estimates, not new predictions.</p>
    <fieldset disabled><legend class="sr-only">Attacks applied to the graph comparisons</legend><div class="scenario-options"></div></fieldset>
    <div class="scenario-footer"><span role="status" aria-live="polite">Loading saved comparisons…</span><button class="scenario-retry" type="button" hidden>Retry loading graphs</button></div>
   </section>

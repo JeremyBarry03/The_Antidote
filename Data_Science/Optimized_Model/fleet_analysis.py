@@ -165,8 +165,9 @@ class FleetAnalysis:
     def _convergence(self, rows: list[dict[str, object]]) -> dict[str, object]:
         samples = []
         for minute in range(60, -1, -5):
-            low, high = (0, 5) if minute == 0 else (minute - 5, minute)
-            group = [row for row in rows if low <= row["remaining_minutes"] < high]
+            low, high = (0, 0) if minute == 0 else (minute - 5, minute)
+            group = [row for row in rows if (row["remaining_minutes"] == 0 if minute == 0
+                                             else low <= row["remaining_minutes"] < high and row["remaining_minutes"] > 0)]
             matched = [row for row in group if all(row[arm][model].get("available")
                        for model in MODEL_NAMES for arm in ("selected", "clean"))]
             models = {}
@@ -175,12 +176,12 @@ class FleetAnalysis:
                 for row in matched:
                     for arm in ("selected", "clean"):
                         by_approach[row["approach_id"]][arm].append(row[arm][model]["error"])
-                chosen = [_mean(values["selected"]) for values in by_approach.values()]
-                clean = [_mean(values["clean"]) for values in by_approach.values()]
+                chosen = [_mean([abs(value) for value in values["selected"]]) for values in by_approach.values()]
+                clean = [_mean([abs(value) for value in values["clean"]]) for values in by_approach.values()]
                 models[model] = {
                     "mae": _mean([abs(value) for value in chosen if value is not None]),
                     "clean_mae": _mean([abs(value) for value in clean if value is not None]),
-                    "unavailable_decisions": len(group) - len(chosen),
+                    "unavailable_decisions": len(group) - len(matched),
                 }
             samples.append({
                 "minute": minute, "from_minutes": low, "to_minutes": high,

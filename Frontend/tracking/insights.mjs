@@ -47,29 +47,30 @@ export function createEvidenceChart(root,{kind,onRetry=()=>{}}){
   hide();svg.replaceChildren();if(!data?.insights)return;
   const width=Math.max(230,plot.clientWidth),height=plot.clientHeight;svg.setAttribute('viewBox',`0 0 ${width} ${height}`);
   impact?drawImpact(width,height):drawStability(width,height);
+  if(data.simulation){context.textContent='Simulation mode';note.textContent='Hypothetical values with seeded variation, not observed model performance.';}
+  if(data.smoothed){
+   svg.querySelector('title').textContent='Smoothed curves between measured model results';
+   context.textContent='Interpolated between measured checkpoints';
+   note.textContent='Curves retain measured checkpoints. Intermediate values and spread are interpolated for display.';
+  }
  }
  function drawImpact(width,height){
   const days=data.days,left=39,right=13,top=14,bottom=24,lane=(height-top-bottom)/3;
   const lastDay=data.end-86400,span=Math.max(86400,lastDay-data.start);
   const x=row=>left+(row.day-data.start)/span*(width-left-right);
-  const extent=roundExtent(days.flatMap(row=>models.flatMap(model=>metric==='error'?[row.models[model]?.mae,row.models[model]?.clean_mae]:[delta(row.models[model])])),metric==='error'?5:2);
-  const lanes=[];svg.append(svgElement('title',{},metric==='error'?'Paired daily absolute ETA error for each model':'Added absolute ETA error caused by the selected input changes'));
+  const extent=roundExtent(days.flatMap(row=>models.flatMap(model=>metric==='error'?[row.models[model]?.mae]:[delta(row.models[model])])),metric==='error'?5:2);
+  const lanes=[];svg.append(svgElement('title',{},metric==='error'?(data.poisoning_active?'Absolute ETA error during the poisoned period for each model':'Absolute ETA error on normal, unpoisoned inputs for each model'):'Added absolute ETA error caused by the selected input changes'));
   for(const [index,model] of models.entries()){
    const start=top+index*lane,chartTop=start+22,chartBottom=start+lane-13;
    const y=value=>metric==='error'?chartBottom-value/extent*(chartBottom-chartTop):chartTop+(extent-value)/(2*extent)*(chartBottom-chartTop);
    lanes.push({model,y,top:chartTop,bottom:chartBottom});
    svg.append(svgElement('text',{x:left,y:start+10,class:'facet-model',style:styleFor(model)},modelNames[model]));
    const summary=data.insights.impact.models[model];
-   const label=metric==='error'?`${number(summary.mae_clean)} → ${number(summary.mae_scenario)} min`:`${signed(summary.added_mae)} min`;
+   const label=metric==='error'?`${number(summary.mae_scenario)} min`:`${signed(summary.added_mae)} min`;
    svg.append(svgElement('text',{x:width-right,y:start+10,'text-anchor':'end',class:'facet-number'},label));
    for(const value of metric==='error'?[0,extent/2,extent]:[-extent,0,extent]){
     svg.append(svgElement('line',{x1:left,x2:width-right,y1:y(value),y2:y(value),class:value===0?'chart-zero':'chart-grid'}));
     svg.append(svgElement('text',{x:left-7,y:y(value)+3,'text-anchor':'end'},`${metric==='impact'&&value>0?'+':''}${Number(value.toFixed(2))}`));
-   }
-   if(data.cutover>=data.start&&data.cutover<=lastDay){const cut=x({day:data.cutover});svg.append(svgElement('line',{x1:cut,x2:cut,y1:chartTop,y2:chartBottom,class:'chart-cutover'}));}
-   if(metric==='error'){
-    if(data.poisoning_active)for(const d of bandPaths(days,x,y,row=>row.models[model]?.clean_mae,row=>row.models[model]?.mae))svg.append(svgElement('path',{d,class:'comparison-fill',style:styleFor(model)}));
-    svg.append(svgElement('path',{d:evidencePath(days,x,y,row=>row.models[model]?.clean_mae),class:'clean-line',style:styleFor(model)}));
    }
    svg.append(svgElement('path',{d:evidencePath(days,x,y,row=>metric==='error'?row.models[model]?.mae:delta(row.models[model])),class:'evidence-line impact-line','data-series':model,style:styleFor(model)}));
   }
@@ -77,10 +78,10 @@ export function createEvidenceChart(root,{kind,onRetry=()=>{}}){
   if(data.cutover>=data.start&&data.cutover<=lastDay)dates.push(data.cutover);
   for(const day of [...new Set(dates)].sort((a,b)=>a-b)){const row={day};svg.append(svgElement('text',{x:x(row),y:height-5,'text-anchor':day===lastDay?'end':'middle'},width<350?String(new Date(day*1000).getUTCDate()):dateText(day)));}
   geometry={samples:days,x,width,lanes};
-  const key=root.querySelector('.insight-key');key.hidden=metric==='impact';
-  const cutoverText=dateText(data.cutover),endText=dateText(lastDay);
-  context.textContent=`${metric==='error'?'MAE (min) · clean → selected':'Added MAE (min) · selected − clean'} · summaries: ${cutoverText}–${endText}`;
-  note.textContent=data.poisoning_active?`${cutoverText} marks the input change. Each selected forecast is paired with a clean run for the same vessel and time.`:`Poisoning is off. ${metric==='error'?'The clean and selected curves coincide.':'Added error is zero wherever matched forecasts exist.'}`;
+  const key=root.querySelector('.insight-key');key.hidden=true;
+  const cutoverText=dateText(data.start),endText=dateText(lastDay);
+  context.textContent=`${metric==='error'?(data.poisoning_active?'Poisoned-input MAE (min)':'Normal-input MAE (min)'):'Added MAE (min) · selected − clean'} · summaries: ${cutoverText}–${endText}`;
+  note.textContent=data.poisoning_active?'Only the post-poisoning period is plotted. Added error compares the poisoned forecasts with clean forecasts for the same vessels and times.':'No poisoning selected. Showing normal inputs across the month; added error is zero.';
  }
  function drawStability(width,height){
   const result=data.insights.stability,rows=result.samples,left=39,right=69,top=28,bottom=31;
@@ -123,7 +124,7 @@ export function createEvidenceChart(root,{kind,onRetry=()=>{}}){
    else{const values=row.models[model][metric];addCell(line,'td',number(values.mean));addCell(line,'td',valid(values.p10)?`${number(values.p10)}–${number(values.p90)}`:'—');}
   }
   inspector.append(table);
-  const paragraph=textElement('p',impact?`Minutes of absolute error · ${row.matched_decisions}/${row.scheduled_decisions} matched checkpoints · ${row.approaches} approaches.`:`Minutes · same ${row.instances} matched approaches at every offset. Range is observed vessel spread, not a confidence interval.`);inspector.append(paragraph);
+  const paragraph=textElement('p',impact?`Minutes of absolute error · ${row.matched_decisions}/${row.scheduled_decisions} matched checkpoints · ${row.approaches} approaches.`:`Minutes · same ${row.instances} matched approaches at every offset. Range is observed vessel spread, not a confidence interval.`);if(data.smoothed)paragraph.textContent='Curves interpolate between measured checkpoints; extra points are not additional observations.';if(data.simulation)paragraph.textContent='Simulation mode. Synthetic values and assumed spread, not observed vessel outcomes.';inspector.append(paragraph);
   if(!impact&&data.poisoning_active&&focus!=='all')inspector.append(textElement('p',`${modelNames[focus]} clean mean: ${number(row.models[focus][metric].clean_mean)} min.`));
   const width=geometry.width,point=geometry.x(row);inspector.style.left=`${point>width/2?4:Math.max(4,width-Math.min(318,width-8)-4)}px`;inspector.hidden=false;
   svg.querySelector('.insight-selection')?.remove();const group=svgElement('g',{class:'insight-selection'});
@@ -140,7 +141,7 @@ export function createEvidenceChart(root,{kind,onRetry=()=>{}}){
   setStatus(state){data=null;geometry=null;hide();svg.replaceChildren();loading.hidden=false;retry.hidden=state.status!=='error';setChartStatus(loading,state);root.setAttribute('aria-busy',String(state.status==='loading'));},
   setResult(next){
    if(!next.insights){this.setStatus({status:'error',message:'The paired insights require the updated monthly API. Restart the preview and retry.'});return;}
-   data=next;draw();root.setAttribute('aria-busy','false');retry.hidden=true;
+   data=impact&&next.poisoning_active?{...next,start:Math.max(next.start,next.cutover),days:next.impact_days??next.days.filter(row=>row.day>=next.cutover)}:next;draw();root.setAttribute('aria-busy','false');retry.hidden=true;
    const result=impact?data.insights.impact:data.insights.stability;
    const count=impact?result.matched_decisions:result.instances;loading.hidden=count>0;setChartStatus(loading,{status:'empty',message:impact?'No matched clean/scenario forecasts are available.':'No complete supported 30-minute sequences are available. Short or unsupported sequences remain excluded.'});
   },

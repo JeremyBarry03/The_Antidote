@@ -50,3 +50,37 @@ Serve the updated frontend with the normal local replay server. The saved graph
 bundle also works from an ordinary static HTTP server and does not need any
 monthly-analysis API jobs. An initial file download is still required; changing
 selections after that uses only data already in memory.
+
+## Full-cohort checkpoint summaries
+
+The dashboard's **Full March results** mode reads `Frontend/tracking/data/full-month.json`.
+It uses all 5,382 archived five-minute decisions across 243 approaches and 219
+vessels. It preserves frozen models, reference crossings and receipt-time
+filtering. Additional input repairs use the current serving policy. No synthetic
+performance adjustments are included in this mode.
+
+From `Data_Science`:
+
+```sh
+python experiments/static_graphs/full_month.py --workers 4
+```
+
+The default build evaluates clean reports, the eight individual quarter-strength
+faults, and the all-eight combination. Pass `--masks 0,1,65` to evaluate particular
+combinations. A missing full-cohort combination is shown as unavailable; the UI
+never substitutes the six-approach sample. That original sample remains in its
+own data mode. The separate Simulation mode is explicitly hypothetical.
+
+The build verifies 108 forecasts against scalar serving inference, caches the
+actual checkpoint predictions under `artifacts/full_graphs/<signature>/`, and
+publishes each finished scenario atomically. Repeating the command reuses verified
+input/code-signature caches. Faults begin at the March 15 cutover. A matching clean
+forecast is retained for each vessel and clock.
+
+Daily errors average within approach before averaging across approaches. The
+optional weekly view averages those daily means. Convergence uses disjoint
+five-minute final-hour bins, averaging absolute errors within approach; a zero
+minute endpoint needs an actual checkpoint at the crossing and is otherwise a
+gap. Stability retains only complete seven-offset sequences on the same cohort.
+Counts and exclusions are saved in the bundle and shown below the graphs. Source,
+model, configuration and implementation hashes are included for reproducibility.

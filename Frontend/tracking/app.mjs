@@ -7,7 +7,7 @@ import {enhanceArcGroup,enhanceArcDialog,setupArcTooltips,enhanceArcSlider,setAr
 import {setupArcDateTime} from './arc-date-time.mjs';
 import {createArcFeedback} from './arc-feedback.mjs';
 import {createPoisoningControls} from './poisoning-controls.mjs';
-import {createAnomalyNotice} from './anomalies.mjs';
+import {createAnomalyNotice} from './anomalies.mjs?v=review-confirmation-dark-green-exit';
 import {createEtaComparison} from './eta-comparison.mjs';
 import {createAntidoteEtas} from './antidote-etas.mjs';
 import {createPreloadedGraphs} from './preloaded-graphs.mjs';
