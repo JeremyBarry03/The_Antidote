@@ -1,0 +1,18 @@
+{
+  "approaches": 112,
+  "vessels": 110,
+  "decisions_per_scenario": 2402,
+  "scenarios": 6,
+  "output_decisions": 14412,
+  "all_decisions_retained": true,
+  "all_sensor_errors_finite": true,
+  "policy_and_attack_hashes_unchanged": true,
+  "audit_truth_excluded_from_mitigation_inputs": true,
+  "source_csvs_unchanged": true,
+  "models_and_thresholds_unchanged": true,
+  "elapsed_seconds": 102.12533604100463,
+  "source_hashes_reverified_after_evaluation": true,
+  "all_scenario_report_counts_and_unaffected_fields_verified": true,
+  "coordinated_example_minutes": 30,
+  "coordinated_example_checks": 31
+}

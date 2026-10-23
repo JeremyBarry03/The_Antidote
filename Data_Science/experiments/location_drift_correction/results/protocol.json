@@ -1,0 +1,90 @@
+{
+  "scenarios": {
+    "original": [
+      0.0,
+      false
+    ],
+    "location": [
+      0.0,
+      true
+    ],
+    "combined_under": [
+      -0.1,
+      true
+    ],
+    "combined_over": [
+      0.1,
+      true
+    ]
+  },
+  "profile_seed": 42,
+  "position_channel": "SIMULATED oracle original AIS fixes",
+  "anchor_schedule": "First received report in each five-minute bin, relative to approach start",
+  "navigation_trust": "Stipulated independent trust in original/location-only; rejection in combined",
+  "incorrect_trust_control": "Deliberately trust attacked speed in combined cases",
+  "current_product_reference_channel_available": false,
+  "current_v2_models_available": false,
+  "models": {
+    "A_v1": "/Users/samharrington/Documents/GitHub/2026_WM_Hackathon/Data_Science/artifacts/optimized/march_gate_v1/frozen_baselines/quadratic/model.joblib",
+    "B_v1": "/Users/samharrington/Documents/GitHub/2026_WM_Hackathon/Data_Science/artifacts/optimized/march_gate_v1/frozen_baselines/xgboost/model.joblib",
+    "C_v1": "/Users/samharrington/Documents/GitHub/2026_WM_Hackathon/Data_Science/artifacts/optimized/march_gate_v1/models/C.joblib"
+  },
+  "legacy_implementation_differences": [
+    "eta_baselines/features.py",
+    "eta_baselines/prediction.py"
+  ],
+  "protected_hashes": {
+    "/Users/samharrington/Documents/GitHub/2026_WM_Hackathon/Data_Science/artifacts/optimized/march_gate_v1/frozen_baselines/quadratic/model.joblib": "8f2ff5437fdd54d41b441efe9dfdebf200efb879fe2925a341dfaa6c1a1c37a2",
+    "/Users/samharrington/Documents/GitHub/2026_WM_Hackathon/Data_Science/artifacts/optimized/march_gate_v1/frozen_baselines/xgboost/model.joblib": "d3eadab4aa0caa607ccb2bf2d39c762ceec901a07efe088c12adc5b675b23d55",
+    "/Users/samharrington/Documents/GitHub/2026_WM_Hackathon/Data_Science/artifacts/optimized/march_gate_v1/models/C.joblib": "308b888f0bb2ecbdbb35c30e944077ed04644a8149008fb89fcda550decb6fd2",
+    "/Users/samharrington/Documents/GitHub/2026_WM_Hackathon/Data_Science/mitigation/location_drift_mitigation/location_drift_mitigation.py": "20c01543a9286b08f01dc170bb85fa16822c8de7f737b189dc507943dbaf5cb7",
+    "/Users/samharrington/Documents/GitHub/2026_WM_Hackathon/Data_Science/mitigation/base_mitigation.py": "1c5e57f47af4ee4ca7d14902ff113d3b517a9650b9ad682db23f84c869f63e1e",
+    "/Users/samharrington/Documents/GitHub/2026_WM_Hackathon/Data_Science/mitigation/_drift_helpers.py": "3c99775d8c58b638e8bdd7e92ec725c1e7209b7a7dc2d95b978ad4d85bd0378b",
+    "/Users/samharrington/Documents/GitHub/2026_WM_Hackathon/Data_Science/attacks/locationDriftAttack/location_drift_attack.py": "135a29bb302a3b61cde3206a55fdddf1c7ee5d4d6f1c4fb0a9f1faab5b06b674",
+    "/Users/samharrington/Documents/GitHub/2026_WM_Hackathon/Data_Science/attacks/sensorDriftAttack/sensor_drift_attack.py": "a14ee813caf5922ac338689b98306ac63cacd1f9fe949631bdaa9a87a7e9bcc8",
+    "/Users/samharrington/Documents/GitHub/2026_WM_Hackathon/Data_Science/attacks/drift_profile.py": "da90f89931bf0b0e95b0afa14d49c39ce5ffb002fe47a9f47eaa04c4e57fc383",
+    "/Users/samharrington/Documents/GitHub/2026_WM_Hackathon/Data_Science/Optimized_Model/features.py": "873c5252d1b28418c1abc2192f5f208deecd9dd1e35e0a2c3609c4b0de518b21",
+    "/Users/samharrington/Documents/GitHub/2026_WM_Hackathon/Data_Science/Optimized_Model/quality.py": "7097ca8f643720fe6f0bc78f4b55b046ebd3e0e9e05d42faf498fe2cbed7f695",
+    "/Users/samharrington/Documents/GitHub/2026_WM_Hackathon/Data_Science/Optimized_Model/replay.py": "de62e46bd7e0d0542568dfcc3bfc97e808a0c08634afc3aee4cf2a3d6e1d446d",
+    "/Users/samharrington/Documents/GitHub/2026_WM_Hackathon/Data_Science/eta_baselines/features.py": "dd58103f61dcbb8039f2989ce15f437cc7f6b36cdae84f7ff81599e1ef05da9b",
+    "/Users/samharrington/Documents/GitHub/2026_WM_Hackathon/Data_Science/eta_baselines/motion.py": "bbdc714add6c661624245d9ef7a8969e2c36f09508a5b89d09748bcbbb48351f",
+    "/Users/samharrington/Documents/GitHub/2026_WM_Hackathon/Data_Science/eta_baselines/prediction.py": "66c92331ca318f2fe45e4f813b10f5d90bad804fbc6e6a4fad5a05d9904d811d"
+  },
+  "source_hashes": {
+    "/Users/samharrington/Documents/GitHub/2026_WM_Hackathon/data/hampton_roads_march_2024.csv": "de8946c04c3fa2dfd45c88f7c501d751c49091c30045a173020887c6cd69de71",
+    "/Users/samharrington/Documents/GitHub/2026_WM_Hackathon/data/hampton_roads_april_2024.csv": "0bd05942c85247f2c5aadaca31df9945c2805f787b0d425fabeea5f2748a4fbd"
+  },
+  "policy": {
+    "config": {
+      "ewma_time_constant_minutes": 2.0,
+      "minimum_disagreement_meters_per_minute": 4.0,
+      "drift_threshold_meters_per_minute": 8.0,
+      "minimum_persistent_reports": 3,
+      "minimum_persistence_minutes": 2.0,
+      "minimum_accumulated_disagreement_meters": 30.0,
+      "maximum_direction_change_degrees": 45.0,
+      "maximum_gap_seconds": 180.0,
+      "maximum_report_age_minutes": 5.0,
+      "maximum_speed_knots": 60.0,
+      "maximum_course_change_degrees": 15.0,
+      "maximum_speed_change_knots_per_minute": 2.0,
+      "stationary_speed_knots": 0.1,
+      "maximum_projection_minutes": 5.0
+    },
+    "gate": {
+      "longitude": -76.3,
+      "south_latitude": 36.95,
+      "north_latitude": 37.05,
+      "approach_east_longitude": -75.8,
+      "approach_south_latitude": 36.9,
+      "approach_north_latitude": 37.1,
+      "maximum_crossing_gap_seconds": 120,
+      "episode_break_hours": 6
+    },
+    "scope": "location_drift",
+    "action": "bounded_reconstruction_from_verified_anchor_or_review",
+    "history": "complete_received_session"
+  },
+  "eta_adapter": "Repair RICH_COLUMNS only, retain raw quality and matched observation anchors",
+  "evaluation": "Exploratory, previously inspected April 8\u201321; no fitting or threshold changes"
+}

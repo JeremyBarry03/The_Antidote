@@ -30,3 +30,29 @@ to the observed feed regardless of whether its gaps are natural or simulated.
 It detects per-vessel reporting silence; it does not reconstruct positions,
 modify features, or retrain models. The former projection adapter and experiment
 outputs have been removed.
+
+`SensorDriftMitigation` monitors persistent signed speed/position disagreement.
+After its EWMA and persistence checks pass, it returns guarded replacement speed
+in a derived copy. See [the speed-drift strategy](sensor_drift_mitigation/README.md).
+
+`LocationDriftMitigation` monitors persistent position/navigation disagreement.
+It reconstructs coordinates briefly from an independent verified position when
+speed/course are independently trusted; otherwise it requests verification.
+Its raw-feed warning remains active through the supplied session.
+See [the location-drift strategy](location_drift_mitigation/README.md).
+
+These are separate strategies, not a classifier that can determine which of two
+disagreeing sensors is correct. Their reference assumptions differ. Like the gap
+strategy, they keep rules in their own modules; callers own API, ETA and review
+workflow integration. Defaults require calibration before reliability claims.
+
+The [initial drift evaluation](../experiments/drift_mitigation/results/REPORT.md)
+measures separate and combined speed/location faults, original-feed alert burden,
+and a coordinated-corruption counterexample. It predates the optional location
+correction extension and supplies no verified anchors. It does not establish
+location-correction or ETA improvement.
+
+The [conditional location-correction study](../experiments/location_drift_correction/results/REPORT.md)
+evaluates simulated periodic verified fixes and legacy-v1 ETA models. It reports
+the extra reference/trust assumptions, unchanged outputs without those references,
+and combined-attack controls.
