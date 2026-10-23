@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 from collections import Counter
 from collections.abc import Iterator
+from tempfile import TemporaryDirectory
 
 import duckdb
 import pandas as pd
@@ -57,7 +58,12 @@ def iter_observation_vessels(
     if chunk_vectors < 1:
         raise ValueError("chunk_vectors must be positive")
     valid_rows = 0
-    with duckdb.connect(config={"threads": 1, "memory_limit": "256MB"}) as connection:
+    # The sort spills to disk, but CSV buffers and sort metadata still need
+    # headroom: 256 MB is insufficient for the multi-month source in DuckDB 1.5.
+    with TemporaryDirectory(prefix="antidote-ais-sort-") as temporary, duckdb.connect(
+        config={"threads": 1, "memory_limit": "512MB", "preserve_insertion_order": False,
+                "temp_directory": temporary},
+    ) as connection:
         columns = connection.execute(
             f"DESCRIBE SELECT * FROM read_csv(?, {CSV_READ_OPTIONS})", [str(path)]
         ).fetchdf()["column_name"]

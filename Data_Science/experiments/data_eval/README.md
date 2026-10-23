@@ -96,7 +96,8 @@ when source/configuration/code signatures match. A changed signature requires
 review rather than silently mixing artifacts from different experiments.
 
 Preparation streams complete vessel histories through a disk-backed SQL sort
-with a 256 MB SQL memory limit. This avoids loading the entire source into pandas.
+with a 512 MB SQL memory limit and an isolated temporary spill directory. Acquisition
+uses 256 MB per worker. This avoids loading the entire source into pandas.
 Both ISO `T` timestamps from 2023 and space-separated March timestamps are parsed
 without changing their observation times. Deduplication and conflicting-key
 exclusion operate on complete vessel histories, including across fetch batches.
