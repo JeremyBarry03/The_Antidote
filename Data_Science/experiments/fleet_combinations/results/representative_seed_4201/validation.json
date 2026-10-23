@@ -1,0 +1,12 @@
+{
+  "protected_files_unchanged": true,
+  "raw_quality_and_a_b_inputs_unchanged": true,
+  "causal_received_reports": true,
+  "original_labels_preserved": true,
+  "unique_case_keys": true,
+  "cases": 17472,
+  "forecasts": 69888,
+  "elapsed_seconds": 348.79631866599084,
+  "run_key": "dad1b37b68578fbb",
+  "current_model_manifests_validated": true
+}

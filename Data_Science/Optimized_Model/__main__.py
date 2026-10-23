@@ -53,7 +53,7 @@ def evaluate_partition(config: OptimizedConfig, partition: str, suite: str) -> p
 def main() -> None:
     parser = argparse.ArgumentParser(description="Train and evaluate degradation-aware model C.")
     parser.add_argument("command", choices=("acquire", "prepare", "train", "calibrate", "evaluate", "pilot", "serve"))
-    parser.add_argument("--config", type=Path, default=Path(__file__).with_name("config.json"))
+    parser.add_argument("--config", type=Path, default=Path(__file__).with_name("config_vessel_class_v2.json"))
     parser.add_argument("--suite", choices=("primary", "stress", "volume"), default="primary")
     parser.add_argument("--port", type=int, default=8765)
     args = parser.parse_args()
