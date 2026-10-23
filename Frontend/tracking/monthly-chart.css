@@ -9,3 +9,35 @@
 .graph-empty>div{min-height:338px}
 @media(max-width:900px){.analytics-grid{gap:16px}.monthly-body{padding:10px}.monthly-tools{gap:3px}.monthly-legend{gap:8px}.monthly-scenario{min-height:48px}}
 @media(max-width:660px){.analytics-grid{grid-template-columns:1fr;gap:20px}.monthly-plot{height:240px}.monthly-scenario{min-height:32px}}
+
+.graph-scenarios{grid-column:1/-1;padding:20px 0 4px;border-top:1px solid var(--border-strong)}
+.scenario-heading{display:flex;align-items:center;flex-wrap:wrap;gap:12px 20px}.scenario-heading h2{margin:0;font-size:13px;font-weight:400;color:var(--ink)}
+.scenario-period{color:var(--muted);font-size:11px}.scenario-reset{margin-left:auto}.scenario-reset,.scenario-retry{min-height:32px;padding:0 12px;border:1px solid var(--button-border);border-radius:var(--radius-control);background:var(--button-surface);font-size:11px}.scenario-reset:hover:not(:disabled),.scenario-retry:hover{background:var(--button-hover)}.scenario-reset:disabled{cursor:default;opacity:.5}
+.graph-scenarios>p{max-width:110ch;margin:10px 0 16px;color:var(--muted);font-size:11px;line-height:1.7}
+.graph-scenarios fieldset{min-width:0;margin:0;padding:0;border:0}.scenario-options{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.scenario-options label{display:grid;grid-template-columns:14px minmax(0,1fr) auto;align-items:center;gap:8px;min-height:40px;padding:8px 10px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--muted);cursor:pointer;font-size:11px;line-height:1.5}
+.scenario-options label:hover{background:var(--raised)}.scenario-options label:has(input:checked){border-color:var(--border-strong);color:var(--ink);background:var(--raised)}.scenario-options input{width:14px;height:14px;margin:0;accent-color:var(--ink)}.scenario-strength{color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.scenario-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;min-height:44px;margin-top:8px;color:var(--muted);font-size:11px;line-height:1.6}
+.analytics-featured{grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.analytics-featured>.graph-panel{display:flex;flex-direction:column;min-height:0}
+.analytics-featured>.graph-panel>.section-bar{flex:none;flex-direction:column;align-items:flex-start;justify-content:center;gap:4px;height:var(--header-height);padding:6px 10px}
+.analytics-featured>.graph-panel .graph-period{font-size:11px}
+.analytics-featured>.graph-panel>.monthly-body{flex:1;display:grid;grid-template-rows:64px 260px;gap:0;padding:10px}
+.analytics-featured>#paired-impact>.insight-body{flex:1;display:grid;grid-template-rows:64px 260px;gap:0;padding:10px}
+.analytics-featured>#forecast-stability>.insight-body{flex:1;display:grid;grid-template-rows:28px 36px 260px;gap:0;padding:10px}
+.analytics-featured>.graph-panel .monthly-plot,.analytics-featured>#paired-impact .insight-plot{grid-row:2}
+.analytics-featured>#forecast-stability .insight-plot{grid-row:3}
+.analytics-featured>.graph-panel .monthly-tools{align-content:center;align-items:flex-start;gap:6px}
+.analytics-featured>.graph-panel .monthly-legend{width:100%;justify-content:space-between;gap:6px}
+.analytics-featured>.graph-panel .monthly-legend button,.analytics-featured>.graph-panel .monthly-tools,.analytics-featured>.graph-panel .insight-tabs button{font-size:11px}
+.analytics-featured>.graph-panel .monthly-plot,.analytics-featured>.graph-panel .insight-plot{height:260px;margin:0}
+.analytics-featured>.graph-panel svg text{font-size:10px}
+.analytics-featured>.graph-panel .monthly-scenario,.analytics-featured>.graph-panel .insight-note{margin:8px 0;min-height:0;font-size:11px;line-height:1.5}
+.analytics-featured>.graph-panel .insight-context{align-self:center;min-height:0;margin:0;font-size:10px}
+.analytics-featured>.graph-panel .insight-models{margin:0;gap:7px}
+.analytics-featured>#forecast-stability .insight-units{display:none}
+.analytics-featured>.graph-panel .monthly-method{font-size:10px}
+@media(max-width:900px){.scenario-options{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:1000px){.analytics-featured{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:660px){.analytics-featured{grid-template-columns:1fr}}
+@media(max-width:420px){.scenario-heading{gap:8px 12px}.scenario-period{order:3;width:100%}.scenario-options label{min-height:48px;padding:8px}.scenario-footer{align-items:flex-start;flex-direction:column}}

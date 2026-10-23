@@ -103,6 +103,8 @@ class FleetService:
         self.mitigations = FleetMitigations(extractor)
 
     def catalog(self) -> dict[str, object]:
+        period_start = pd.Timestamp(self.config.evaluation_start).normalize()
+        period_end = pd.Timestamp(self.config.evaluation_end).normalize()
         return {"start": unix_seconds(self.start), "end": unix_seconds(self.end),
                 "initial_time": unix_seconds(self.initial_time), "split": self.split,
                 "windows": [{"id": identity, "start": unix_seconds(self.starts[identity]),
@@ -112,28 +114,35 @@ class FleetService:
                 "mitigation_defaults": {"enabled": True, "trusted_fixes": False, "drift_direction": "under"},
                 "models": {"A": "Poly", "B": "XGBoost", "C": "Antidote"},
                 "evaluation_label": pd.Timestamp(self.config.evaluation_start).strftime("%B %Y"),
+                "evaluation_start": unix_seconds(period_start),
+                "evaluation_end": unix_seconds(period_end),
+                "poisoning_cutover": unix_seconds(period_start.replace(day=15)),
                 "training_year": pd.Timestamp(self.config.baseline.splits.start).year,
                 "model_c_variant": next(system.predictor.model_name for system in self.systems if system.name == "C"),
                 "arrival_reference": "Original analytical harbor crossing, not docking.",
                 "seed": self.config.evaluation_seeds[0]}
 
-    def _attacks(self, identity: str, settings: tuple[float, ...], drift_direction: str = "under") -> list[BaseAttack]:
+    def _attacks(self, identity: str, settings: tuple[float, ...], drift_direction: str = "under",
+                 attack_start: pd.Timestamp | None = None) -> list[BaseAttack]:
         gap, speed, course, vessel_class, drift, location, noise, jump = settings
         seed = self.config.evaluation_seeds[0]
+        # A later approach must receive its own outage/ramp, rather than an
+        # already-finished outage at the global evaluation boundary.
+        origin = max(attack_start, self.starts[identity]) if attack_start is not None else self.starts[identity]
         attacks: list[BaseAttack] = []
         if gap:
-            start = self.starts[identity] + pd.Timedelta(minutes=10)
+            start = origin + pd.Timedelta(minutes=10)
             attacks.append(ReportingGapAttack(ReportingGapConfig(start, start + pd.Timedelta(minutes=gap))))
         if drift:
             attacks.append(SensorDriftAttack(SensorDriftConfig(
                 drift_rate_knots_per_minute=(.1 if drift_direction == "over" else -.1) * drift / 100,
                 maximum_bias_knots=3 * drift / 100, seed=seed,
-                start_time=self.starts[identity])))
+                start_time=origin)))
         if location:
             attacks.append(LocationDriftAttack(LocationDriftConfig(
                 drift_rate_meters_per_minute=20 * location / 100,
                 maximum_bias_meters=1852 * location / 100, seed=seed,
-                start_time=self.starts[identity])))
+                start_time=origin)))
         if noise:
             attacks.append(SensorDeteriorationAttack(SensorDeteriorationConfig(
                 sog_sigma_knots=2 * noise / 100, cog_sigma_degrees=10 * noise / 100, seed=seed)))
@@ -149,20 +158,33 @@ class FleetService:
         return attacks
 
     @lru_cache(maxsize=64)
-    def _stream(self, identity: str, settings: tuple[float, ...], drift_direction: str = "under") -> tuple[pd.DataFrame, pd.DataFrame, dict[str, list[str]]]:
+    def _stream(self, identity: str, settings: tuple[float, ...], drift_direction: str = "under",
+                attack_start: pd.Timestamp | None = None) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, list[str]]]:
         nominal = create_stream(self.dataset.histories[identity], Scenario("nominal"),
                                 self.config.evaluation_seeds[0], self.config.baseline.gate).reports
         changed = nominal
         names: dict[str, list[str]] = {}
-        for attack in self._attacks(identity, settings, drift_direction):
-            stream = attack.apply(changed)
-            changed = stream.reports
+        for attack in self._attacks(identity, settings, drift_direction, attack_start):
+            if attack_start is None:
+                stream = attack.apply(changed)
+                changed = stream.reports
+            else:
+                # Month-analysis attacks begin at the configured cutover for
+                # every attack type, including attacks without their own time window.
+                eligible = changed.loc[changed.time.ge(attack_start)].copy()
+                if eligible.empty:
+                    continue
+                stream = attack.apply(eligible)
+                earlier = changed.loc[changed.time.lt(attack_start)]
+                changed = pd.concat([earlier, stream.reports], ignore_index=True).sort_values(
+                    ["time", "record_id"]).reset_index(drop=True)
             for record in stream.modification_log.loc[stream.modification_log.fault_applied].itertuples():
                 names.setdefault(record.record_id, []).append(attack.name)
         return nominal, changed, names
 
     def _predict(self, reports: pd.DataFrame, decision: pd.Series, policy: FleetPolicy = FleetPolicy(), *,
-                 anchors: tuple[PositionAnchor, ...] = ()) -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
+                 anchors: tuple[PositionAnchor, ...] = (),
+                 system_names: tuple[str, ...] | None = None) -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
         row = decision.to_dict()
         row.update(view_row(reports, decision, self.extractor))
         patch, mitigation = self.mitigations.apply(reports, decision.decision_time, policy, anchors=anchors)
@@ -176,7 +198,12 @@ class FleetService:
             if column not in frame:
                 frame[column] = pd.NaT
         predictions = {}
-        for result in predict_systems(frame, self.systems).itertuples():
+        systems = self.systems if system_names is None else [
+            system for system in self.systems if system.name in system_names
+        ]
+        if system_names is not None and {system.name for system in systems} != set(system_names):
+            raise ValueError("Requested fleet prediction system is unavailable.")
+        for result in predict_systems(frame, systems).itertuples():
             eta = unix_seconds(result.predicted_arrival_time) if result.available else None
             available = eta is not None and math.isfinite(eta)
             predictions[result.system] = {"available": available, "eta": eta if available else None,

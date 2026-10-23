@@ -33,7 +33,11 @@ def load_systems(config: OptimizedConfig) -> list[PredictionSystem]:
     for spec in MODEL_SPECS:
         path = config.output_directory / "models" / f"{spec.name}.joblib"
         if not path.exists():
-            raise FileNotFoundError(f"Required model/control {spec.name} is missing; run train before evaluation.")
+            # A frozen nominal-only C is sufficient for the live replay; the
+            # other saved variants are optional analysis controls.
+            if spec.name == "C_nominal":
+                raise FileNotFoundError(f"Required frozen model {spec.name} is missing.")
+            continue
         manifest = json.loads(path.with_name(f"{spec.name}_manifest.json").read_text())
         if (manifest["config"] != config.snapshot() or manifest["model_sha256"] != file_digest(path)
                 or manifest.get("inference_implementation") != inference_implementation()):

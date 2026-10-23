@@ -21,7 +21,7 @@ const addCell=(row,tag,text)=>{const cell=document.createElement(tag);cell.textC
 export function createEtaSequence(root,{onRetry=()=>{}}={}){
  const plot=root.querySelector('.monthly-plot'),svg=root.querySelector('.monthly-svg'),inspector=root.querySelector('.monthly-inspector');
  const loading=root.querySelector('.monthly-loading'),retry=loading.querySelector('button');
- const coverage=root.querySelector('.monthly-coverage'),method=root.querySelector('.monthly-method-copy'),description=root.querySelector('.window-description');
+ const description=root.querySelector('.window-description');
  const legend=root.querySelector('.monthly-legend'),shown=new Set(models);
  let result=null,selected=-1,geometry;
  for(const model of models){const button=document.createElement('button');button.type='button';button.textContent=modelNames[model];button.style.setProperty('--series-color',`var(--model-${model})`);button.setAttribute('aria-pressed','true');button.setAttribute('aria-label',`Show ${modelNames[model]} sequence`);button.addEventListener('click',()=>{shown.has(model)?shown.delete(model):shown.add(model);button.setAttribute('aria-pressed',String(shown.has(model)));draw();});legend.append(button);}
@@ -32,7 +32,7 @@ export function createEtaSequence(root,{onRetry=()=>{}}={}){
   const extent=sequenceExtent(samples),x=minute=>left+minute/30*(width-left-right),y=value=>top+(extent-value)/(2*extent)*(height-top-bottom);
   geometry={x,y,width,left,right};svg.setAttribute('viewBox',`0 0 ${width} ${height}`);
   svg.append(node('title',{},'Average change in predicted arrival time over 30 minutes'));
-  svg.append(node('desc',{},'March approaches aligned at minute zero. Positive means a later arrival prediction; negative means an earlier arrival prediction. Zero means no revision.'));
+  svg.append(node('desc',{},'Approaches in the configured evaluation period aligned at minute zero. Positive means a later arrival prediction; negative means an earlier arrival prediction. Zero means no revision.'));
   for(const value of [-extent,-extent/2,0,extent/2,extent]){
    svg.append(node('line',{x1:left,x2:width-right,y1:y(value),y2:y(value),class:value===0?'chart-zero':'chart-grid'}));
    svg.append(node('text',{x:left-8,y:y(value)+3,'text-anchor':'end'},`${value>0?'+':''}${value}`));
@@ -66,15 +66,14 @@ export function createEtaSequence(root,{onRetry=()=>{}}={}){
  retry.addEventListener('click',onRetry);const observer=new ResizeObserver(draw);observer.observe(plot);
  return {
   setStatus(state){
-   if(state.status==='loading'){if(result){result=null;draw();}root.setAttribute('aria-busy','true');loading.hidden=false;retry.hidden=true;setChartStatus(loading,state);coverage.textContent='';description.textContent='0 = unchanged ETA · + later / − earlier';}
+   if(state.status==='loading'){if(result){result=null;draw();}root.setAttribute('aria-busy','true');loading.hidden=false;retry.hidden=true;setChartStatus(loading,state);description.textContent='0 = unchanged ETA · + later / − earlier';}
    else if(state.status==='error'){root.setAttribute('aria-busy','false');loading.hidden=false;setChartStatus(loading,state);retry.hidden=false;}
   },
   setResult(data){
    if(!data.sequence){root.setAttribute('aria-busy','false');loading.hidden=false;setChartStatus(loading,{status:'error',message:'The backend has not supplied the 30-minute sequence aggregation. Retry after updating the API.'});retry.hidden=false;return;}
    result=data;draw();loading.hidden=true;retry.hidden=true;root.setAttribute('aria-busy','false');
-   coverage.textContent=`${data.sequence.matched_instances}/${data.sequence.approaches} approaches`;
-   description.dataset.active=String(data.poisoning_active);description.textContent='0 = unchanged ETA · + later / − earlier'+(data.poisoning_active?' · sliders apply from Mar 15':' · clean March data');
-   method.textContent=`${data.sequence.methodology} ${data.sequence.coverage_note} ${data.sequence.approaches} approaches across ${data.sequence.vessels} vessels. ${data.source} ${data.caveat}`;
+   const cutover=new Date(data.cutover*1000).toLocaleDateString('en-GB',{day:'numeric',month:'short',timeZone:'UTC'});
+   description.dataset.active=String(data.poisoning_active);description.textContent='0 = unchanged ETA · + later / − earlier'+(data.poisoning_active?` · selected attacks apply from ${cutover}`:` · clean ${data.period_label} data`);
   },
   destroy(){observer.disconnect();},
  };

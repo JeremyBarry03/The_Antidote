@@ -8,7 +8,7 @@ import pandas as pd
 
 from .calibration import apply_review, fit_calibration, load_calibration, save_review_curves
 from .configuration import OptimizedConfig
-from .dataset import load_replay, prepare_replay
+from .dataset import load_replay, prepare_evaluation_replay, prepare_replay
 from .evaluation import load_systems, predict_systems, save_evaluation
 from .model import train_models
 from .scenarios import primary_scenarios, stress_scenarios, volume_scenarios
@@ -52,7 +52,7 @@ def evaluate_partition(config: OptimizedConfig, partition: str, suite: str) -> p
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Train and evaluate degradation-aware model C.")
-    parser.add_argument("command", choices=("acquire", "prepare", "train", "calibrate", "evaluate", "pilot", "serve"))
+    parser.add_argument("command", choices=("acquire", "prepare", "prepare-evaluation-replay", "train", "calibrate", "evaluate", "pilot", "serve"))
     parser.add_argument("--config", type=Path, help="Experiment config; serving defaults to the 2023-trained March evaluation")
     parser.add_argument("--model-c", choices=("C_nominal", "C"), default="C_nominal",
                         help="Frozen C artifact to serve; nominal-only C is the dashboard default")
@@ -63,7 +63,9 @@ def main() -> None:
     config_path = args.config or Path(__file__).with_name(
         "config_data_eval.json" if args.command == "serve" else "config_vessel_class_v2.json")
     config = OptimizedConfig.load(config_path)
-    if args.command == "acquire":
+    if args.command == "prepare-evaluation-replay":
+        prepare_evaluation_replay(config)
+    elif args.command == "acquire":
         from .acquisition import acquire_later_data
 
         acquire_later_data(config.later_csv, config.calibration_start, config.evaluation_end)

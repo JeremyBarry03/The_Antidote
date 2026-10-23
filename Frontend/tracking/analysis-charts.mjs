@@ -23,7 +23,6 @@ export function createAnalysisChart(root,{kind,onRetry=()=>{}}){
  const convergence=kind==='convergence',name=convergence?'arrival convergence':'poisoning stress';
  const plot=root.querySelector('.monthly-plot'),svg=root.querySelector('.monthly-svg'),inspector=root.querySelector('.monthly-inspector');
  const loading=root.querySelector('.monthly-loading'),retry=loading.querySelector('button');
- const coverage=root.querySelector('.monthly-coverage'),method=root.querySelector('.monthly-method-copy'),description=root.querySelector('.monthly-scenario');
  const legend=root.querySelector('.monthly-legend'),shown=new Set(models);
  let result=null,context={},geometry,selected=-1;
  for(const model of models){const button=document.createElement('button');button.type='button';button.textContent=modelNames[model];button.style.setProperty('--series-color',`var(--model-${model})`);button.setAttribute('aria-pressed','true');button.setAttribute('aria-label',`Show ${modelNames[model]} ${name}`);button.addEventListener('click',()=>{shown.has(model)?shown.delete(model):shown.add(model);button.setAttribute('aria-pressed',String(shown.has(model)));draw();});legend.append(button);}
@@ -75,40 +74,14 @@ export function createAnalysisChart(root,{kind,onRetry=()=>{}}){
  plot.addEventListener('keydown',event=>{if(!result)return;const moves={ArrowLeft:-1,ArrowRight:1};if(event.key in moves){event.preventDefault();inspect((selected<0?0:selected)+moves[event.key]);}else if(event.key==='Home'||event.key==='End'){event.preventDefault();inspect(event.key==='Home'?0:result.samples.length-1);}else if(event.key==='Escape')hide();});
  retry.addEventListener('click',onRetry);const observer=new ResizeObserver(draw);observer.observe(plot);
  return {
-  setStatus(state){result=null;draw();loading.hidden=false;retry.hidden=state.status!=='error';root.setAttribute('aria-busy',String(state.status==='loading'));setChartStatus(loading,state);coverage.textContent='';},
+  setStatus(state){result=null;draw();loading.hidden=false;retry.hidden=state.status!=='error';root.setAttribute('aria-busy',String(state.status==='loading'));setChartStatus(loading,state);},
   setResult(data){
    const next=convergence?data.convergence:data;
    if(!next){this.setStatus({status:'error',message:'The updated analysis is not available yet. Retry after restarting the replay server.'});return;}
    result=next;context=data;draw();retry.hidden=true;root.setAttribute('aria-busy','false');
    const available=result.samples.some(sample=>models.some(model=>finite(sample.models[model]?.mae)));
    loading.hidden=available;setChartStatus(loading,{status:'empty',message:'No common supported predictions are available for this comparison.'});
-   coverage.textContent=`${result.matched_decisions.toLocaleString()}/${result.scheduled_decisions.toLocaleString()} checkpoints`;
-   description.dataset.active=String(convergence&&data.poisoning_active);
-   description.textContent=convergence?`Lower is better · 60 minutes → crossing · ${data.poisoning_active?'sliders apply from Mar 15':'clean March data'}`:'Lower is better · same checkpoints at every delay · independent of sliders';
-   method.textContent=`${result.methodology} ${result.coverage_note} ${result.approaches} approaches. Seed ${data.seed}. ${convergence?data.caveat??'':''}`;
   },
   destroy(){observer.disconnect();},
  };
-}
-
-export function createStressChart(root,{fetcher=fetch,pollDelay=1500}={}){
- let stopped=false,controller=null,version=0;
- const chart=createAnalysisChart(root,{kind:'stress',onRetry:()=>void load(true)});
- async function load(retry=false){
-  const current=++version;controller?.abort();controller=new AbortController();
-  chart.setStatus({status:'loading',message:'Preparing the reporting-delay experiment…'});
-  try{
-   let url=`/api/fleet/stress${retry?'?retry=1':''}`;
-   while(!stopped&&version===current){
-    const response=await fetcher(url,{signal:controller.signal}),data=await response.json();
-    if(stopped||version!==current)return;
-    if(!response.ok||data.status==='error')throw Error(data.error||'Could not load the reporting-delay experiment.');
-    if(data.status==='ready'){chart.setResult(data);return;}
-    chart.setStatus({status:'loading',completed:data.completed,total:data.total,message:`${data.phase} · ${data.completed.toLocaleString()} / ${data.total.toLocaleString()} checkpoints`});
-    url='/api/fleet/stress';await new Promise(resolve=>setTimeout(resolve,pollDelay));
-   }
-  }catch(error){if(stopped||version!==current||error.name==='AbortError')return;chart.setStatus({status:'error',message:error.message});}
- }
- void load();
- return {destroy(){stopped=true;version++;controller?.abort();chart.destroy();}};
 }

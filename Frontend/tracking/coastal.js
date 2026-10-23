@@ -1,7 +1,11 @@
 (async () => {
   'use strict';
   const status = document.querySelector('#map-status');
-  const HOME = {center:[-76.30,37.00],zoom:10.15,bearing:0,pitch:0};
+  const center=[-76.12,36.975],mapCanvas=document.querySelector('#coastal-map');
+  const width=mapCanvas.clientWidth||window.innerWidth,height=mapCanvas.clientHeight||window.innerHeight*.65;
+  const longitudeZoom=Math.log2(360*width/(512*1.16));
+  const latitudeZoom=Math.log2(360*height*Math.cos(center[1]*Math.PI/180)/(512*.46));
+  const HOME={center,zoom:Math.max(8,Math.min(longitudeZoom,latitudeZoom)),bearing:0,pitch:0};
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   let mapTheme=document.documentElement.dataset.theme==='light'?'light':'dark';
   const neutralPaints={

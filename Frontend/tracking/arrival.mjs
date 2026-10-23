@@ -1,6 +1,6 @@
 // Arrival is the dataset's analytical harbor crossing, not a docking event.
-// Cleanup follows replay time after the display reaches that endpoint. Pausing
-// or changing speed must never leave behind an independent wall-clock animation.
+// Keep each ship visible for eight replay minutes so the next approach can
+// enter before this one fades out. Cleanup follows replay time, never wall time.
 export const ARRIVAL_RETENTION_SECONDS = 480;
 const clamp = value => Math.max(0, Math.min(1, value));
 const smooth = value => {const t=clamp(value);return t*t*(3-2*t);};
@@ -10,11 +10,11 @@ export function arrivalVisual(ship,time,{reducedMotion=false,arrivalTime=ship?.a
   if(elapsed<0)return {phase:'underway',progress:0,markerScale:1,opacity:1,ringScale:1,ringOpacity:0,trailStartFraction:0};
   const progress=clamp(elapsed/ARRIVAL_RETENTION_SECONDS);
   if(progress>=1)return {phase:'complete',progress:1,markerScale:reducedMotion?1:0,opacity:0,ringScale:1,ringOpacity:0,trailStartFraction:1};
-  const acknowledgement=clamp(elapsed/64),finish=smooth((progress-.8)/.2);
+  const acknowledgement=clamp(elapsed/64),finish=smooth(progress);
   return {
-    phase:elapsed<64?'arriving':progress<.8?'retracting':'clearing',
+    phase:elapsed<64?'arriving':progress<1?'fading':'clearing',
     progress,
-    markerScale:reducedMotion?1:(1-.08*Math.sin(Math.PI*acknowledgement))*(1-finish),
+    markerScale:reducedMotion?1:(1-.08*Math.sin(Math.PI*acknowledgement))*(1-.12*finish),
     opacity:1-finish,
     ringScale:reducedMotion?1:.75+1.45*smooth(acknowledgement),
     ringOpacity:reducedMotion?0:.58*smooth(elapsed/8)*(1-smooth(acknowledgement)),

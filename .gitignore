@@ -3,6 +3,8 @@ Data_Science/.pytest_cache/
 Data_Science/.venv/
 Data_Science/artifacts/
 data
+!/Frontend/tracking/data/
+!/Frontend/tracking/data/scenarios.json
 Frontend/node_modules/
 
 # Generated CSV outputs; keep source data under its existing folder policy.
