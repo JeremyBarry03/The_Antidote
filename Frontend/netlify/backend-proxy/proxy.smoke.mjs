@@ -3,7 +3,14 @@ import assert from 'node:assert/strict';
 import {mkdtemp, readFile, rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
-import {backendRedirects, onPreBuild} from './index.js';
+import * as plugin from './index.js';
+import {onPreBuild} from './index.js';
+import {backendRedirects} from './redirects.js';
+
+test('plugin entry point exports only supported Netlify build events', () => {
+  const events = new Set(['onPreBuild','onBuild','onPostBuild','onSuccess','onError','onEnd']);
+  assert.ok(Object.keys(plugin).every(name => events.has(name)));
+});
 
 test('proxy preserves API path and rejects invalid origins', () => {
   assert.deepEqual(backendRedirects('https://test.onrender.com'), [{from:'/api/*',to:'https://test.onrender.com/api/:splat',status:200,force:true}]);
