@@ -21,7 +21,7 @@ This overview brings together the full-March nominal comparison with attack and 
 \setcounter{tocdepth}{1}
 {\setlength{\parskip}{0pt}\tableofcontents}
 
-\section{What we predict}
+\section{The problem}
 The intended user is a port logistics coordinator deciding whether to keep an arrival-dependent plan or verify it before committing resources. A late or unstable estimate can cause avoidable waiting, premature staffing, or repeated replanning. The prototype supplies an estimate and evidence for that decision; it does not allocate a berth, issue navigation instructions, or control a vessel. The \href{/tracking/}{historical replay} supplies the interactive view of ships, incoming reports, data changes, and forecasts. Here, we explain the inputs and decisions behind those forecasts.
 
 Our outcome is an \emph{analytical harbor-gate crossing}, not docking, cargo delivery, or an official port-arrival timestamp. A qualifying east-to-west crossing intersects longitude $\lambda_g=-76.3^\circ$ between latitudes $36.95^\circ$ and $37.05^\circ$. Consecutive original observations must bracket it within 120 seconds. If the two longitudes are $\lambda_0,\lambda_1$, the reference is interpolated as
@@ -33,15 +33,15 @@ Interpolation assumes approximately linear motion inside the bracket. Sampling, 
 
 We assess forecasts using MAE, MSE, 95th-percentile absolute error, prediction coverage, review burden, and condition-level results. Together, these measures show average and tail performance, forecast availability, and intervention needs.
 
-\section{The data behind the predictions}
-\subsection{Where the reports come from}
+\subsection{The data and evaluation window}
+\subsubsection{Source and target}
 The current serving bundle contains frozen A, B, and nominal-only C models and a replay of all 31 days of March 2024. The matching nominal comparison reports 5,382 scheduled decisions across 243 qualifying approaches and 219 vessels. Its current fit partition is 1 January--29 June 2023 (27,263 decisions, 1,319 approaches); model selection/early stopping uses 30 June--19 July (3,108 decisions, 140 approaches). The model and source hashes record the data lineage and configuration.
 
 The March source is NOAA's cleaned broadcast-point AIS product, selected for Hampton Roads and filtered to cargo and tanker reports. The bundle records the March source checksum and model/code signatures. Its target is an interpolated analytical gate crossing, not verified docking or official arrival. NOAA's metadata describes collection and processing limits.\footnote{\href{https://www.fisheries.noaa.gov/inport/item/73064}{NOAA, Nationwide Automatic Identification System 2024.}}
 
 Shared preprocessing selects cargo and tanker reports before simulated masking, parses UTC times, treats invalid navigation values as missing, and removes exact duplicate measurements consistently across models. MMSI identifies repeated vessel observations; it is not an independent observation count. Source archives already involve processing and incomplete receiver coverage, so ``original'' means unchanged by our simulator, not error-free ground truth.
 
-\subsection{Training on 2023, testing on March 2024}
+\subsubsection{Temporal split and information available at inference}
 The temporal separation is the study's central data contract. The current frozen models are fit and selected on 2023 data, and evaluated on the same March 2024 cohort. This is not an 80/10/10 random row split. Model settings are selected within 2023, with complete approaches kept together and the March evaluation cohort kept separate from fitting.
 \begin{longtable}{@{}p{0.25\linewidth}p{0.25\linewidth}rr@{}}
 \toprule
@@ -64,7 +64,7 @@ The second quantity is the age of the latest measurement. Nominal delivery is in
 
 In the live replay, the reporting-gap control withholds reports for a chosen interval; it does not deliver old messages later. A separate saved stress curve tests delayed delivery. Neither substitutes for measured receiver latency.
 
-\section{How the models differ}
+\section{The solution}
 \subsection{Quadratic regression: a structured comparator}
 Model A expands the base features with degree-two polynomial terms and fits ridge regression. With feature expansion $\phi(x)$, it minimizes
 \[
@@ -85,7 +85,7 @@ The trained guard limits report influence by forming one representative per UTC 
 
 The current dashboard adds conditional repair strategies to this frozen C model. These are separate from its learned guard. The code keeps raw A/B inputs, original quality signals, support, labels, and clocks intact while changing only permitted derived C inputs. Training uses squared-error regression; depth and learning rate are selected using approach-balanced development MAE. The configured search spans depths 2, 4, and 6, learning rates 0.03 and 0.1, up to 500 boosting rounds, and early stopping after 30 rounds. Choosing a model by MAE does not ensure its MSE or worst errors improve.
 
-\section{How we stress the data}
+\subsection{Degradation scenarios}
 The replay studies accidental deterioration at \emph{inference time}: a frozen model version receives worse reports. No live AIS broadcasts are altered, and a reviewed label does not silently change the model serving that replay. Instead, reviewed cases are retained for the next versioned training cycle. Although controls are called attacks in code, injected changes stand in for outages, unavailable telemetry, miscalibration, and navigation faults; they are not evidence of malicious activity in NOAA records.
 
 \begin{longtable}{@{}p{0.22\linewidth}p{0.34\linewidth}p{0.36\linewidth}@{}}
@@ -115,8 +115,8 @@ The saved March graph comparisons use 25\% of each control's configured maximum:
 
 Faults compose in a fixed order: gap, speed drift, location drift, noise, position jumps, and missing fields. Missing-field and position-jump selectors share a deterministic report hash and seed. Equal-severity selections therefore overlap subject to field eligibility; they are not independent dropout masks. Modification logs are constructed separately. Audit labels, original altered values, and future crossing outcomes are exposed to the audience only after inference.
 
-\section{How Antidote responds}
-\subsection{Reconstructing missing motion and noisy sensors}
+\subsection{Repairs, warnings, and deferral}
+\subsubsection{Reconstructing missing motion and noisy sensors}
 When positions are sufficiently consistent, a short local track can estimate motion. For local east/north position $\mathbf p_i$ and times centred around $\bar t$, the least-squares velocity is
 \[
  \widehat{\mathbf v}=
@@ -129,7 +129,7 @@ Positions are in metres and time is in seconds; $\widehat s$ is therefore in kno
 
 The Gaussian-noise strategy checks a five-minute track with at least three distinct reports, at least 60 seconds of span, no gap above 180 seconds, and fit residual at most 50 metres. Additional speed, turn, and plausibility checks reject unsuitable references. It replaces a supported reading when its speed differs by more than 2 knots or its moving-course difference exceeds $15^\circ$. This is \emph{guarded replacement}, not a fitted blend of the reported and estimated readings. A smoother track is still only a conditional reference, not independent ground truth.
 
-\subsection{Detecting persistent bias}
+\subsubsection{Detecting persistent bias}
 Speed drift is checked against position-supported speed. For disagreement $r_k=v_k-\widehat s_k$, the detector forms a time-aware exponentially weighted estimate,
 \[
  e_k=(1-\rho_k)e_{k-1}+\rho_k r_k,\qquad
@@ -139,13 +139,13 @@ The provisional rule requires same-direction disagreement across at least three 
 
 Location drift compares observed displacement with motion implied by received SOG/COG. Persistent displacement disagreement can justify verification, but it cannot identify the true coordinates by itself. The dashboard therefore warns rather than correcting location. A separate experimental mode projects from explicit, time-available position anchors for at most five minutes and requires trusted navigation. Those anchors are simulated from original AIS in the experiment, so they are an oracle-reference study, not an independent operational feed. Coherent corruption of both position and motion may evade these consistency checks.
 
-\subsection{Fallbacks, metadata, and combined faults}
+\subsubsection{Fallbacks, metadata, and combined faults}
 The reporting-gap strategy detects silence from observed cadence and does not fabricate reports. Position-jump detection supplies navigation-consistency warnings and does not repair coordinates. Missing class can be carried forward only from consistent recent received metadata for the same MMSI; conflicts remain unknown and require review.
 
 Position faults pause position-based navigation repairs. Noise plus speed drift pauses their overlapping sensor corrections; class recovery can continue independently. The current fleet policy selects permitted reference assumptions from the simulated fault families enabled in the controls. It is not blind automatic fault isolation. Pausing avoids asserting an unsupported correction, but it is not evidence that the forecast has recovered. A production system would need independently justified reference trust and an evaluated fallback policy.
 
-\section{What the results show}
-\subsection{Current full-March nominal comparison}
+\section{The results}
+\paragraph{Full-March nominal baseline.}
 The serving bundle scores A, B, and nominal-only C on the same 5,382 scheduled decisions across 243 approaches and 219 vessels. These are original, unmodified March reports; no injected faults or additional dashboard repairs are applied in this comparison. MAE is averaged within each approach, then across approaches. MdAE and P95 are pooled across individual forecast errors.
 \begin{table}[!htbp]
 \centering\small
@@ -161,12 +161,17 @@ C: nominal-only XGBoost & 6.610 & 3.097 & 37.097 & 100\% \\
 \end{table}
 C's MAE is 0.033 minutes (about 2 seconds) below B's. The paired vessel-bootstrap 95\% interval for C minus B is $[-0.125,+0.050]$ minutes and spans zero; this does not establish a reliable population-level advantage. A has the lowest P95 error. These are point predictions before any interval-based deferral. March was held out from model fitting and tuning, but the choice of nominal C followed inspection of March results, so March is not an untouched confirmation set for that choice.
 
-\subsection{What the attack comparisons establish}
-The ordered replay and saved comparisons distinguish clean inputs, timing faults, sensor/data-quality faults, and combinations. The graph selector includes all 256 on/off subsets of the eight controls at a fixed 25\% of each control's range (a 15-minute reporting gap), beginning at the March 15 cutover. Its comparisons use six of the 243 March approaches, selected across the month by time and duration without using model errors. The replay's reporting-gap slider withholds reports; a separate saved stress curve evaluates delayed delivery. The graphs illustrate the configured scenarios and do not recalculate when the live replay sliders move. The saved predictions have source/model/code signatures and 108 scalar forecast checks against the serving path.
+\subsection{Staleness}
+At each decision clock, the model receives reports only after their simulated delivery time, and report age continues increasing until a newer measurement arrives. The live replay's gap control withholds reports, while a separate saved stress curve recomputes forecasts under delayed delivery; these are distinct scenarios. Nominal delivery is assumed instantaneous, so neither is a measurement of real receiver latency. The baseline table above gives the full-March reference; stress graphs show how forecasts move as delayed evidence accumulates.
 
+\subsection{Low-quality data and source volume}
+The replay separately exposes missing fields, noisy or drifting sensors, and position jumps, then allows these conditions to be combined. Fault definitions and affected fields are shown above. The current scenario bundle uses a fixed 25\% strength and six sampled approaches; it does not provide a source-volume sweep that increases the share or repetition of low-quality reports. We therefore do not claim to have measured when a higher-volume unreliable source outweighs a lower-volume reference.
 
-\subsection{What the current scenario evidence supports}
-The current attack graphs let a reviewer compare forecast behavior across fixed combinations of the eight report-quality controls. Their scope is six of the 243 qualifying March approaches at one fixed strength; the graphs do not recalculate from the live replay sliders. They are useful for tracing how a specific data condition affects the models, but they do not establish a fleet-wide mitigation gain. The live replay adds the operational view: the incoming reports, fields changed by the selected scenario, Antidote's estimate, and whether the evidence supports a correction or calls for review. A paired, full-March comparison of the same C model with and without its conditional repairs remains part of the next evaluation cycle.
+\subsection{Over-time behavior}
+The ordered replay advances through received reports and forecast updates. Saved comparisons cover all 256 on/off subsets of the eight controls beginning at the March 15 cutover, using six of the 243 March approaches selected by time and duration without looking at prediction errors. The graphs do not recalculate when live sliders move. Their saved predictions have source/model/code signatures and 108 scalar forecast checks against the serving path, but the six-approach sample has no fleet-level uncertainty interval.
+
+\subsection{Countermeasure effectiveness and limits}
+The live view shows Antidote's conditional repair, the affected report fields, and whether the available evidence supports correction or requires review. The full-March nominal comparison above does not apply additional dashboard repairs. A same-case comparison of C with repairs disabled and enabled remains to be completed across nominal, stale-only, low-quality-only, and combined conditions. That evaluation must also quantify normal-data effects, coverage, large errors, and performance on a later or otherwise unseen condition. Until then, the current graphs explain scenarios and repair behavior; they do not establish a fleet-wide mitigation gain.
 
 Across the product, the reference remains an observed analytical crossing, not verified docking. The simulator represents assumed data faults and is not evidence of malicious activity in NOAA records.
 
@@ -178,7 +183,7 @@ For approach $j$ with $n_j$ available forecasts and signed error $e_{jk}=\wideha
 \]
 Coverage uses all scheduled cases as its denominator, including unavailable forecasts. Large-error percentiles pool clocks. Paired uncertainty should resample vessels, retain repeated approaches within a vessel, and be reported alongside condition-level outcomes. The current full-March nominal comparison uses a paired vessel bootstrap; the six-approach attack graphs do not supply uncertainty intervals for a fleet-level claim.
 
-\section{Human review closes the learning loop}
+\section{Where humans are involved}
 When Antidote detects a data-quality issue or an estimate that warrants attention, the reviewer sees the received timestamp, affected fields, diagnostic evidence, and available forecasts. The reviewer identifies the error type when the evidence supports one (for example, a stale report, missing field, sensor noise, speed drift, location drift, or position jump); uncertain cases remain unresolved rather than being forced into a category. The reviewed label and its evidence are saved as a feedback record for later model training. The reviewer does not overwrite the original AIS observation or invent an arrival outcome.
 
 For a reviewed event $i$, let $x_i$ be the evidence available at the decision time and let $z_i$ be its human-adjudicated error type. The feedback store retains the event context and model version alongside $(x_i,z_i)$. A later training cycle adds these reviewed examples to the versioned training set, so a candidate can learn which observable patterns correspond to recurring error types:
@@ -193,14 +198,14 @@ The latest status policy separates an unavailable optional noise/drift reconstru
 
 Human-reviewed error types and their supporting context are saved for retraining. These labels provide feedback about observed failure modes, but do not by themselves measure alert precision or operator workload. No representative operator study has been completed; a walkthrough should separately record review, verification, correction, and escalation time, plus missed unreliable forecasts and unnecessary interruptions.
 
-\section{Responsible use and limits}
+\section{Data governance and limitations}
 The reviewed NOAA product is publicly accessible; its metadata lists coastal and ocean planning as the use constraint. Public access alone is not blanket authorization for redistribution or operational navigation. Retain attribution, preserve the selected product's metadata, and verify applicable terms before publishing raw subsets or acquiring a live feed. The serving bundle includes model artifacts, a March replay cache, and hashes; source training CSVs are not included in the tracked bundle. The 2023 acquisition record still needs source URLs, retrieval dates, geographic filters, completeness notes, and counts tied to the exact training view.
 
 MMSIs and precise historical tracks identify vessels and can expose operational patterns. We use identity only for grouping and display, without attempting to identify crew, enrich operator profiles, or join unrelated personal information. A live pilot would need explicit access, retention, logging, and sharing rules. Geography, receiving coverage, cargo/tanker selection, repeat vessels, and exclusion of unresolved approaches all constrain representation. Accuracy should be audited by vessel class, forecast horizon, data support, and previously seen vessels before broader claims.
 
 The feedback records retain only the information needed to interpret and reproduce a reviewed event: the relevant input snapshot, assigned error type, model version, review state, and a verified crossing outcome when available. Simulator-generated fault flags remain experiment metadata and do not become human labels. In a proposed pilot, the data steward owns provenance, access, retention, and permitted use; the model lead owns versioned retraining, validation, drift monitoring, and rollback; an operations reviewer owns adjudication and escalation. The submitting team remains accountable for claims and source review. AI assistance was used for implementation and drafting. A language model is not part of the ETA inference path. This overview describes a research prototype, not a certified navigation aid, deployment approval, or a formal human-readiness rating.
 
-\section{What comes next}
+\section{Next steps}
 The present decision is \textbf{iterate}. The product works as a historical replay, and the nominal March comparison has a saved results and verification record. Current attack evidence is sampled, fixed-strength, and insufficient to establish full-cohort mitigation value or operator readiness.
 \begin{enumerate}
 \item \textbf{Model lead:} finish the all-eligible-2023 training protocol using time-ordered model selection within 2023. Freeze model and repair choices before the final March scoring pass; disclose the existing March exposure and treat a later period as confirmation. Using the existing offline CPU workflow and matching authorized source files, evaluate every March clock, multiple fault seeds, isolated and combined conditions, coverage, MSE, tail errors, and the same-C repair ablation. Repeat source-volume controls and investigate any large-error cases using development data only; no live AIS integration is needed for this study.
@@ -212,7 +217,7 @@ The checkpoint is a versioned report showing nominal and degraded accuracy, MAE/
 For a ten-minute judge walkthrough, spend one minute on the port-planning decision and crossing reference, three minutes on the clean replay and nominal comparison, three minutes showing a reporting gap and a sensor-quality fault, two minutes on Antidote's repair and a case where it cannot safely correct, then one minute on the measured limits and next evidence needed.
 
 
-\section{Sources and reproducibility}
+\section{Reproducibility}
 The current nominal comparison, model artifacts, March replay cache, hashes, split counts, and inference signatures are saved under \texttt{Data\_Science/artifacts/data\_eval/optimized/} and \texttt{Data\_Science/experiments/nominal\_model\_comparison/}. Its results are reported above as the current full-March nominal comparison. The attack graphs are saved in \texttt{Frontend/tracking/data/scenarios.json}; their metadata records the six selected approaches, fixed strength, source/model/code hashes, and scalar parity checks. Full source CSVs are not included in the tracked bundle, so exact retraining or graph regeneration requires the matching authorized source files.
 
 The serving bundle contains the model artifacts needed for replay; the website does not train on startup. A fresh evaluation run still needs compatible Python dependencies and the matching source inputs. Full setup and preparation commands are in the repository's \href{https://github.com/JeremyBarry03/2026_WM_Hackathon/blob/main/Frontend/README.md}{frontend guide} and \href{https://github.com/JeremyBarry03/2026_WM_Hackathon/blob/main/Data_Science/Optimized_Model/README.md}{model guide}. From \texttt{Data\_Science}, the normal service command is:

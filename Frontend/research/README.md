@@ -111,10 +111,12 @@ their absence is reported without creating a new system or repairing drift.
 
 ## Overview framing
 
-The page and PDF say Project overview, with a short At a glance introduction,
-ten direct subject headings, and no date or formal paper framing. Replay and
-results actions lead at the top; a native Downloads disclosure holds optional
-PDF/LaTeX files at the bottom. `/research` and `/research/` redirect to `/overview/`.
+The page and PDF say Project overview, with a short At a glance introduction
+and a guided sequence from problem to solution to results, followed by human
+oversight, governance, next steps, and reproducibility. The web contents rail
+nests the four Case-result topics beneath Results. Replay and results actions
+lead at the top; a native Downloads disclosure holds optional PDF/LaTeX files
+at the bottom. `/research` and `/research/` redirect to `/overview/`.
 Public `/overview/overview.pdf` and `/overview/overview.tex` map to the existing
 `paper.pdf` and `paper.tex`, with `Antidote-overview` download filenames. The shared
 mono typography, palette, Invert preference, equations, and evidence boundaries
