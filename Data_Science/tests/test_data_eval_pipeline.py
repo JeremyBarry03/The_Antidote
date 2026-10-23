@@ -39,8 +39,8 @@ def test_fit_abc_and_score_original_march_with_separate_calibration(tmp_path, mo
                                 xgboost_early_stopping_rounds=2)
     baseline_path = tmp_path / "baseline.json"
     baseline_path.write_text(json.dumps(baseline))
-    point_fixture(["2023-01-05", "2023-10-05", "2023-11-05"]).to_csv(tmp_path / "fit.csv", index=False)
-    point_fixture(["2023-12-05", "2024-03-05"]).to_csv(tmp_path / "later.csv", index=False)
+    point_fixture(["2023-01-05", "2023-07-05", "2023-07-25"]).to_csv(tmp_path / "fit.csv", index=False)
+    point_fixture(["2023-08-05", "2024-03-05"]).to_csv(tmp_path / "later.csv", index=False)
     optimized = json.loads((root / "Optimized_Model/config_data_eval.json").read_text())
     optimized.update(baseline_config=str(baseline_path), later_csv=str(tmp_path / "later.csv"),
                      output_directory=str(tmp_path / "optimized"), evaluation_seeds=[4201])
@@ -74,3 +74,49 @@ def test_fit_abc_and_score_original_march_with_separate_calibration(tmp_path, mo
     assert (tmp_path / "optimized/models/C.joblib").is_file()
     calibration = json.loads((tmp_path / "optimized/calibration.json").read_text())
     assert calibration["reference_approaches"] == 2
+
+
+def test_declared_source_budget_is_partitioned_without_using_march():
+    root = Path(__file__).resolve().parents[1]
+    baseline = json.loads((root / "config_data_eval.json").read_text())
+    optimized = json.loads((root / "Optimized_Model/config_data_eval.json").read_text())
+    boundaries = [pd.Timestamp(value) for value in baseline["splits"].values()]
+    boundaries.append(pd.Timestamp(run.SOURCE_END))
+    assert [(right-left).days for left,right in zip(boundaries,boundaries[1:])] == [180,20,10,10]
+    assert (run.SOURCE_END-run.SOURCE_START).days == 220
+    assert optimized["calibration_start"] == baseline["splits"]["end_exclusive"]
+    assert optimized["evaluation_start"] == "2024-03-01"
+    assert optimized["evaluation_end"] == "2024-04-01"
+    assert pd.Timestamp(run.SOURCE_END) < pd.Timestamp(optimized["evaluation_start"])
+
+
+def test_assembled_inputs_keep_march_and_calibration_out_of_baseline_fit(tmp_path, monkeypatch):
+    root = Path(__file__).resolve().parents[1]
+    daily = tmp_path / "daily_ais_2023"
+    daily.mkdir()
+    for day in pd.date_range(run.SOURCE_START, periods=220):
+        pd.DataFrame({"mmsi": ["123456789"], "base_date_time": [day.isoformat()]}).to_csv(
+            daily / f"{day.date()}.csv", index=False,
+        )
+    pd.DataFrame({"mmsi": ["234567890"], "base_date_time": ["2024-03-15 12:00:00"]}).to_csv(
+        tmp_path / "hampton_roads_march_2024.csv", index=False,
+    )
+    baseline = json.loads((root / "config_data_eval.json").read_text())
+    optimized = json.loads((root / "Optimized_Model/config_data_eval.json").read_text())
+    baseline["input_csv"] = "fit.csv"
+    optimized["later_csv"] = "later.csv"
+    baseline_path, optimized_path = tmp_path / "base.json", tmp_path / "optimized.json"
+    baseline_path.write_text(json.dumps(baseline))
+    optimized_path.write_text(json.dumps(optimized))
+    monkeypatch.setattr(run, "DATA", tmp_path)
+    monkeypatch.setattr(run, "BASELINE_CONFIG", baseline_path)
+    monkeypatch.setattr(run, "OPTIMIZED_CONFIG", optimized_path)
+    run.assemble_inputs()
+    fit = pd.to_datetime(pd.read_csv(tmp_path / "fit.csv")["base_date_time"], format="mixed")
+    later = pd.to_datetime(pd.read_csv(tmp_path / "later.csv")["base_date_time"], format="mixed")
+    assert len(fit) == 210
+    assert fit.min() == pd.Timestamp("2023-01-01")
+    assert fit.max() == pd.Timestamp("2023-07-29")
+    assert len(later) == 11
+    assert later.iloc[:10].tolist() == pd.date_range("2023-07-30", periods=10).tolist()
+    assert later.iloc[-1] == pd.Timestamp("2024-03-15 12:00:00")

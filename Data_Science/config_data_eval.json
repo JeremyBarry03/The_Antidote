@@ -1,5 +1,5 @@
 {
-  "input_csv": "../data/hampton_roads_2023_fit_development.csv",
+  "input_csv": "../data/hampton_roads_2023_220days_fit_development.csv",
   "output_directory": "artifacts/data_eval/baselines",
   "gate": {
     "longitude": -76.3,
@@ -18,9 +18,9 @@
   },
   "splits": {
     "start": "2023-01-01",
-    "validation_start": "2023-10-01",
-    "test_start": "2023-11-01",
-    "end_exclusive": "2023-12-01"
+    "validation_start": "2023-06-30",
+    "test_start": "2023-07-20",
+    "end_exclusive": "2023-07-30"
   },
   "training": {
     "seed": 42,

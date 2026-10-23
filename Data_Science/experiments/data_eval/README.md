@@ -1,4 +1,4 @@
-# 2023 training and March 2024 evaluation
+# 220-day 2023 training and March 2024 evaluation
 
 This versioned run uses the existing A (quadratic ridge), B (ordinary XGBoost)
 and C (degradation-aware XGBoost) implementations. Output is isolated under
@@ -35,8 +35,8 @@ rows are excluded and preserved with line numbers and reasons in daily
 final report. These are national source-file counts, not necessarily Hampton
 Roads omissions. No fields are shifted or invented to repair malformed rows.
 
-The full national download is approximately 110 GB. National ZIPs and extracted
-CSVs are temporary; only regional subsets and manifests are retained. Allow
+The current budget is **220 days total**, January 1–August 8, 2023. National ZIPs
+and extracted CSVs are temporary; only regional subsets and manifests are retained. Allow
 space for the regional CSVs, assembled inputs and several concurrent temporary
 daily files. Check free disk space before starting another acquisition.
 
@@ -44,10 +44,10 @@ daily files. Check free disk space before starting another acquisition.
 
 | UTC period | Purpose |
 |---|---|
-| January–September 2023 | Model fitting and fitted preprocessing |
-| October 2023 | Hyperparameter selection / early stopping |
-| November 2023 | Internal baseline test; exploratory C partition |
-| December 2023 | Independent calibration |
+| January 1–June 29, 2023 (180 days) | Model fitting and fitted preprocessing |
+| June 30–July 19, 2023 (20 days) | Hyperparameter selection / early stopping |
+| July 20–29, 2023 (10 days) | Internal baseline test; exploratory C partition |
+| July 30–August 8, 2023 (10 days) | Independent calibration |
 | March 1–31, 2024 | Final A/B/C evaluation |
 
 April 2024 data are not read by this run. Whole approaches and crossing brackets
@@ -77,7 +77,7 @@ $python = 'C:/Users/jerem/AppData/Local/Programs/Python/Python311/python.exe'
 ```
 
 This one command acquires data, prepares examples, trains models, calibrates on
-original December reports and evaluates A/B/C on original March reports. It
+original July 30–August 8 reports and evaluates A/B/C on original March reports. It
 writes a persistent `artifacts/data_eval/pipeline.log` and `job_status.json`.
 The process can run unattended. On Windows it requests that automatic system
 sleep be suspended only while the job is active; the display may turn off.
@@ -88,7 +88,7 @@ Acquisition resumes verified daily subsets. Transient download errors receive
 bounded retries. Unexpected schemas, empty days and invalid dates fail clearly.
 Do not run two acquisitions against the same output directory simultaneously.
 
-The runner checks all 365 days, source hashes and March's columns/date range
+The runner checks all 220 days, source hashes and March's columns/date range
 before preparing inputs. It invokes the existing model CLIs in dependency order
 and records completed stages in `artifacts/data_eval/run_manifest.json`.
 Restart the same command after resolving a failure; completed stages are reused
@@ -96,7 +96,7 @@ when source/configuration/code signatures match. A changed signature requires
 review rather than silently mixing artifacts from different experiments.
 
 Preparation streams complete vessel histories through a disk-backed SQL sort
-with a 256 MB SQL memory limit. This avoids loading the full year into pandas.
+with a 256 MB SQL memory limit. This avoids loading the entire source into pandas.
 Both ISO `T` timestamps from 2023 and space-separated March timestamps are parsed
 without changing their observation times. Deduplication and conflicting-key
 exclusion operate on complete vessel histories, including across fetch batches.
@@ -128,10 +128,10 @@ matching all 17 March column names. Tests also cover preservation of original
 values/CSV quoting, wrong-day rejection, verified resume, changed-file rejection
 and refusing track endpoints as substitutes for report timestamps.
 
-Validation before the full run: **554 tests passed**, including an end-to-end
-A/B/C fit, separate December calibration and original March evaluation on a
+Validation before the full run: **556 tests passed**, including an end-to-end
+A/B/C fit, separate calibration and original March evaluation on a
 small test fixture. Streamed preparation also reproduced all **5,382 frozen
 March examples**, labels, partition counts and source audits without model
 fitting. Live acquisition verified both the apostrophe-name case (March 28)
 and an extra-field source-row case (April 7), preserving the latter in its
-national reject log. These checks are not full-year model performance results.
+national reject log. These checks are not performance results for the requested fit.

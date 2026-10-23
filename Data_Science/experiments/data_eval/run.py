@@ -22,16 +22,19 @@ DATA = ROOT.parent / "data"
 OUTPUT = ROOT / "artifacts" / "data_eval"
 BASELINE_CONFIG = ROOT / "config_data_eval.json"
 OPTIMIZED_CONFIG = ROOT / "Optimized_Model" / "config_data_eval.json"
+SOURCE_START = date(2023, 1, 1)
+SOURCE_END = date(2023, 8, 9)  # 220 days, exclusive end.
+SOURCE_FILE = "hampton_roads_2023_220days.csv"
 
 
 def validate_sources() -> dict[str, object]:
-    source = DATA / "hampton_roads_2023.csv"
+    source = DATA / SOURCE_FILE
     manifest = json.loads(source.with_suffix(".manifest.json").read_text(encoding="utf-8"))
-    first = date(2023, 1, 1)
-    expected = [(first + timedelta(days=index)).isoformat() for index in range(365)]
-    if (manifest["start"] != "2023-01-01" or manifest["end_exclusive"] != "2024-01-01"
+    expected = [(SOURCE_START + timedelta(days=index)).isoformat()
+                for index in range((SOURCE_END - SOURCE_START).days)]
+    if (manifest["start"] != SOURCE_START.isoformat() or manifest["end_exclusive"] != SOURCE_END.isoformat()
             or [item["date"] for item in manifest["days"]] != expected):
-        raise ValueError("A complete, ordered 365-day 2023 source is required")
+        raise ValueError("A complete, ordered 220-day 2023 source is required")
     if file_digest(source) != manifest["merged_sha256"]:
         raise ValueError("2023 source changed since acquisition")
     for day in manifest["days"]:
@@ -54,6 +57,7 @@ def validate_sources() -> dict[str, object]:
         if not count or bad:
             raise ValueError("March evaluation CSV has missing or out-of-period records")
     return {"source_2023_sha256": manifest["merged_sha256"],
+            "source_2023_days": len(expected),
             "source_2023_rows": sum(day["subset_rows"] for day in manifest["days"]),
             "parse_rejected_rows_national": sum(day.get("parse_rejected_rows_national", 0) for day in manifest["days"]),
             "march_sha256": file_digest(march), "march_rows": count,
@@ -64,12 +68,20 @@ def validate_sources() -> dict[str, object]:
 
 def assemble_inputs() -> None:
     directory = DATA / "daily_ais_2023"
-    first = date(2023, 1, 1)
-    days = [first + timedelta(days=index) for index in range(334)]
-    merge_days(days, directory, DATA / "hampton_roads_2023_fit_development.csv")
-    december = [date(2023, 12, 1) + timedelta(days=index) for index in range(31)]
-    destination = DATA / "hampton_roads_2023_calibration_march_2024.csv"
-    merge_days(december, directory, destination)
+    baseline = json.loads(BASELINE_CONFIG.read_text(encoding="utf-8"))
+    optimized = json.loads(OPTIMIZED_CONFIG.read_text(encoding="utf-8"))
+    first = date.fromisoformat(baseline["splits"]["start"])
+    baseline_end = date.fromisoformat(baseline["splits"]["end_exclusive"])
+    calibration_start = date.fromisoformat(optimized["calibration_start"])
+    if first != SOURCE_START or baseline_end != calibration_start or not baseline_end < SOURCE_END:
+        raise ValueError("Baseline and calibration windows must partition the declared source budget")
+    days = [first + timedelta(days=index) for index in range((baseline_end - first).days)]
+    baseline_source = (BASELINE_CONFIG.parent / baseline["input_csv"]).resolve()
+    merge_days(days, directory, baseline_source)
+    calibration_days = [calibration_start + timedelta(days=index)
+                        for index in range((SOURCE_END - calibration_start).days)]
+    destination = (OPTIMIZED_CONFIG.parent / optimized["later_csv"]).resolve()
+    merge_days(calibration_days, directory, destination)
     temporary = destination.with_suffix(".csv.partial")
     with temporary.open("wb") as output:
         with destination.open("rb") as source:
@@ -138,16 +150,17 @@ def write_report() -> Path:
                          f"{row.coverage:.1%} |")
         return "\n".join(lines)
 
-    text = ["# 2023 retraining; March 2024 evaluation", "",
+    text = ["# 220-day 2023 retraining; March 2024 evaluation", "",
             "A: quadratic ridge regression. B: ordinary XGBoost. C: degradation-aware XGBoost.", "",
-            "All 365 official NOAA daily 2023 point archives were acquired. "
+            "All 220 declared official NOAA daily point archives (January 1–August 8, 2023) were acquired. "
             f"The regional source contains {manifest['sources']['source_2023_rows']:,} reports.", "",
             f"Malformed national CSV rows quarantined during ingestion: "
             f"{manifest['sources'].get('parse_rejected_rows_national', 0):,}. "
             "Original rejected lines and parser reasons are preserved in daily reject logs. "
             "This national count is not a count of Hampton Roads omissions.", "",
-            "Jan–Sep 2023: fit; October: hyperparameter selection; November: internal check; "
-            "December: calibration. Entire March 2024: evaluation. April 2024 data were not used. "
+            "January 1–June 29, 2023: fit (180 days); June 30–July 19: hyperparameter selection (20 days); "
+            "July 20–29: internal check (10 days); July 30–August 8: calibration (10 days). "
+            "Entire March 2024: evaluation. April 2024 data were not used. "
             "Boundary-spanning approaches are purged. March was used in earlier project runs, "
             "so this is a held-out comparison for these new fits, not a previously unseen research dataset.", "",
             "## Original March reports", "", table(summary.loc[summary["scenario"] == "nominal"]), "",
@@ -156,7 +169,7 @@ def write_report() -> Path:
             "## Training augmentation", "",
             "C retains its established four-condition training mixture. Added delivery delays and "
             "position offsets are simulated disruption applied only to training/development views. "
-            "December calibration and March evaluation use original reports without injected faults. "
+            "July 30–August 8 calibration and March evaluation use original reports without injected faults. "
             "Instant nominal delivery remains an assumption because source delivery timestamps are unavailable. "
             "No robustness gain under simulated faults is claimed by this nominal evaluation.", ""]
     text.extend(["## Cohort and artifacts", "", "```json",
@@ -236,7 +249,7 @@ def run() -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--acquire", action="store_true", help="Acquire/resume all 365 days before training")
+    parser.add_argument("--acquire", action="store_true", help="Acquire/resume the declared 220 days before training")
     parser.add_argument("--workers", type=int, default=8)
     args = parser.parse_args()
     OUTPUT.mkdir(parents=True, exist_ok=True)
@@ -256,7 +269,7 @@ def main() -> None:
     try:
         if args.acquire:
             status.write_text(json.dumps({"status": "acquiring", "workers": args.workers}), encoding="utf-8")
-            acquire(DATA / "hampton_roads_2023.csv", date(2023, 1, 1), date(2024, 1, 1), args.workers)
+            acquire(DATA / SOURCE_FILE, SOURCE_START, SOURCE_END, args.workers)
         status.write_text(json.dumps({"status": "training_pipeline"}), encoding="utf-8")
         run()
         status.write_text(json.dumps({"status": "complete", "report": str(Path(__file__).with_name("RESULTS.md"))}), encoding="utf-8")
