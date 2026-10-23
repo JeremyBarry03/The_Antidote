@@ -4,6 +4,9 @@ This versioned run uses the existing A (quadratic ridge), B (ordinary XGBoost)
 and C (degradation-aware XGBoost) implementations. Output is isolated under
 `Data_Science/artifacts/data_eval/`; earlier models are retained.
 
+The completed run and interpretation are in [RESULTS.md](RESULTS.md), with saved
+model hashes and final checks in [verification.json](verification.json).
+
 The `data_eval` branch is checked out at
 `C:\Users\jerem\Downloads\the_antidote_data_eval`. The original checkout is used
 by another session. This worktree's ignored `data/` directory is a junction to

@@ -1,0 +1,37 @@
+{
+  "verified_utc": "2026-10-23T04:37:50.054518+00:00",
+  "status": "passed",
+  "source_days": 220,
+  "source_rows": 33094542,
+  "march_source_rows": 4495639,
+  "evaluation_approaches": 243,
+  "evaluation_vessels": 219,
+  "decisions_per_model": 5382,
+  "april_2024_data_used": false,
+  "nominal_only": true,
+  "all_predictions_finite": true,
+  "fresh_model_predictions_matched_saved_rows": 192,
+  "pytest_passed": 556,
+  "models": {
+    "A": {
+      "path": "artifacts\\data_eval\\baselines\\quadratic\\model.joblib",
+      "sha256": "89fe1db93983fd5ad46cc4899844fb338b2714a60244efe1d73a93feffc1fe51"
+    },
+    "B": {
+      "path": "artifacts\\data_eval\\baselines\\xgboost\\model.joblib",
+      "sha256": "cc52fecb94992e94f267f6cb165d170c77c5ff8c6ad3ea8e684dd0800986d0a5"
+    },
+    "C": {
+      "path": "artifacts\\data_eval\\optimized\\models\\C.joblib",
+      "sha256": "2c9b1be36ad71beff5740e5c14234359eaf99a04f87d54dd4757eceaa31faa27"
+    }
+  },
+  "checks": [
+    "source and code signatures unchanged",
+    "all seven stages complete",
+    "model manifests and calibration signatures verified",
+    "March decision and arrival dates only",
+    "fresh serialized model predictions match saved results",
+    "MAE recomputed from detailed predictions"
+  ]
+}
