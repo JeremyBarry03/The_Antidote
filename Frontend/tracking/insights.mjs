@@ -33,7 +33,6 @@ export function createEvidenceChart(root,{kind,onRetry=()=>{}}){
  const impact=kind==='impact',plot=root.querySelector('.insight-plot'),svg=plot.querySelector('svg');
  const inspector=plot.querySelector('.monthly-inspector'),loading=plot.querySelector('.monthly-loading');
  const retry=loading.querySelector('button');
- const coverage=root.querySelector('.monthly-coverage'),method=root.querySelector('.monthly-method-copy');
  const context=root.querySelector('.insight-context'),note=root.querySelector('.insight-note');
  let data=null,metric=impact?'error':'movement',focus='all',geometry,selected=-1;
  for(const button of root.querySelectorAll('[data-metric]'))button.addEventListener('click',()=>{
@@ -41,7 +40,7 @@ export function createEvidenceChart(root,{kind,onRetry=()=>{}}){
  });
  if(!impact){
   const group=root.querySelector('.insight-models');
-  for(const model of ['all',...models]){const button=textElement('button',model==='all'?'All models':modelNames[model]);button.type='button';button.dataset.modelFocus=model;button.setAttribute('aria-pressed',String(model==='all'));button.setAttribute('aria-label',model==='all'?'Compare all stability models':`Focus ${modelNames[model]} stability spread`);if(model!=='all')button.style.setProperty('--series-color',`var(--model-${model})`);button.addEventListener('click',()=>{focus=model;for(const peer of group.children)peer.setAttribute('aria-pressed',String(peer===button));draw();});group.append(button);}
+  for(const model of ['all',...models]){const button=textElement('button',model==='all'?'All':modelNames[model]);button.type='button';button.dataset.modelFocus=model;button.setAttribute('aria-pressed',String(model==='all'));button.setAttribute('aria-label',model==='all'?'Compare all stability models':`Focus ${modelNames[model]} stability spread`);if(model!=='all')button.style.setProperty('--series-color',`var(--model-${model})`);button.addEventListener('click',()=>{focus=model;for(const peer of group.children)peer.setAttribute('aria-pressed',String(peer===button));draw();});group.append(button);}
  }
  function hide(){selected=-1;inspector.hidden=true;svg.querySelector('.insight-selection')?.remove();}
  function draw(){
@@ -51,7 +50,8 @@ export function createEvidenceChart(root,{kind,onRetry=()=>{}}){
  }
  function drawImpact(width,height){
   const days=data.days,left=39,right=13,top=14,bottom=24,lane=(height-top-bottom)/3;
-  const x=row=>left+(row.day-data.start)/(data.end-86400-data.start)*(width-left-right);
+  const lastDay=data.end-86400,span=Math.max(86400,lastDay-data.start);
+  const x=row=>left+(row.day-data.start)/span*(width-left-right);
   const extent=roundExtent(days.flatMap(row=>models.flatMap(model=>metric==='error'?[row.models[model]?.mae,row.models[model]?.clean_mae]:[delta(row.models[model])])),metric==='error'?5:2);
   const lanes=[];svg.append(svgElement('title',{},metric==='error'?'Paired daily absolute ETA error for each model':'Added absolute ETA error caused by the selected input changes'));
   for(const [index,model] of models.entries()){
@@ -66,18 +66,21 @@ export function createEvidenceChart(root,{kind,onRetry=()=>{}}){
     svg.append(svgElement('line',{x1:left,x2:width-right,y1:y(value),y2:y(value),class:value===0?'chart-zero':'chart-grid'}));
     svg.append(svgElement('text',{x:left-7,y:y(value)+3,'text-anchor':'end'},`${metric==='impact'&&value>0?'+':''}${Number(value.toFixed(2))}`));
    }
-   const cut=x({day:data.cutover});svg.append(svgElement('line',{x1:cut,x2:cut,y1:chartTop,y2:chartBottom,class:'chart-cutover'}));
+   if(data.cutover>=data.start&&data.cutover<=lastDay){const cut=x({day:data.cutover});svg.append(svgElement('line',{x1:cut,x2:cut,y1:chartTop,y2:chartBottom,class:'chart-cutover'}));}
    if(metric==='error'){
     if(data.poisoning_active)for(const d of bandPaths(days,x,y,row=>row.models[model]?.clean_mae,row=>row.models[model]?.mae))svg.append(svgElement('path',{d,class:'comparison-fill',style:styleFor(model)}));
     svg.append(svgElement('path',{d:evidencePath(days,x,y,row=>row.models[model]?.clean_mae),class:'clean-line',style:styleFor(model)}));
    }
    svg.append(svgElement('path',{d:evidencePath(days,x,y,row=>metric==='error'?row.models[model]?.mae:delta(row.models[model])),class:'evidence-line impact-line','data-series':model,style:styleFor(model)}));
   }
-  for(const day of [1,8,15,22,31]){const row={day:data.start+(day-1)*86400};svg.append(svgElement('text',{x:x(row),y:height-5,'text-anchor':day===31?'end':'middle'},width<350?String(day):`${String(day).padStart(2,'0')} Mar`));}
+  const dates=[data.start,lastDay];if(width>=340)for(let value=data.start+7*86400;value<lastDay;value+=7*86400)dates.push(value);
+  if(data.cutover>=data.start&&data.cutover<=lastDay)dates.push(data.cutover);
+  for(const day of [...new Set(dates)].sort((a,b)=>a-b)){const row={day};svg.append(svgElement('text',{x:x(row),y:height-5,'text-anchor':day===lastDay?'end':'middle'},width<350?String(new Date(day*1000).getUTCDate()):dateText(day)));}
   geometry={samples:days,x,width,lanes};
   const key=root.querySelector('.insight-key');key.hidden=metric==='impact';
-  context.textContent=`${metric==='error'?'MAE (min) · clean → selected':'Added MAE (min) · selected − clean'} · summaries: Mar 15–31`;
-  note.textContent=data.poisoning_active?'March 15 marks the input change. Each selected forecast is paired with a clean run for the same vessel and time.':`Poisoning is off. ${metric==='error'?'The clean and selected curves coincide.':'Added error is zero wherever matched forecasts exist.'}`;
+  const cutoverText=dateText(data.cutover),endText=dateText(lastDay);
+  context.textContent=`${metric==='error'?'MAE (min) · clean → selected':'Added MAE (min) · selected − clean'} · summaries: ${cutoverText}–${endText}`;
+  note.textContent=data.poisoning_active?`${cutoverText} marks the input change. Each selected forecast is paired with a clean run for the same vessel and time.`:`Poisoning is off. ${metric==='error'?'The clean and selected curves coincide.':'Added error is zero wherever matched forecasts exist.'}`;
  }
  function drawStability(width,height){
   const result=data.insights.stability,rows=result.samples,left=39,right=69,top=28,bottom=31;
@@ -134,14 +137,12 @@ export function createEvidenceChart(root,{kind,onRetry=()=>{}}){
  plot.addEventListener('keydown',event=>{if(!data||!geometry)return;if(event.key==='ArrowLeft'||event.key==='ArrowRight'){event.preventDefault();inspect(Math.max(0,selected)+(event.key==='ArrowLeft'?-1:1));}else if(event.key==='Home'||event.key==='End'){event.preventDefault();inspect(event.key==='Home'?0:geometry.samples.length-1);}else if(event.key==='Escape')hide();});
  retry.addEventListener('click',onRetry);const observer=new ResizeObserver(draw);observer.observe(plot);
  return {
-  setStatus(state){data=null;geometry=null;hide();svg.replaceChildren();loading.hidden=false;retry.hidden=state.status!=='error';setChartStatus(loading,state);coverage.textContent='';root.setAttribute('aria-busy',String(state.status==='loading'));},
+  setStatus(state){data=null;geometry=null;hide();svg.replaceChildren();loading.hidden=false;retry.hidden=state.status!=='error';setChartStatus(loading,state);root.setAttribute('aria-busy',String(state.status==='loading'));},
   setResult(next){
    if(!next.insights){this.setStatus({status:'error',message:'The paired insights require the updated monthly API. Restart the preview and retry.'});return;}
    data=next;draw();root.setAttribute('aria-busy','false');retry.hidden=true;
    const result=impact?data.insights.impact:data.insights.stability;
    const count=impact?result.matched_decisions:result.instances;loading.hidden=count>0;setChartStatus(loading,{status:'empty',message:impact?'No matched clean/scenario forecasts are available.':'No complete supported 30-minute sequences are available. Short or unsupported sequences remain excluded.'});
-   coverage.textContent=impact?`${count.toLocaleString()}/${result.scheduled_decisions.toLocaleString()} post-cutover checkpoints`:`${result.instances}/${result.total_approaches} complete matched approaches`;
-   method.textContent=impact?`${result.methodology} ${data.caveat}`:`${result.methodology} ${result.coverage_note} ${result.short_or_incomplete} sequences are short/incomplete; ${result.unsupported} complete sequences lack matched model support. ${data.caveat}`;
   },
   destroy(){observer.disconnect();},
  };

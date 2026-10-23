@@ -70,7 +70,9 @@ class OptimizedConfig:
 
     @property
     def baseline(self) -> ExperimentConfig:
-        return ExperimentConfig.load(self.baseline_config)
+        # Serving frozen checkpoints does not need the original training CSV;
+        # fitting and replay preparation still validate their inputs directly.
+        return ExperimentConfig.load(self.baseline_config, require_input=False)
 
     def snapshot(self) -> dict[str, object]:
         return json.loads(json.dumps(asdict(self), default=str))

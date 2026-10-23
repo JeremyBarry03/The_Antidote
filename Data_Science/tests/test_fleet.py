@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from queue import Queue
 from threading import Thread
+from time import sleep
 from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import urlopen
@@ -20,6 +21,7 @@ from Optimized_Model.dataset import ReplayDataset
 from Optimized_Model.evaluation import PredictionSystem
 from Optimized_Model.features import OptimizedFeatures
 from Optimized_Model.fleet import ATTACK_CONTROLS, FleetService, poisoning_settings, unix_seconds
+from Optimized_Model.fleet_analysis import FleetAnalysis
 from Optimized_Model.service import DemoService, _json_value
 
 
@@ -201,6 +203,19 @@ def test_server_serves_dashboard_assets_and_both_api_contracts(fleet, monkeypatc
         options = urlencode({"time": fleet.catalog()["initial_time"], "mitigate": "false", "drift_direction": "over"})
         with urlopen(root + "/api/fleet/frame?" + options, timeout=5) as response:
             assert not json.load(response)["ships"][0]["mitigation"]["enabled"]
+        def wait_for_analysis(path, params):
+            with urlopen(root + path + "?" + urlencode(params), timeout=5) as response:
+                state = json.load(response)
+            for _ in range(100):
+                if state["status"] in ("ready", "error"):
+                    break
+                with urlopen(root + path + "?" + urlencode({"job": state["job_id"]}), timeout=5) as response:
+                    state = json.load(response)
+                sleep(.02)
+            assert state["status"] == "ready", state
+            return state
+        assert wait_for_analysis("/api/fleet/monthly", {"poisoning": "{}"})["days"]
+        assert len(wait_for_analysis("/api/fleet/stress", {})["samples"]) == 5
         for path in ("/api/fleet/frame?time=NaN", "/api/fleet/frame?time=1&poisoning=[]",
                      "/api/fleet/frame?time=1&mitigate=yes", "/api/fleet/frame?time=1&trusted_fixes=1"):
             with pytest.raises(HTTPError) as error:
@@ -212,3 +227,43 @@ def test_server_serves_dashboard_assets_and_both_api_contracts(fleet, monkeypatc
     finally:
         server.shutdown()
         worker.join(timeout=5)
+
+
+def test_monthly_analysis_and_delay_stress_match_configured_period_and_cohort(fleet):
+    analysis = FleetAnalysis(fleet)
+    monthly = analysis.monthly({})
+    stress = analysis.stress()
+
+    assert monthly["status"] == "ready"
+    assert monthly["period_label"] == fleet.catalog()["evaluation_label"]
+    assert monthly["days"] and set(monthly["days"][0]["models"]) == {"A", "B", "C"}
+    assert len(stress["samples"]) == 5
+    assert stress["period_label"] == monthly["period_label"]
+    assert len({sample["matched_decisions"] for sample in stress["samples"]}) == 1
+
+
+def test_month_analysis_attack_leaves_pre_cutover_reports_unchanged(fleet):
+    cutover = fleet.dataset.histories["voyage"].time.iloc[20]
+    settings = (0., 0., 0., 0., 0., 0., 100., 0.)
+    nominal, changed, _ = fleet._stream("voyage", settings, attack_start=cutover)
+
+    before_nominal = nominal.loc[nominal.time.lt(cutover)].reset_index(drop=True)
+    before_changed = changed.loc[changed.time.lt(cutover)].reset_index(drop=True)
+    assert before_changed.equals(before_nominal)
+
+
+def test_month_analysis_gap_applies_to_approaches_after_global_cutover(fleet):
+    first = fleet.dataset.histories['voyage'].time.iloc[0]
+    settings = poisoning_settings({'reporting_gap': 15})
+    nominal, changed, names = fleet._stream('voyage', settings, attack_start=first-pd.Timedelta(days=1))
+    assert len(names) == 15
+    assert len(changed) == len(nominal)-15
+    assert not changed.time.between(first+pd.Timedelta(minutes=10), first+pd.Timedelta(minutes=24)).any()
+
+
+def test_month_analysis_active_attack_summary_uses_compatible_utc_clocks(fleet):
+    analysis = FleetAnalysis(fleet)
+    analysis.cutover = pd.Timestamp('2024-04-09', tz='UTC')
+    result = analysis.monthly({'reporting_gap': 15})
+    assert result['status'] == 'ready'
+    assert result['affected_reports'] == 15

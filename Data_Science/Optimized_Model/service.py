@@ -2,12 +2,16 @@
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from concurrent.futures import ThreadPoolExecutor
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer as HTTPServer
 import json
+import gzip
 import logging
 import os
 from pathlib import Path
+from threading import Lock
 from urllib.parse import parse_qs, urlparse
+from uuid import uuid4
 
 import numpy as np
 import pandas as pd
@@ -35,6 +39,8 @@ from .dataset import ReplayDataset, load_replay
 from .evaluation import PredictionSystem, load_systems, predict_systems
 from .features import OPTIMIZED_COLUMNS, RICH_COLUMNS, OptimizedFeatures
 from .fleet import FleetService
+from .fleet import poisoning_settings
+from .fleet_analysis import FleetAnalysis
 from .presentation import EvaluationEvidence, VISIBLE_REPORT_LIMIT, demo_scenarios, feed_counts, inspect_feed, scenario_options
 from .replay import create_stream
 from .scenarios import primary_scenarios
@@ -46,9 +52,84 @@ logger = logging.getLogger(__name__)
 FRONTEND_DIRECTORY = Path(__file__).resolve().parents[2] / "Frontend"
 MAPBOX_ENV_FILE = FRONTEND_DIRECTORY.parent / ".env"
 MAPBOX_TOKEN_KEYS = ("MAPBOX_PUBLIC_TOKEN", "MAPBOX_TOKEN")
-ASSET_TYPES = {".js": "text/javascript; charset=utf-8", ".mjs": "text/javascript; charset=utf-8",
+ASSET_TYPES = {".json": "application/json; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".mjs": "text/javascript; charset=utf-8",
                ".css": "text/css; charset=utf-8", ".html": "text/html; charset=utf-8", ".ttf": "font/ttf",
                ".pdf": "application/pdf", ".tex": "text/plain; charset=utf-8"}
+
+
+class FleetAnalysisJobs:
+    """Run expensive chart summaries off the request thread and expose progress."""
+
+    def __init__(self, analysis: FleetAnalysis, *, workers: int = 2) -> None:
+        self.analysis = analysis
+        self.executor = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="fleet-analysis")
+        self.lock = Lock()
+        self.jobs: dict[str, dict[str, object]] = {}
+        self.keys: dict[tuple[str, str], str] = {}
+
+    def submit(self, kind: str, settings: dict[str, object] | None = None, *, retry: bool = False) -> dict[str, object]:
+        settings = settings or {}
+        key = (kind, json.dumps(settings, sort_keys=True, separators=(",", ":")))
+        with self.lock:
+            previous_id = self.keys.get(key)
+            if previous_id and not retry:
+                previous = self.jobs[previous_id]
+                if previous["status"] == "ready":
+                    return dict(previous["result"])
+                if previous["status"] in ("queued", "running"):
+                    return self._public(previous_id, previous)
+
+            job_id = uuid4().hex
+            total = (len(self.analysis.monthly_decisions) * 5 if kind == "stress"
+                     else len(self.analysis.decisions))
+            job: dict[str, object] = {"status": "queued", "phase": "Starting analysis",
+                                      "completed": 0, "total": total, "result": None, "error": None}
+            self.jobs[job_id] = job
+            self.keys[key] = job_id
+            self.executor.submit(self._run, job_id, kind, settings)
+            return self._public(job_id, job)
+
+    def _run(self, job_id: str, kind: str, settings: dict[str, object]) -> None:
+        with self.lock:
+            job = self.jobs[job_id]
+            job["status"] = "running"
+            job["phase"] = "Preparing reporting-delay experiment" if kind == "stress" else "Scoring evaluation checkpoints"
+
+        def progress(completed: int, total: int) -> None:
+            with self.lock:
+                current = self.jobs.get(job_id)
+                if current and current["status"] == "running":
+                    current["completed"] = completed
+                    current["total"] = total
+
+        try:
+            result = self.analysis.stress(progress) if kind == "stress" else self.analysis.monthly(settings, progress)
+            with self.lock:
+                job = self.jobs[job_id]
+                job["status"] = "ready"
+                job["phase"] = "Analysis complete"
+                job["completed"] = job["total"]
+                job["result"] = result
+        except Exception as error:
+            logger.exception("Fleet %s analysis failed", kind)
+            with self.lock:
+                job = self.jobs[job_id]
+                job["status"] = "error"
+                job["error"] = str(error) or "Analysis failed."
+
+    @staticmethod
+    def _public(job_id: str, job: dict[str, object]) -> dict[str, object]:
+        return {"status": job["status"], "job_id": job_id, "phase": job["phase"],
+                "completed": job["completed"], "total": job["total"], "error": job["error"]}
+
+    def poll(self, job_id: str) -> dict[str, object] | None:
+        with self.lock:
+            job = self.jobs.get(job_id)
+            if job is None:
+                return None
+            if job["status"] == "ready":
+                return dict(job["result"])
+            return self._public(job_id, job)
 
 
 def load_mapbox_public_token(env_file: Path) -> str | None:
@@ -541,12 +622,14 @@ def serve(config: OptimizedConfig, port: int, *, model_c: str = "C_nominal", eva
     mapbox_token = load_mapbox_public_token(MAPBOX_ENV_FILE)
     service = DemoService.load(config, model_c=model_c)
     fleet = FleetService(config, service.dataset, service.systems, service.extractor, evaluation_only=evaluation_only)
+    analysis_jobs = FleetAnalysisJobs(FleetAnalysis(fleet))
     assets = {f"/replay/{path.name}": path for path in (FRONTEND_DIRECTORY / "replay").iterdir()
               if path.is_file() and path.suffix in ASSET_TYPES}
     assets.update({f"/tracking/{path.relative_to(FRONTEND_DIRECTORY / 'tracking').as_posix()}": path
                    for path in (FRONTEND_DIRECTORY / "tracking").rglob("*")
                    if path.is_file() and path.suffix in ASSET_TYPES})
     assets["/tracking/"] = FRONTEND_DIRECTORY / "tracking" / "index.html"
+    assets["/tracking/data/scenarios.json"] = FRONTEND_DIRECTORY / "tracking" / "data" / "scenarios.json"
     research = FRONTEND_DIRECTORY / "research"
     assets.update({f"/research/{name}": research / name for name in
                    ("index.html", "style.css", "research.mjs", "paper.tex", "paper.pdf")})
@@ -561,12 +644,15 @@ def serve(config: OptimizedConfig, port: int, *, model_c: str = "C_nominal", eva
     assets.update({f"/map-assets/{name}": sdk / name for name in ("mapbox-gl.js", "mapbox-gl.css")})
 
     class ReplayRequest(BaseHTTPRequestHandler):
-        def _send_bytes(self, status: int, body: bytes, content_type: str, cache_control: str) -> None:
+        def _send_bytes(self, status: int, body: bytes, content_type: str, cache_control: str, *, content_encoding: str | None = None) -> None:
             try:
                 self.send_response(status)
                 self.send_header("Content-Type", content_type)
                 self.send_header("Content-Length", str(len(body)))
                 self.send_header("Cache-Control", cache_control)
+                if content_encoding:
+                    self.send_header("Content-Encoding", content_encoding)
+                    self.send_header("Vary", "Accept-Encoding")
                 self.end_headers()
                 self.wfile.write(body)
             except (BrokenPipeError, ConnectionResetError):
@@ -587,7 +673,11 @@ def serve(config: OptimizedConfig, port: int, *, model_c: str = "C_nominal", eva
                     self.end_headers()
                 elif request.path in assets:
                     path = assets[request.path]
-                    self._send_bytes(200, path.read_bytes(), ASSET_TYPES[path.suffix], "no-cache")
+                    body = path.read_bytes()
+                    if path.suffix == ".json" and "gzip" in self.headers.get("Accept-Encoding", ""):
+                        self._send_bytes(200, gzip.compress(body), ASSET_TYPES[path.suffix], "no-cache", content_encoding="gzip")
+                    else:
+                        self._send_bytes(200, body, ASSET_TYPES[path.suffix], "no-cache")
                 elif request.path == "/api/config":
                     self._send(200, {"mapbox_public_token": mapbox_token})
                 elif request.path == "/api/fleet/catalog":
@@ -603,6 +693,30 @@ def serve(config: OptimizedConfig, port: int, *, model_c: str = "C_nominal", eva
                                                mitigate=flags["mitigate"] == "true",
                                                trusted_fixes=flags["trusted_fixes"] == "true",
                                                drift_direction=query.get("drift_direction", ["under"])[0]))
+                elif request.path == "/api/fleet/monthly":
+                    query = parse_qs(request.query)
+                    if "job" in query:
+                        result = analysis_jobs.poll(query["job"][0])
+                        if result is None:
+                            self._send(404, {"status": "error", "error": "The analysis job expired. Retry to run it again."})
+                        else:
+                            self._send(200, result)
+                    else:
+                        settings = json.loads(query.get("poisoning", ["{}"])[0])
+                        poisoning_settings(settings)
+                        retry = query.get("retry", ["0"])[0] == "1"
+                        self._send(200, analysis_jobs.submit("monthly", settings, retry=retry))
+                elif request.path == "/api/fleet/stress":
+                    query = parse_qs(request.query)
+                    if "job" in query:
+                        result = analysis_jobs.poll(query["job"][0])
+                        if result is None:
+                            self._send(404, {"status": "error", "error": "The analysis job expired. Retry to run it again."})
+                        else:
+                            self._send(200, result)
+                    else:
+                        retry = query.get("retry", ["0"])[0] == "1"
+                        self._send(200, analysis_jobs.submit("stress", retry=retry))
                 elif request.path == "/api/catalog":
                     self._send(200, service.catalog())
                 elif request.path == "/api/metrics":

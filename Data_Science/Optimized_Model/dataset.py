@@ -147,6 +147,68 @@ def prepare_replay(config: OptimizedConfig) -> Path:
     return cache
 
 
+def prepare_evaluation_replay(config: OptimizedConfig) -> Path:
+    """Build a replay from the configured evaluation CSV and frozen models.
+
+    This is for a separately supplied evaluation month when the original
+    training CSV is unavailable locally. It labels only the configured
+    evaluation window and never fits or changes any model.
+    """
+    source = config.later_csv
+    if not source.exists():
+        raise FileNotFoundError(f"Evaluation replay source is missing: {source}")
+    baseline = config.baseline
+    beginning, ending = pd.Timestamp(config.evaluation_start), pd.Timestamp(config.evaluation_end)
+    builder = ApproachBuilder(baseline.gate)
+    features = FeatureBuilder(baseline.gate, baseline.features)
+    decisions: list[pd.DataFrame] = []
+    histories: dict[str, pd.DataFrame] = {}
+    audit: Counter = Counter()
+    for vessel, counts in iter_observation_vessels(source):
+        audit.update(counts)
+        approaches, approach_counts = builder.build(vessel)
+        audit.update(approach_counts)
+        for approach in approaches:
+            if not beginning <= approach.crossing_after < ending:
+                continue
+            examples = features.examples(approach)
+            if examples.empty:
+                continue
+            examples["split"] = "evaluation"
+            decisions.append(examples[list(METADATA_COLUMNS)])
+            histories[approach.approach_id] = approach.observations.copy()
+    if not decisions:
+        raise ValueError(f"No replay approaches found in {beginning.date()}–{(ending-pd.Timedelta(days=1)).date()}.")
+    frame = pd.concat(decisions, ignore_index=True)
+    frame["decision_id"] = frame["approach_id"] + ":" + frame["decision_time"].astype(str)
+    if frame["decision_id"].duplicated().any():
+        raise ValueError("Duplicate evaluation decision IDs; inspect the source records.")
+    counts = frame.groupby("split").agg(
+        decisions=("decision_id", "size"), approaches=("approach_id", "nunique"),
+        vessels=("mmsi", "nunique"),
+    ).to_dict(orient="index")
+    frozen_hashes = {name: file_digest(config.frozen_baseline_model(name))
+                     for name in ("quadratic", "xgboost")}
+    manifest = {
+        "sources": {str(source): file_digest(source)}, "config": config.snapshot(),
+        "split_counts": counts,
+        "baseline_configuration": json.loads(json.dumps(asdict(baseline), default=str)),
+        "baseline_model_hashes": frozen_hashes, "frozen_baseline_hashes": frozen_hashes,
+        "source_audit": audit, "reference_labels": "Original analytical harbor crossing, never corrupted.",
+        "geographic_review": "Analytical gate remains provisional; no official berth-arrival claim.",
+        "baseline_test_status": "Evaluation-only replay; saved model artifacts are unchanged.",
+    }
+    config.output_directory.mkdir(parents=True, exist_ok=True)
+    dataset = ReplayDataset(frame, histories, manifest)
+    cache = config.output_directory / "replay_dataset.joblib"
+    joblib.dump(dataset, cache)
+    frame.to_csv(config.output_directory / "decisions.csv", index=False)
+    frame.drop_duplicates("approach_id").to_csv(config.output_directory / "reference_approaches.csv", index=False)
+    (config.output_directory / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    logger.info("Evaluation replay: %s", counts)
+    return cache
+
+
 def load_replay(config: OptimizedConfig) -> ReplayDataset:
     path = config.output_directory / "replay_dataset.joblib"
     if not path.exists():

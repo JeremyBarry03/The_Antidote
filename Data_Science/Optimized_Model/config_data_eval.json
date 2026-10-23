@@ -1,7 +1,7 @@
 {
   "baseline_config": "../config_data_eval.json",
   "output_directory": "../artifacts/data_eval/optimized",
-  "later_csv": "../../data/hampton_roads_2023_220days_calibration_march_2024.csv",
+  "later_csv": "../../data/hampton_roads_march_2024.csv",
   "calibration_start": "2023-07-30",
   "evaluation_start": "2024-03-01",
   "evaluation_end": "2024-04-01",

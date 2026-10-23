@@ -17,30 +17,35 @@ export function setupArcDateTime({startInput=document.getElementById('start-time
   trigger.setAttribute('aria-label',`${kind} date and time, UTC`);trigger.setAttribute('aria-haspopup','dialog');trigger.setAttribute('aria-expanded','false');
   trigger.innerHTML='<span class="arc-date-value">Choose date</span>'+chevron;
   const panel=document.createElement('section');panel.id=input.id+'-picker';panel.className='arc-date-popover';panel.hidden=true;panel.setAttribute('role','dialog');panel.setAttribute('aria-label',`${kind} date and time, UTC`);trigger.setAttribute('aria-controls',panel.id);
-  panel.innerHTML=`<header class="arc-date-header"><span>${kind} date / time</span><span class="arc-date-zone">UTC</span></header><div class="arc-date-month">March 2024</div><div class="arc-date-calendar" role="grid" aria-label="March 2024"><div class="arc-date-weekdays" role="row">${['Su','Mo','Tu','We','Th','Fr','Sa'].map(day=>`<span role="columnheader">${day}</span>`).join('')}</div><div class="arc-date-weeks" role="rowgroup"></div></div><div class="arc-date-time-row">${clockIcon}<span id="${panel.id}-time-label">Time</span><div class="arc-date-time-fields" role="group" aria-labelledby="${panel.id}-time-label"><input class="arc-date-hour" type="text" inputmode="numeric" maxlength="2" pattern="[0-9]{1,2}" role="spinbutton" aria-label="${kind} hour, UTC" aria-valuemin="0" aria-valuemax="23" autocomplete="off"><span aria-hidden="true">:</span><input class="arc-date-minute" type="text" inputmode="numeric" maxlength="2" pattern="[0-9]{1,2}" role="spinbutton" aria-label="${kind} minute, UTC" aria-valuemin="0" aria-valuemax="59" autocomplete="off"></div><span class="arc-date-zone">24 h</span></div><p class="arc-date-error" role="status"></p><footer class="arc-date-footer"><button type="button" data-date-cancel aria-label="Cancel">Cancel</button><button type="button" data-date-apply aria-label="Apply">Apply</button></footer>`;
-  const value=trigger.querySelector('.arc-date-value'),weeks=panel.querySelector('.arc-date-weeks'),hour=panel.querySelector('.arc-date-hour'),minute=panel.querySelector('.arc-date-minute'),apply=panel.querySelector('[data-date-apply]'),error=panel.querySelector('.arc-date-error');
+  panel.innerHTML=`<header class="arc-date-header"><span>${kind} date / time</span><span class="arc-date-zone">UTC</span></header><div class="arc-date-month"></div><div class="arc-date-calendar" role="grid"><div class="arc-date-weekdays" role="row">${['Su','Mo','Tu','We','Th','Fr','Sa'].map(day=>`<span role="columnheader">${day}</span>`).join('')}</div><div class="arc-date-weeks" role="rowgroup"></div></div><div class="arc-date-time-row">${clockIcon}<span id="${panel.id}-time-label">Time</span><div class="arc-date-time-fields" role="group" aria-labelledby="${panel.id}-time-label"><input class="arc-date-hour" type="text" inputmode="numeric" maxlength="2" pattern="[0-9]{1,2}" role="spinbutton" aria-label="${kind} hour, UTC" aria-valuemin="0" aria-valuemax="23" autocomplete="off"><span aria-hidden="true">:</span><input class="arc-date-minute" type="text" inputmode="numeric" maxlength="2" pattern="[0-9]{1,2}" role="spinbutton" aria-label="${kind} minute, UTC" aria-valuemin="0" aria-valuemax="59" autocomplete="off"></div><span class="arc-date-zone">24 h</span></div><p class="arc-date-error" role="status"></p><footer class="arc-date-footer"><button type="button" data-date-cancel aria-label="Cancel">Cancel</button><button type="button" data-date-apply aria-label="Apply">Apply</button></footer>`;
+  const value=trigger.querySelector('.arc-date-value'),monthLabel=panel.querySelector('.arc-date-month'),calendar=panel.querySelector('.arc-date-calendar'),weeks=panel.querySelector('.arc-date-weeks'),hour=panel.querySelector('.arc-date-hour'),minute=panel.querySelector('.arc-date-minute'),apply=panel.querySelector('[data-date-apply]'),error=panel.querySelector('.arc-date-error');
   let draftDay=1,activeDay=1;
-  const bounds=()=>({min:asTime(input.min)||Date.UTC(2024,2,1),max:asTime(input.max)||Date.UTC(2024,2,31,23,59)});
+  let year=2024,month=0;
+  const bounds=()=>({min:asTime(input.min)||Date.UTC(year,month,1),max:asTime(input.max)||Date.UTC(year,month+1,0,23,59)});
+  const monthText=()=>new Date(Date.UTC(year,month,1)).toLocaleDateString('en-GB',{month:'long',year:'numeric',timeZone:'UTC'});
+  const daysInMonth=()=>new Date(Date.UTC(year,month+1,0)).getUTCDate();
   const validPart=(field,max)=>/^\d{1,2}$/.test(field.value)&&Number(field.value)>=0&&Number(field.value)<=max;
-  function candidate(){return validPart(hour,23)&&validPart(minute,59)?`2024-03-${pad(draftDay)}T${pad(Number(hour.value))}:${pad(Number(minute.value))}`:'';}
+  function candidate(){return validPart(hour,23)&&validPart(minute,59)?`${year}-${pad(month+1)}-${pad(draftDay)}T${pad(Number(hour.value))}:${pad(Number(minute.value))}`:'';}
   function validate(){
    const raw=candidate(),time=asTime(raw),{min,max}=bounds(),otherTime=asTime(other?.value);let message='';
    if(!raw)message='Enter a valid 24-hour time.';
-   else if(time<min||time>max)message='Choose a time within March 2024.';
+   else if(time<min||time>max)message=`Choose a time within ${monthText()}.`;
    else if(Number.isFinite(otherTime)&&(isStart?time>=otherTime:time<=otherTime))message=isStart?'Start must be before end.':'End must be after start.';
    apply.disabled=Boolean(message);error.textContent=message;panel.dataset.invalid=String(Boolean(message));
    for(const [field,max]of [[hour,23],[minute,59]]){field.setAttribute('aria-invalid',String(!validPart(field,max)));if(validPart(field,max))field.setAttribute('aria-valuenow',String(Number(field.value)));else field.removeAttribute('aria-valuenow');}
    return !message;
   }
-  function dayAllowed(day){const {min,max}=bounds();return Date.UTC(2024,2,day,23,59)>=min&&Date.UTC(2024,2,day)<=max;}
+  function dayAllowed(day){const {min,max}=bounds();return Date.UTC(year,month,day,23,59)>=min&&Date.UTC(year,month,day)<=max;}
+  function updateMonth(){monthLabel.textContent=monthText();calendar.setAttribute('aria-label',monthText());}
   function markDays(){for(const button of weeks.querySelectorAll('[data-date-day]')){const day=Number(button.dataset.dateDay);button.setAttribute('aria-selected',String(day===draftDay));button.tabIndex=day===activeDay&&!button.disabled?0:-1;}}
   function renderCalendar(){
-   weeks.replaceChildren();let day=1;
-   for(let week=0;week<6&&day<=31;week++){
+   weeks.replaceChildren();const firstWeekday=new Date(Date.UTC(year,month,1)).getUTCDay(),count=daysInMonth();let day=1;
+   updateMonth();
+   for(let week=0;week<6&&day<=count;week++){
     const row=document.createElement('div');row.className='arc-date-week';row.setAttribute('role','row');
     for(let column=0;column<7;column++){
-     if((week===0&&column<5)||day>31){const blank=document.createElement('span');blank.className='arc-date-blank';blank.setAttribute('role','gridcell');row.append(blank);continue;}
-     const button=document.createElement('button');button.type='button';button.setAttribute('role','gridcell');button.dataset.dateDay=day;button.textContent=day;button.setAttribute('aria-label',`${day} March 2024`);button.disabled=!dayAllowed(day);button.addEventListener('click',()=>{draftDay=activeDay=Number(button.dataset.dateDay);markDays();validate();});row.append(button);day++;
+     if((week===0&&column<firstWeekday)||day>count){const blank=document.createElement('span');blank.className='arc-date-blank';blank.setAttribute('role','gridcell');row.append(blank);continue;}
+     const button=document.createElement('button');button.type='button';button.setAttribute('role','gridcell');button.dataset.dateDay=day;button.textContent=day;button.setAttribute('aria-label',`${day} ${monthText()}`);button.disabled=!dayAllowed(day);button.addEventListener('click',()=>{draftDay=activeDay=Number(button.dataset.dateDay);markDays();validate();});row.append(button);day++;
     }weeks.append(row);
    }markDays();
   }
@@ -55,7 +60,8 @@ export function setupArcDateTime({startInput=document.getElementById('start-time
    if(panel.hidden)return;panel.hidden=true;trigger.setAttribute('aria-expanded','false');if(current===picker)current=null;if(restore)trigger.focus({preventScroll:true});
   }
   function open(){
-   if(input.disabled)return;current?.close();const parsed=new Date(asTime(input.value));const time=Number.isFinite(parsed.getTime())?parsed:new Date(Date.UTC(2024,2,isStart?1:31,isStart?0:23,isStart?0:59));
+   if(input.disabled)return;current?.close();const parsed=new Date(asTime(input.value));const {min,max}=bounds();const time=Number.isFinite(parsed.getTime())?parsed:new Date(isStart?min:max);
+   year=time.getUTCFullYear();month=time.getUTCMonth();
    draftDay=activeDay=time.getUTCDate();hour.value=pad(time.getUTCHours());minute.value=pad(time.getUTCMinutes());renderCalendar();validate();
    panel.hidden=false;trigger.setAttribute('aria-expanded','true');current=picker;document.dispatchEvent(new Event('arc-overlay-open'));position();
    if(!reduce())panel.animate([{opacity:0,transform:`translateY(${panel.dataset.side==='top'?4:-4}px) scale(.98)`},{opacity:1,transform:'none'}],{duration:150,easing:'cubic-bezier(.22,1,.36,1)'});
@@ -63,7 +69,7 @@ export function setupArcDateTime({startInput=document.getElementById('start-time
   }
   function sync(){
    trigger.disabled=input.disabled;const parsed=new Date(asTime(input.value));
-   value.textContent=Number.isFinite(parsed.getTime())?`${pad(parsed.getUTCDate())} Mar ${pad(parsed.getUTCHours())}:${pad(parsed.getUTCMinutes())}`:'Choose date';
+   value.textContent=Number.isFinite(parsed.getTime())?`${parsed.toLocaleDateString('en-GB',{day:'2-digit',month:'short',timeZone:'UTC'})} ${pad(parsed.getUTCHours())}:${pad(parsed.getUTCMinutes())}`:'Choose date';
    trigger.setAttribute('aria-label',`${kind} date and time: ${value.textContent}, UTC`);
    if(input.disabled)close();else if(!panel.hidden)validate();
   }
@@ -73,10 +79,10 @@ export function setupArcDateTime({startInput=document.getElementById('start-time
   panel.querySelector('[data-date-cancel]').addEventListener('click',()=>close(true));
   apply.addEventListener('click',()=>{if(!validate())return;input.value=candidate();input.dispatchEvent(new Event('change',{bubbles:true}));sync();close(true);});
   weeks.addEventListener('keydown',event=>{
-   const button=event.target.closest('[data-date-day]');if(!button)return;const day=Number(button.dataset.dateDay),weekday=new Date(Date.UTC(2024,2,day)).getUTCDay();
+   const button=event.target.closest('[data-date-day]');if(!button)return;const day=Number(button.dataset.dateDay),weekday=new Date(Date.UTC(year,month,day)).getUTCDay();
    if(event.key==='Enter'||event.key===' '){event.preventDefault();button.click();return;}
    const next=event.key==='ArrowRight'?day+1:event.key==='ArrowLeft'?day-1:event.key==='ArrowDown'?day+7:event.key==='ArrowUp'?day-7:event.key==='Home'?day-weekday:event.key==='End'?day+(6-weekday):null;
-   if(next!=null){event.preventDefault();activeDay=Math.max(1,Math.min(31,next));if(dayAllowed(activeDay)){markDays();weeks.querySelector(`[data-date-day="${activeDay}"]`)?.focus({preventScroll:true});}else activeDay=day;}
+   if(next!=null){event.preventDefault();activeDay=Math.max(1,Math.min(daysInMonth(),next));if(dayAllowed(activeDay)){markDays();weeks.querySelector(`[data-date-day="${activeDay}"]`)?.focus({preventScroll:true});}else activeDay=day;}
   });
   for(const [field,max]of [[hour,23],[minute,59]]){
    field.addEventListener('input',validate);field.addEventListener('focus',()=>field.select());

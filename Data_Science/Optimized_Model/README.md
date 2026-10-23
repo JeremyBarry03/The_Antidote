@@ -18,6 +18,11 @@ opens the fleet dashboard at `/tracking/`; the older replay is at
 SDK. See `../../Frontend/README.md` for startup, API shapes, attack behavior,
 optional Mapbox token and checks.
 
+When only the evaluation-month source is available locally, rebuild the
+March-only replay cache from the configured CSV and frozen models with
+`python -m Optimized_Model prepare-evaluation-replay --config Optimized_Model/config_data_eval.json`.
+This does not fit models or alter the saved 2023 checkpoints.
+
 ## Historical vessel-class experiment
 
 The vessel-class v2 run keeps cargo, tanker and unknown distinct in both raw and

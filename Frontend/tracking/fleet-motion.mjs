@@ -14,14 +14,29 @@ export class FleetMotion {
     for (const ship of ships) {
       if (!ship.reports.length) continue;
       visible.add(ship.id);
-      const points = ship.reports.map((report) => ({
-        at: report.delivered,
-        position: /** @type {[number,number]} */ ([
-          report.longitude,
-          report.latitude,
-        ]),
-        heading: report.course ?? 270,
-      }));
+      // AIS position fixes can wander slightly from one report to the next.
+      // Apply a short, causal smoothing window to the display path so the boat
+      // does not twitch, while leaving reports and every model input untouched.
+      const points = ship.reports.map((report, index) => {
+        const previous = ship.reports[index - 1];
+        const older = ship.reports[index - 2];
+        const weights = previous && older ? [0.6, 0.28, 0.12] : previous ? [0.72, 0.28] : [1];
+        const samples = [report, ...(previous ? [previous] : []), ...(older ? [older] : [])];
+        const position = /** @type {[number,number]} */ ([0, 0]);
+        let headingX = 0, headingY = 0;
+        samples.forEach((sample, sampleIndex) => {
+          position[0] += sample.longitude * weights[sampleIndex];
+          position[1] += sample.latitude * weights[sampleIndex];
+          const heading = (sample.course ?? 270) * Math.PI / 180;
+          headingX += Math.sin(heading) * weights[sampleIndex];
+          headingY += Math.cos(heading) * weights[sampleIndex];
+        });
+        return {
+          at: report.delivered,
+          position,
+          heading: (Math.atan2(headingX, headingY) * 180 / Math.PI + 360) % 360,
+        };
+      });
       if (ship.arrived && ship.crossing_position) {
         const last = points.at(-1);
         if (last&&(last.position[0]!==ship.crossing_position[0]||last.position[1]!==ship.crossing_position[1]))
