@@ -43,13 +43,23 @@ adaptations preserve the replay's visual identity. No new shipping rasters are u
 
 ## Evaluation boundary
 
-The study protocol is training on all of 2023 and testing on March 2024. The
-reviewed checkout still has the earlier March-training/April-evaluation artifacts.
-Those results are labeled preliminary throughout the overview; no numbers, hashes,
-or sample counts are relabeled as a completed 2023-trained March evaluation.
-The 2023 source manifest, fitted artifacts, final split counts, and matching
-results remain pending. Operator effort is unmeasured; the overview does not claim
-a completed operator study, an untouched March test period, or operational readiness.
+The current serving bundle includes frozen A/B/nominal-C models fitted using
+2023 data and a full-March 2024 nominal comparison (5,382 decisions, 243
+approaches, 219 vessels). The available fit partition is January 1--June 29,
+2023, with model selection on June 30--July 19; this is not yet the requested
+fit on all eligible 2023 data. March has already been explored during model
+selection and is not an untouched confirmation period.
+
+The eight-control graph bundle contains 256 precomputed on/off scenarios at a
+fixed 25% strength, beginning March 15, across six sampled March approaches.
+It is separate from the continuous live replay sliders and does not establish
+full-cohort mitigation performance. A paired, full-March comparison of C with
+and without conditional repairs remains to be completed. The 2023 source files are not part of the tracked
+serving bundle; hashes are recorded, but exact retraining needs matching
+authorized sources. Human-reviewed error types are saved as feedback for
+versioned retraining; each candidate still needs evaluation before it can
+replace a frozen model. Operator effort is unmeasured, and the overview does not
+claim a completed operator study or operational readiness.
 
 ## Editorial coverage
 
@@ -59,15 +69,15 @@ The public overview uses subject headings, not judging labels. Internal mapping:
 |---|---|
 | E1 | User, resource decision, consequences, crossing proxy, measurable goals |
 | E2 | Model roles, A/B comparators, frozen inference, setup; working replay remains the artifact |
-| E3 | Chronology, paired cases, coverage denominator, metrics, uncertainty and retained failures |
-| E4 | Operator verification, conditional correction, review-label burden; human time remains unmeasured |
+| E3 | Full-March nominal comparison; sampled attack scenarios, denominators, and uncertainty boundaries |
+| E4 | Human error-type review, saved feedback for retraining, conditional correction and escalation; human time remains unmeasured |
 | E5 | Product provenance, rights constraints, identifiers, representation risks, proposed accountable roles |
 | E6 | Iterate decision, responsible roles, resources, approvals and decision checkpoint |
 | E7 | Versions, hashes, sources, setup, source/PDF downloads; recorded fallback remains a separate artifact |
-| C1 | Receipt-time contract, age and the path from stale evidence to an ETA |
-| C2 | Specific faults and bounded historical source-volume experiment, with version boundary disclosed |
-| C3 | Original/stale/quality/combined comparisons; ordered interactive progression stays in the replay |
-| C4 | Same-model repair comparison, later period, ordinary-input cost, adverse MSE and stacked-fault limits |
+| C1 | Receipt-time contract and report age; live gap control with fixed delayed-report stress comparison |
+| C2 | Specific faults; source-volume effects remain to be measured against the current model version |
+| C3 | Eight-control ordered replay and fixed-strength saved scenario progression |
+| C4 | Current conditional repairs and review behavior; full-March same-model repair ablation remains to be run |
 
 ## Direction contract
 
@@ -80,7 +90,7 @@ The web page stays in the demo's visual world; the PDF uses conventional LaTeX
 article typography.
 
 STORY: Decision and reference; causal data; model choices; deterioration and
-repairs; measured results and failures; oversight; governance; next study.
+repairs; measured results and current limits; oversight; governance; next study.
 
 FIRST VIEWPORT: Project navigation above a left-aligned project title, descriptive
 subtitle, and links to the replay and results. Desktop contents rail beside the
