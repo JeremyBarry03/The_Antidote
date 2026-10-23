@@ -1,0 +1,28 @@
+/* Existing UTC picker behavior, with compact buttons and shared chevrons. */
+.timeline input.arc-date-native{display:none}
+.timeline .arc-date-trigger{position:relative;display:flex;align-items:center;gap:5px;width:110px;height:22px;min-height:22px;padding:0 7px;border:1px solid var(--border-strong);border-radius:var(--radius-control);background:var(--button-surface);color:var(--ink);font:400 10px/1 var(--font-ui);letter-spacing:0;white-space:nowrap;text-align:left;cursor:pointer;transition:background-color var(--arc-fast),border-color var(--arc-fast)}
+.arc-date-trigger .arc-date-value{flex:1;min-width:0;font-variant-numeric:tabular-nums}
+.arc-date-trigger .arc-date-chevron{width:10px;height:10px;flex:none;fill:none;stroke:currentColor;stroke-width:1;transition:transform 180ms}
+.arc-date-trigger[aria-expanded=true] .arc-date-chevron{transform:rotate(180deg)}
+.timeline .arc-date-trigger:disabled{opacity:.5;cursor:wait}.arc-date-trigger[aria-expanded=true]{color:var(--ink);background:var(--hover)}
+.arc-date-popover{position:fixed;z-index:110;width:min(252px,calc(100vw - 24px));box-sizing:border-box;overflow:auto;padding:12px;background:var(--surface);border:1px solid var(--border-strong);border-radius:4px;box-shadow:0 12px 36px #0006;color:var(--ink);font-family:var(--font-ui);font-size:12px;line-height:1.4;letter-spacing:0;overscroll-behavior:contain;transform-origin:center top;scrollbar-width:thin}
+.arc-date-popover[data-side=top]{transform-origin:center bottom}
+.arc-date-header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 10px;font-size:11px;font-weight:400;color:var(--muted)}
+.arc-date-zone{color:var(--faint);font-size:10px;font-weight:400;white-space:nowrap}
+.arc-date-month{margin:0 0 8px;text-align:left;font-size:13px;font-weight:400;color:var(--ink)}
+.arc-date-weekdays,.arc-date-week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px}
+.arc-date-weekdays{height:26px;align-items:center;color:var(--faint);text-align:center;font-size:10px}.arc-date-week{min-height:28px}
+.arc-date-weeks button{display:grid;place-items:center;height:28px;width:100%;min-width:0;padding:0;border:0;border-radius:4px;background:transparent;color:var(--ink);font:400 12px/1 var(--font-ui);font-variant-numeric:tabular-nums;cursor:pointer;transition:background-color 100ms,color 100ms}
+.arc-date-weeks button[aria-selected=true]{background:var(--ink);color:var(--ground)}.arc-date-weeks button:disabled{color:var(--faint);cursor:default}
+.arc-date-time-row{display:flex;align-items:center;gap:8px;margin-top:8px;padding:8px 0 0;border-top:1px solid var(--border-strong)}
+.arc-date-time-row>svg{display:block;flex:none;width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1;stroke-linecap:round;color:var(--muted)}
+.arc-date-time-fields{display:flex;align-items:center;gap:2px;margin-left:auto;border:0;border-bottom:1px solid var(--faint);border-radius:0;background:transparent;padding:0 3px}
+.arc-date-time-fields input{width:27px;min-width:0;min-height:30px;height:30px;padding:0;border:0;border-radius:0;background:transparent;color:var(--ink);font:400 13px/1 var(--font-ui);font-variant-numeric:tabular-nums;text-align:center}
+.arc-date-time-fields input[aria-invalid=true]{color:var(--red)}.arc-date-time-fields:focus-within{border-color:var(--ink)}
+.arc-date-error{min-height:14px;margin:6px 0 0;font-size:10px;line-height:1.4;color:#ffaaaa}
+.arc-date-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}
+.arc-date-footer button{height:32px;padding:0 11px;border:1px solid var(--button-border);border-radius:var(--radius-control);background:var(--button-surface);color:var(--muted);font:400 12px/1 var(--font-ui);cursor:pointer;transition:background-color var(--arc-fast),color var(--arc-fast)}
+.arc-date-footer [data-date-apply]{color:var(--ink)}
+.arc-date-footer button:disabled{opacity:.4;cursor:default}.arc-date-time-fields input:focus-visible{outline:0;background:var(--hover)}
+@media(hover:hover) and (pointer:fine){.timeline .arc-date-trigger:hover:not(:disabled){background:var(--hover);border-color:var(--muted)}.arc-date-weeks button:hover:not(:disabled,[aria-selected=true]){background:var(--hover)}.arc-date-footer button:hover:not(:disabled){color:var(--ink);background:var(--hover)}}
+@media(max-width:600px){.arc-date-week{min-height:30px}.arc-date-weeks button{height:30px}.arc-date-footer button{height:30px}}

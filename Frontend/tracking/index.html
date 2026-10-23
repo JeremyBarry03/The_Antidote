@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#090a0c">
+<title>Antidote · Historical Replay</title><link rel="preload" href="./assets/geist-mono-variable.ttf" as="font" type="font/ttf" crossorigin><link rel="icon" href="data:,">
+<link rel="stylesheet" href="/map-assets/mapbox-gl.css"><link rel="stylesheet" href="./style.css"><link rel="stylesheet" href="./arc-components.css"><link rel="stylesheet" href="./arc-date-time.css"><link rel="stylesheet" href="./arc-feedback.css">
+<script src="/map-assets/mapbox-gl.js" defer></script><script src="./coastal.js" defer></script><script src="./app.mjs" type="module"></script>
+</head><body>
+<main class="console">
+ <section class="tracking-column">
+  <section id="map-console" class="map-console" aria-label="Historical ship replay">
+   <header class="section-bar map-toolbar"><h1>Historical replay</h1><div class="map-actions">
+    <div class="model-select"><button id="model" type="button" aria-label="Model: Antidote" aria-haspopup="listbox" aria-expanded="false" aria-controls="model-menu"><span id="model-name" aria-hidden="true">Antidote</span><svg class="dropdown-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></button><div id="model-menu" class="model-menu" role="listbox" aria-label="Prediction model" hidden><button role="option" aria-selected="false" tabindex="-1" data-model="A">Poly</button><button role="option" aria-selected="false" tabindex="-1" data-model="B">XGBoost</button><button role="option" aria-selected="true" tabindex="-1" data-model="C">Antidote</button></div></div>
+    <button id="recenter" aria-label="Recenter">Recenter</button><button id="invert" type="button" aria-pressed="false" aria-label="Switch to light view">Invert</button><button id="fullscreen" class="icon-button" aria-expanded="false" aria-label="Expand map" title="Expand map"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 3H3v4m10-4h4v4M3 13v4h4m10-4v4h-4"/></svg></button>
+   </div></header>
+   <div class="map-stage">
+    <div id="coastal-map" aria-label="Hampton Roads dotted coastal map"></div>
+    <svg id="fallback-map" aria-label="Vessel positions on a longitude and latitude grid" hidden></svg>
+    <p id="map-status" role="status">Loading coastal geography…</p>
+    <svg id="ship-callouts" class="ship-callout" aria-hidden="true"></svg>
+    <div id="ship-popups"></div>
+    <aside id="antidote-alert" class="anomaly-notice" role="status" aria-live="polite" aria-label="Antidote input warning" hidden></aside>
+    <template id="ship-popup-template"><section class="ship-popup"><button class="ship-name-tag" data-part="ship-name" type="button"></button></section></template>
+    <div class="navigation" aria-label="Map controls"><button id="zoom-in" aria-label="Zoom in" title="Zoom in"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg></button><button id="zoom-out" aria-label="Zoom out" title="Zoom out"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10"/></svg></button></div>
+    <div class="map-footer"><span id="map-scale"></span></div>
+   </div>
+   <div class="replay-clock" role="group" aria-label="Replay playback"><div class="replay-transport" aria-label="Replay controls"><button id="play" aria-label="Pause replay" disabled>Ⅱ</button><button id="speed-slow" aria-label="Halve playback speed" title="Halve playback speed">½×</button><span id="replay-speed" class="speed">10×</span><button id="speed-boost" aria-label="Double playback speed" title="Double playback speed">2×</button></div><time id="clock">—</time></div>
+  </section>
+  <section class="timeline" aria-label="Replay time range"><div class="timeline-endpoint"><input id="start-time" type="datetime-local" aria-label="Start date and time in UTC" step="60" disabled></div><div class="scrubber"><input id="scrub" type="range" aria-label="Replay time" min="0" max="100" value="0" disabled><span class="timeline-thumb" aria-hidden="true"></span><div id="activity-track" class="activity-track" aria-label="Vessel activity periods"></div></div><div class="timeline-endpoint"><input id="end-time" type="datetime-local" aria-label="End date and time in UTC" step="60" disabled></div><div class="activity-navigation" role="group" aria-label="Jump between periods with ships"><button id="previous-ships" type="button" aria-label="Previous period with ships" title="Previous period with ships" disabled>←</button><span id="activity-label">Ships</span><button id="next-ships" type="button" aria-label="Next period with ships" title="Next period with ships" disabled>→</button></div></section>
+
+ </section>
+ <aside class="feed-column" aria-label="Replay controls and vessel data">
+  <details class="poison-panel" id="poison-panel" open><summary class="section-bar">Data poisoning<svg class="chevron dropdown-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></summary><div id="poison-controls" class="poison-controls"></div><p class="sr-only">Live replay controls. Attack labels are attached after inference for display only.</p></details>
+  <section id="eta-comparison" class="comparison-panel" aria-labelledby="comparison-title"><header class="section-bar feed-bar"><h2 id="comparison-title"><button id="comparison-toggle" type="button" aria-expanded="true" aria-controls="comparison-content">ETA comparison<svg class="dropdown-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></button></h2><span id="comparison-stamp">Loading</span></header>
+   <div id="comparison-content" class="comparison-content"><div class="comparison-vessel"><select id="comparison-vessel" aria-label="Vessel for ETA comparison" aria-describedby="comparison-note" disabled><option>Loading vessels…</option></select><svg class="dropdown-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></div>
+   <div class="comparison-scroll arc-feed-scroll" tabindex="0" role="region" aria-label="Normal and poisoned ETA comparison"><table aria-describedby="comparison-note"><thead><tr><th>Model</th><th>Normal</th><th>Poisoned</th><th>Actual</th></tr></thead><tbody id="comparison-body"></tbody></table><p id="comparison-empty" hidden>No vessels at this replay time. Use the timeline’s Ships arrows to find an active period.</p></div>
+   <p class="comparison-note sr-only" id="comparison-note">Errors below ETAs are minutes vs actual arrival.</p></div>
+  </section><section id="live-feed" class="live-feed"><header class="section-bar feed-bar"><h2 id="feed-title"><button id="feed-toggle" type="button" aria-expanded="true" aria-controls="feed-content">Live data feed<svg class="dropdown-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></button></h2><span id="feed-status" class="sr-only" role="status">Connecting</span></header><div id="feed-content" class="feed-table-wrap"><table><thead><tr><th title="Measurement time in UTC">Time</th><th title="Speed over ground, knots" aria-label="Speed in knots">Speed</th><th>Longitude</th><th>Latitude</th><th title="Direction of travel over ground, degrees" aria-label="Angle in degrees">Angle</th><th title="Reported AIS vessel type" aria-label="Reported AIS vessel type">Type</th></tr></thead><tbody id="feed-body"></tbody></table><div id="feed-empty" class="feed-empty">Loading received ship reports…</div></div><p class="sr-only" id="feed-note">Historical AIS · only reports received by the replay clock.</p></section></aside>
+ <div id="error" class="error" role="alert" hidden><span></span><button id="retry">Retry</button></div>
+</main>
+<div id="map-backdrop" hidden aria-hidden="true"></div>
+<dialog id="method-dialog" aria-labelledby="method-title" aria-describedby="method-description"><div class="dialog-title"><h2 id="method-title"></h2><button id="close-dialog" aria-label="Close explanation">×</button></div><p id="method-description"></p><p class="dialog-note">Controls transform replay inputs before inference. Source data, model artifacts and actual crossing times are preserved.</p></dialog>
+<span id="announcement" class="sr-only" role="status"></span>
+</body></html>
