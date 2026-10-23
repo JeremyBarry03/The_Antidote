@@ -122,6 +122,13 @@ button:focus-visible,input:focus-visible,summary:focus-visible,[tabindex="0"]:fo
 .anomaly-notice{position:absolute;top:12px;left:12px;z-index:8;width:min(304px,calc(100% - 24px));max-height:calc(100% - 24px);overflow:auto;padding:14px;border:1px solid #fff;border-radius:var(--radius-control);background:#3b1118;color:#fff;box-shadow:0 6px 24px #0003;font:400 12px/1.55 var(--font-ui)}
 .anomaly-header{display:flex;align-items:center;justify-content:space-between;gap:12px}.anomaly-header strong{font-size:18px;line-height:1.25;font-weight:700;color:#fff}.anomaly-header button{display:grid;place-items:center;flex:none;width:24px;height:24px;border-radius:6px;font-size:20px;color:#fff}.anomaly-header button:hover{background:#ffffff1f;color:#fff}.anomaly-header button:focus-visible{outline-color:#fff}
 .anomaly-notice ul{list-style:none;margin:12px 0 0;padding:0}.anomaly-notice li+li{margin-top:10px}.anomaly-notice li b{display:block;font-weight:600}.anomaly-notice li span{display:block;color:#f3d7dc}.anomaly-note{margin:14px 0 0;padding-top:10px;border-top:1px solid #ffffff38;color:#fff;font-size:14px;line-height:1.4;font-weight:650;text-transform:uppercase}
+.anomaly-note{display:block;width:100%;min-height:44px;padding:10px 12px;border:1px solid #ffffff80;border-radius:var(--radius-control);background:#ffffff14;font-family:inherit;text-align:center;cursor:pointer}
+.anomaly-note:hover:not(:disabled){background:#ffffff26}.anomaly-note:focus-visible{outline:2px solid #fff;outline-offset:3px}.anomaly-note:disabled{opacity:1;color:#fff;cursor:default;background:#ffffff0a}
+.anomaly-note[hidden]{display:none}.anomaly-note[role=status]{cursor:default}
+.anomaly-notice.is-confirmed{background:#092619}.anomaly-notice.is-confirmed li span{color:#d5f0df}
+.anomaly-notice.is-leaving{pointer-events:none;transform-origin:top left;animation:anomaly-exit 420ms cubic-bezier(.65,0,.35,1) forwards}
+@keyframes anomaly-exit{0%{transform:translateX(0) scale(1) rotate(0)}25%{transform:translateX(10px) scale(1.02) rotate(1deg)}100%{transform:translateX(calc(-100% - 32px)) scale(.72) rotate(-6deg)}}
+@media(prefers-reduced-motion:reduce){.anomaly-notice.is-leaving{animation:none}}
 .feed-empty{padding:24px;color:var(--muted);font-size:13px;line-height:1.5}.error{grid-column:1/-1}
 .dialog-title{display:flex;align-items:center;justify-content:space-between;gap:16px}.dialog-title h2{margin:0;font-size:16px;font-weight:400;letter-spacing:-.02em}
 #map-backdrop{position:fixed;inset:0;z-index:50;background:#000b}.map-expanded{overflow:hidden}

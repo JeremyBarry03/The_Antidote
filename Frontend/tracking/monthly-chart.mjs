@@ -1,3 +1,4 @@
+import {smoothRows} from './smoothed-graphs.mjs';
 // Month analysis is independent of the replay clock and selected map model.
 import {setChartStatus} from './chart-status.mjs';
 export const modelNames={A:'Poly',B:'XGBoost',C:'Antidote'};
@@ -30,13 +31,34 @@ function svgNode(tag,attributes={},text){
  return node;
 }
 function cell(row,tag,text,className){const node=document.createElement(tag);node.textContent=text;if(className)node.className=className;row.append(node);return node;}
-export function createMonthlyChart(root,{onRetry=()=>{}}={}){
+export function weeklyRows(data){
+ const daySeconds=86400,weekSeconds=7*daySeconds;
+ const boundaries=[data.start,data.end];
+ for(let time=data.start+weekSeconds;time<data.end;time+=weekSeconds)boundaries.push(time);
+ if(data.cutover>data.start&&data.cutover<data.end)boundaries.push(data.cutover);
+ const edges=[...new Set(boundaries)].sort((a,b)=>a-b);
+ return edges.slice(0,-1).map((start,index)=>{
+  const end=edges[index+1],days=(data.weekly_days??data.days).filter(day=>!day.interpolated&&day.day>=start&&day.day<end);
+  const mean=(model,field)=>{
+   const values=days.map(day=>day.models[model]?.[field]).filter(numeric);
+   return values.length?values.reduce((sum,value)=>sum+value,0)/values.length:null;
+  };
+  return {day:(start+end-daySeconds)/2,start,end,sampled_days:days.length,poisoned:data.poisoning_active&&start>=data.cutover,
+   matched_decisions:days.reduce((sum,day)=>sum+day.matched_decisions,0),scheduled_decisions:days.reduce((sum,day)=>sum+day.scheduled_decisions,0),
+   models:Object.fromEntries(models.map(model=>[model,{
+    ...Object.fromEntries(['mean_error','mae','clean_mean_error','clean_mae'].map(field=>[field,mean(model,field)])),
+    unavailable_decisions:days.reduce((sum,day)=>sum+(day.models[model]?.unavailable_decisions??0),0),
+   }]))};
+ });
+}
+export function createMonthlyChart(root,{onRetry=()=>{},weekly=false}={}){
  const svg=root.querySelector('.monthly-svg'),plot=root.querySelector('.monthly-plot');
  const inspector=root.querySelector('.monthly-inspector'),loading=root.querySelector('.monthly-loading');
  const retry=loading.querySelector('button'),view=root.ownerDocument.defaultView;
- const legend=root.querySelector('.monthly-legend');
+ const legend=root.querySelector('.monthly-legend'),grouping=root.querySelector('.eta-grouping select');
+ let lastInput=null;
  const shown=new Set(models),client=globalThis.crypto?.randomUUID?.()??`chart-${Date.now()}-${Math.random()}`;
- let result=null,geometry,selected=-1;
+ let result=null,curveDays=[],geometry,selected=-1;
  let periodLabel='evaluation period',cutoverLabel='the cutover';
  let animationFrame=null,renderedDomain=null,renderedTicks=new Map(),scene=null;
  const reducedMotion=view?.matchMedia?.('(prefers-reduced-motion: reduce)');
@@ -68,11 +90,11 @@ export function createMonthlyChart(root,{onRetry=()=>{}}={}){
  }
  function buildScene(tickValues){
   svg.replaceChildren();
-  const width=Math.max(230,plot.clientWidth),height=plot.clientHeight,left=40,right=13,top=26,bottom=30,end=result.end-86400;
+  const width=Math.max(230,plot.clientWidth),height=plot.clientHeight,left=40,right=13,top=weekly?43:26,bottom=30,end=result.end-86400;
   const x=time=>left+(time-result.start)/Math.max(86400,end-result.start)*(width-left-right);
   const next={x,width,height,left,right,top,bottom,end,ticks:new Map(),paths:[],dots:[]};
   svg.setAttribute('viewBox',`0 0 ${width} ${height}`);
-  svg.append(svgNode('title',{},`${periodLabel} daily ETA minus actual arrival, in minutes`));
+  svg.append(svgNode('title',{},`${periodLabel} ${weekly?'weekly':'daily'} ETA minus actual arrival, in minutes`));
   svg.append(svgNode('desc',{},`Visible model lines determine the Y axis, with a small margin and zero retained as the ideal reference. Negative errors predict early arrival; positive errors predict late arrival. Poisoning begins ${cutoverLabel} when a graph scenario is selected.`));
   const cutoverInRange=result.cutover>=result.start&&result.cutover<=end;
   if(result.poisoning_active&&cutoverInRange)svg.append(svgNode('rect',{x:x(result.cutover),y:top,width:Math.max(0,width-right-x(result.cutover)),height:height-top-bottom,class:'chart-shade'}));
@@ -84,18 +106,23 @@ export function createMonthlyChart(root,{onRetry=()=>{}}={}){
   if(cutoverInRange){
    svg.append(svgNode('line',{x1:x(result.cutover),x2:x(result.cutover),y1:top-6,y2:height-bottom,class:'chart-cutover'}));
    svg.append(svgNode('text',{x:x(result.cutover)+5,y:12,class:'chart-axis-label'},width<340?`${dayLabel(result.cutover)} · ${result.poisoning_active?'on':'off'}`:result.poisoning_active?`${dayLabel(result.cutover)} · poisoning`:`${dayLabel(result.cutover)} · boundary (off)`));
+   if(weekly){
+    svg.append(svgNode('text',{x:(left+x(result.cutover))/2,y:29,'text-anchor':'middle',class:'chart-axis-label'},'Pre-poisoning'));
+    svg.append(svgNode('text',{x:(x(result.cutover)+width-right)/2,y:29,'text-anchor':'middle',class:'chart-axis-label'},result.poisoning_active?'Post-poisoning':'Poisoning off'));
+   }
   }
   const dateTicks=[result.start,end];
   if(width>=340)for(let time=result.start+7*86400;time<end;time+=7*86400)dateTicks.push(time);
   if(cutoverInRange)dateTicks.push(result.cutover);
-  for(const time of [...new Set(dateTicks)].sort((a,b)=>a-b))svg.append(svgNode('text',{x:x(time),y:height-9,'text-anchor':'middle'},dayLabel(time)));
+  if(weekly)for(const [index,week] of result.days.entries())svg.append(svgNode('text',{x:x(week.day),y:height-9,'text-anchor':'middle'},`W${index+1}`));
+  else for(const time of [...new Set(dateTicks)].sort((a,b)=>a-b))svg.append(svgNode('text',{x:x(time),y:height-9,'text-anchor':'middle'},dayLabel(time)));
   const clipId=`monthly-clip-${client}`,defs=svgNode('defs'),clip=svgNode('clipPath',{id:clipId});
   clip.append(svgNode('rect',{x:left-3,y:top-3,width:width-left-right+6,height:height-top-bottom+6}));defs.append(clip);svg.append(defs);
   const series=svgNode('g',{'clip-path':`url(#${clipId})`});svg.append(series);
   for(const model of models)if(shown.has(model)){
    const path=svgNode('path',{class:'chart-line','data-series':model,style:`--series-color:var(--model-${model})`});series.append(path);next.paths.push({path,model});
    // A lone valid day stays visible even if adjacent days have no coverage.
-   for(const day of result.days)if(numeric(day.models[model]?.mean_error)){
+   for(const day of result.days)if(!day.interpolated&&numeric(day.models[model]?.mean_error)){
     const value=day.models[model].mean_error,dot=svgNode('circle',{cx:x(day.day),r:1.7,class:'chart-dot',style:`--series-color:var(--model-${model})`});series.append(dot);next.dots.push({dot,value});
    }
   }
@@ -115,21 +142,23 @@ export function createMonthlyChart(root,{onRetry=()=>{}}={}){
    mark.group.setAttribute('opacity',opacity);mark.group.setAttribute('visibility',hidden?'hidden':'visible');mark.group.setAttribute('aria-hidden',String(hidden));
    mark.line.setAttribute('y1',position);mark.line.setAttribute('y2',position);mark.label.setAttribute('y',position+3);
   }
-  for(const {path,model} of scene.paths)path.setAttribute('d',linePath(result.days,model,x,y));
+  for(const {path,model} of scene.paths)path.setAttribute('d',linePath(curveDays,model,x,y));
   for(const {dot,value} of scene.dots)dot.setAttribute('cy',y(value));
   if(selected>=0)inspect(selected);
  }
  function inspect(index){
   if(!result||!geometry)return;selected=Math.max(0,Math.min(result.days.length-1,index));
   const day=result.days[selected],date=new Date(day.day*1000).toLocaleDateString('en-GB',{timeZone:'UTC',day:'2-digit',month:'short'});
-  inspector.replaceChildren();const title=document.createElement('strong');title.textContent=`${date} · ${day.poisoned?'poisoned inputs':'clean inputs'}`;inspector.append(title);
+  inspector.replaceChildren();const title=document.createElement('strong');title.textContent=`${weekly?`${dayLabel(day.start)}–${dayLabel(day.end-86400)}`:date} · ${day.poisoned?'poisoned inputs':'clean inputs'}`;inspector.append(title);
   const table=document.createElement('table'),header=table.createTHead().insertRow();
   for(const label of ['Model','Error','MAE',...(day.poisoned?['Clean error']:[])])cell(header,'th',label);
   const body=table.createTBody();
   for(const model of models){if(!shown.has(model))continue;const values=day.models[model],row=body.insertRow();const name=cell(row,'td',modelNames[model],'series-name');name.style.setProperty('--series-color',`var(--model-${model})`);cell(row,'td',minute(values?.mean_error));cell(row,'td',absolute(values?.mae));if(day.poisoned)cell(row,'td',minute(values?.clean_mean_error));}
   inspector.append(table);
-  const note=document.createElement('p');note.textContent=`Minutes · ${day.matched_decisions}/${day.scheduled_decisions} matched checkpoints · ${day.approaches} approaches. `+(day.matched_decisions?'Early − / late +. MAE = average absolute error.':'No common predictions; lines have a gap.');inspector.append(note);
+  const note=document.createElement('p');note.textContent=`Minutes · ${day.matched_decisions}/${day.scheduled_decisions} matched checkpoints · ${day.approaches} approaches. `+(day.matched_decisions?'Early − / late +. MAE = average absolute error.':'No common predictions; lines have a gap.');if(day.interpolated)note.textContent='Interpolated between saved daily checkpoints, not an additional observed forecast.';inspector.append(note);
+  if(result.simulation)note.textContent='Simulation mode. Assumed error changes: Antidote −30%, XGBoost −10% clean / +5% poisoned, Poly +20%. Not observed forecasts.';
   const unavailable=models.filter(model=>day.models[model]?.unavailable_decisions>0).map(model=>`${modelNames[model]}: ${day.models[model].unavailable_decisions}`);
+  if(weekly&&!result.simulation)note.textContent=`Average of ${day.sampled_days} sampled daily means · ${day.matched_decisions}/${day.scheduled_decisions} matched checkpoints. Not a full-week fleet average. Negative = early; positive = late.`;
   if(unavailable.length){const p=document.createElement('p');p.textContent=`Unavailable predictions: ${unavailable.join(' · ')}.`;inspector.append(p);}
   inspector.hidden=false;const {x,y,width}=geometry;
   inspector.style.left=`${x(day.day)>width/2?4:Math.max(4,width-Math.min(290,width-8)-4)}px`;
@@ -138,18 +167,31 @@ export function createMonthlyChart(root,{onRetry=()=>{}}={}){
   for(const model of models)if(shown.has(model)&&numeric(day.models[model]?.mean_error))group.append(svgNode('circle',{cx:x(day.day),cy:y(day.models[model].mean_error),r:3,class:'chart-dot',style:`--series-color:var(--model-${model})`}));
   svg.append(group);
  }
- plot.addEventListener('pointermove',event=>{if(!result||!geometry)return;const local=event.clientX-plot.getBoundingClientRect().left;const {left,right,width}=geometry;inspect(Math.round((local-left)/(width-left-right)*(result.days.length-1)));});
+ plot.addEventListener('pointermove',event=>{if(!result||!geometry)return;const local=event.clientX-plot.getBoundingClientRect().left;inspect(result.days.reduce((best,day,index)=>Math.abs(geometry.x(day.day)-local)<Math.abs(geometry.x(result.days[best].day)-local)?index:best,0));});
  plot.addEventListener('pointerleave',()=>{if(document.activeElement!==plot)hideInspection();});
- plot.addEventListener('focus',()=>inspect(selected<0?14:selected));plot.addEventListener('blur',hideInspection);
- plot.addEventListener('keydown',event=>{if(!result)return;const offsets={ArrowLeft:-1,ArrowRight:1};if(event.key in offsets){event.preventDefault();inspect((selected<0?14:selected)+offsets[event.key]);}else if(event.key==='Home'||event.key==='End'){event.preventDefault();inspect(event.key==='Home'?0:result.days.length-1);}else if(event.key==='Escape'){hideInspection();}});
+ plot.addEventListener('focus',()=>inspect(selected<0?0:selected));plot.addEventListener('blur',hideInspection);
+ plot.addEventListener('keydown',event=>{if(!result)return;const offsets={ArrowLeft:-1,ArrowRight:1};if(event.key in offsets){event.preventDefault();inspect((selected<0?0:selected)+offsets[event.key]);}else if(event.key==='Home'||event.key==='End'){event.preventDefault();inspect(event.key==='Home'?0:result.days.length-1);}else if(event.key==='Escape'){hideInspection();}});
  retry.addEventListener('click',onRetry);const resizeObserver=new ResizeObserver(()=>draw());resizeObserver.observe(plot);
  const motionChanged=()=>{if(reducedMotion.matches)draw();};reducedMotion?.addEventListener('change',motionChanged);
+ function updateResult(data){
+  lastInput=data;
+  if(grouping)weekly=grouping.value==='weekly';
+  result=weekly?{...data,days:weeklyRows(data)}:data;
+  curveDays=weekly&&data.simulation?data.weekly_curve:weekly&&data.smoothed?smoothRows(result.days,'day',3600,data.cutover):result.days;
+  periodLabel=data.period_label;cutoverLabel=dayLabel(data.cutover);draw();
+  root.querySelector('h2').textContent=`${weekly?'Weekly':'Daily'} ETA error`;
+  const method=root.querySelector('.weekly-method');
+  if(method)method.textContent=`${weekly?'Weekly':'Daily'} averages of ${data.scope?.sampled===false?'all archived checkpoints':'sampled days'} · poisoning begins 15 Mar when selected.`;
+  const help=root.querySelector('#monthly-help');
+  if(help)help.textContent=`Use arrow keys, Home and End to inspect ${weekly?'weeks':'days'}. Model buttons show or hide lines. Error is predicted ETA minus the recorded crossing: negative is early, positive is late.`;
+  plot.setAttribute('aria-label',`${weekly?'Weekly':'Daily'} ETA error chart. Use arrow keys to inspect ${weekly?'weeks':'days'}.`);
+  loading.hidden=true;retry.hidden=true;root.setAttribute('aria-busy','false');
+ }
+ const groupingChanged=()=>{if(lastInput)updateResult(lastInput);};
+ grouping?.addEventListener('change',groupingChanged);
  return {
-  setStatus(state){result=null;draw();loading.hidden=false;retry.hidden=state.status!=='error';root.setAttribute('aria-busy',String(state.status==='loading'));setChartStatus(loading,state);},
-  setResult(data){
-   result=data;periodLabel=data.period_label;cutoverLabel=dayLabel(data.cutover);draw();
-   loading.hidden=true;retry.hidden=true;root.setAttribute('aria-busy','false');
-  },
-  destroy(){stopAnimation();resizeObserver.disconnect();reducedMotion?.removeEventListener('change',motionChanged);},
+  setStatus(state){lastInput=null;result=null;draw();loading.hidden=false;retry.hidden=state.status!=='error';root.setAttribute('aria-busy',String(state.status==='loading'));setChartStatus(loading,state);},
+  setResult(data){updateResult(data);},
+  destroy(){grouping?.removeEventListener('change',groupingChanged);stopAnimation();resizeObserver.disconnect();reducedMotion?.removeEventListener('change',motionChanged);},
  };
 }
