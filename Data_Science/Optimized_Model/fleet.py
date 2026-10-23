@@ -10,15 +10,16 @@ from attacks import (BaseAttack, MissingCourseAttack, MissingCourseConfig,
                      MissingSpeedAttack, MissingSpeedConfig, MissingVesselClassAttack,
                      MissingVesselClassConfig, PositionJumpAttack, PositionJumpConfig,
                      ReportingGapAttack, ReportingGapConfig, SensorDeteriorationAttack,
-                     SensorDeteriorationConfig, SensorDriftAttack, SensorDriftConfig)
-from api.anamoly_detector import AnomalyDetector
+                     SensorDeteriorationConfig, SensorDriftAttack, SensorDriftConfig,
+                     LocationDriftAttack, LocationDriftConfig)
 from eta_baselines.observations import load_observations
-from mitigation.gap_mitigation import GapMitigation
+from mitigation.location_drift_mitigation import PositionAnchor
 
 from .configuration import OptimizedConfig
 from .dataset import ReplayDataset
 from .evaluation import PredictionSystem, predict_systems
 from .features import OPTIMIZED_COLUMNS, RICH_COLUMNS, OptimizedFeatures
+from .fleet_mitigations import FleetMitigations, FleetPolicy, position_anchors
 from .replay import Scenario, create_stream
 from .views import view_row
 
@@ -35,7 +36,9 @@ ATTACK_CONTROLS = (
     {"id": "missing_vessel_class", "label": "Missing vessel class", "maximum": 100, "unit": "%",
      "description": "Simulated disruption: remove vessel type from this percentage of reports. Unknown remains distinct from cargo and tanker."},
     {"id": "sensor_drift", "label": "Sensor drift", "maximum": 100, "unit": "%",
-     "description": "Simulated disruption: smoothly decrease reported speed, up to a 3-knot bias at full strength. Positions and timestamps are preserved."},
+     "description": "Simulated disruption: smoothly bias reported speed in the selected direction, up to 0.1 knots per minute and a 3-knot bias at full strength. Positions and timestamps are preserved."},
+    {"id": "location_drift", "label": "Location drift", "maximum": 100, "unit": "%",
+     "description": "Simulated disruption: gradually bias coordinates in a seeded direction, up to 20 metres per minute and 1,852 metres at full strength. Correction needs independently verified positions and trusted speed/course; optional simulated fixes add those reference assumptions."},
     {"id": "sensor_deterioration", "label": "Sensor deterioration", "maximum": 100, "unit": "%",
      "description": "Simulated disruption: add Gaussian speed and course noise, up to standard deviations of 2 knots and 10 degrees at full strength."},
     {"id": "position_jump", "label": "Position jump", "maximum": 100, "unit": "%",
@@ -69,9 +72,9 @@ def unix_seconds(value: object) -> float | None:
 class FleetService:
     """Adapt existing feature/inference code without changing trained contracts.
 
-    A/B use raw views; C uses its trained input guard. Experimental missing-field
-    repairs remain opt-in on the existing attack endpoints, pending evaluation
-    of combinations. No simulation labels enter any predictor's feature table.
+    A/B use raw views; C adds conditional repairs to its trained input guard.
+    Mixed position/navigation faults request verification. No simulation labels
+    enter any predictor's feature table; extra verified fixes are explicit.
     """
 
     def __init__(self, config: OptimizedConfig, dataset: ReplayDataset,
@@ -90,6 +93,7 @@ class FleetService:
         self.end = (self.approaches.arrival_time.max() + pd.Timedelta(seconds=ARRIVAL_RETENTION_SECONDS)).ceil("min")
         self.initial_time = selected.decision_time.iloc[0]
         self._crossings: dict[str, list[float]] | None = None
+        self.mitigations = FleetMitigations(extractor)
 
     def catalog(self) -> dict[str, object]:
         return {"start": unix_seconds(self.start), "end": unix_seconds(self.end),
@@ -98,12 +102,13 @@ class FleetService:
                              "arrival": unix_seconds(row.arrival_time)}
                             for identity, row in self.approaches.iterrows()],
                 "attack_controls": list(ATTACK_CONTROLS),
+                "mitigation_defaults": {"enabled": True, "trusted_fixes": False, "drift_direction": "under"},
                 "models": {"A": "Poly", "B": "XGBoost", "C": "Antidote"},
                 "arrival_reference": "Original analytical harbor crossing, not docking.",
                 "seed": self.config.evaluation_seeds[0]}
 
-    def _attacks(self, identity: str, settings: tuple[float, ...]) -> list[BaseAttack]:
-        gap, speed, course, vessel_class, drift, noise, jump = settings
+    def _attacks(self, identity: str, settings: tuple[float, ...], drift_direction: str = "under") -> list[BaseAttack]:
+        gap, speed, course, vessel_class, drift, location, noise, jump = settings
         seed = self.config.evaluation_seeds[0]
         attacks: list[BaseAttack] = []
         if gap:
@@ -111,8 +116,13 @@ class FleetService:
             attacks.append(ReportingGapAttack(ReportingGapConfig(start, start + pd.Timedelta(minutes=gap))))
         if drift:
             attacks.append(SensorDriftAttack(SensorDriftConfig(
-                drift_rate_knots_per_minute=-.1 * drift / 100,
+                drift_rate_knots_per_minute=(.1 if drift_direction == "over" else -.1) * drift / 100,
                 maximum_bias_knots=3 * drift / 100, seed=seed,
+                start_time=self.starts[identity])))
+        if location:
+            attacks.append(LocationDriftAttack(LocationDriftConfig(
+                drift_rate_meters_per_minute=20 * location / 100,
+                maximum_bias_meters=1852 * location / 100, seed=seed,
                 start_time=self.starts[identity])))
         if noise:
             attacks.append(SensorDeteriorationAttack(SensorDeteriorationConfig(
@@ -129,21 +139,24 @@ class FleetService:
         return attacks
 
     @lru_cache(maxsize=64)
-    def _stream(self, identity: str, settings: tuple[float, ...]) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, list[str]]]:
+    def _stream(self, identity: str, settings: tuple[float, ...], drift_direction: str = "under") -> tuple[pd.DataFrame, pd.DataFrame, dict[str, list[str]]]:
         nominal = create_stream(self.dataset.histories[identity], Scenario("nominal"),
                                 self.config.evaluation_seeds[0], self.config.baseline.gate).reports
         changed = nominal
         names: dict[str, list[str]] = {}
-        for attack in self._attacks(identity, settings):
+        for attack in self._attacks(identity, settings, drift_direction):
             stream = attack.apply(changed)
             changed = stream.reports
             for record in stream.modification_log.loc[stream.modification_log.fault_applied].itertuples():
                 names.setdefault(record.record_id, []).append(attack.name)
         return nominal, changed, names
 
-    def _predict(self, reports: pd.DataFrame, decision: pd.Series) -> tuple[dict[str, object], dict[str, object]]:
+    def _predict(self, reports: pd.DataFrame, decision: pd.Series, policy: FleetPolicy = FleetPolicy(), *,
+                 anchors: tuple[PositionAnchor, ...] = ()) -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
         row = decision.to_dict()
         row.update(view_row(reports, decision, self.extractor))
+        patch, mitigation = self.mitigations.apply(reports, decision.decision_time, policy, anchors=anchors)
+        row.update(patch)
         row.update(scenario="fleet", condition="nominal", seed=self.config.evaluation_seeds[0])
         frame = pd.DataFrame([row])
         for column in (*OPTIMIZED_COLUMNS, *(f"raw_{column}" for column in RICH_COLUMNS)):
@@ -159,13 +172,13 @@ class FleetService:
             predictions[result.system] = {"available": available, "eta": eta if available else None,
                                           "error": float(result.error_minutes) if available else None}
         reasons = list(filter(None, row["reasons"].split("|")))
-        gap = AnomalyDetector(GapMitigation(self.config.baseline.gate)).evaluate(reports, decision.decision_time)
-        if gap["anomaly_detected"]:
-            reasons.append("reporting_gap")
+        for strategy in mitigation["strategies"]:
+            if strategy["detected"] or strategy["requires_review"]:
+                reasons.append(strategy["id"])
         diagnostics = {"state": "review" if reasons or not predictions["C"]["available"] else "ok",
                        "reasons": reasons, "guard_received_count": row["guard_received_count"],
                        "guard_removed_count": row["guard_removed_count"]}
-        return predictions, diagnostics
+        return predictions, diagnostics, mitigation
 
     def _crossing_positions(self) -> dict[str, list[float]]:
         """Recover the original reference bracket for terminal display only."""
@@ -187,8 +200,19 @@ class FleetService:
                 self._crossings[identity] = [self.config.baseline.gate.longitude, float(latitude)]
         return self._crossings
 
-    def frame(self, time: float, poisoning: object) -> dict[str, object]:
+    def frame(self, time: float, poisoning: object, *, mitigate: bool = True,
+              trusted_fixes: bool = False, drift_direction: str = "under") -> dict[str, object]:
         settings = poisoning_settings(poisoning)
+        if type(mitigate) is not bool or type(trusted_fixes) is not bool:
+            raise ValueError("mitigate and trusted_fixes must be boolean.")
+        if drift_direction not in ("under", "over"):
+            raise ValueError("drift_direction must be under or over.")
+        selected = dict(zip((control["id"] for control in ATTACK_CONTROLS), settings))
+        navigation_faults = any(selected[name] for name in ("missing_speed", "missing_course", "sensor_drift", "sensor_deterioration"))
+        if trusted_fixes and (not mitigate or not selected["location_drift"] or navigation_faults or selected["position_jump"]):
+            raise ValueError("Simulated verified fixes require mitigations and location drift, with no navigation or position-jump attacks.")
+        policy = FleetPolicy(mitigate, bool(selected["location_drift"] or selected["position_jump"]),
+                             bool(selected["sensor_deterioration"]), bool(selected["sensor_drift"]), trusted_fixes)
         if isinstance(time, bool) or not isinstance(time, (int, float)) or not math.isfinite(time):
             raise ValueError("time must be finite UTC Unix seconds.")
         if not unix_seconds(self.start) <= time <= unix_seconds(self.end):
@@ -198,15 +222,16 @@ class FleetService:
         for identity, template in self.approaches.iterrows():
             if clock < self.starts[identity] or clock >= template.arrival_time + pd.Timedelta(seconds=ARRIVAL_RETENTION_SECONDS):
                 continue
-            nominal, changed, names = self._stream(identity, settings)
+            nominal, changed, names = self._stream(identity, settings, drift_direction)
             normal = nominal.loc[nominal.time.le(clock) & nominal.delivered_time.le(clock)]
             received = changed.loc[changed.time.le(clock) & changed.delivered_time.le(clock)]
             decision = template.copy()
             decision["approach_id"], decision["decision_time"] = identity, clock
             decision["decision_id"] = f"{identity}:{clock.isoformat()}"
-            clean_predictions, clean_diagnostics = self._predict(normal, decision)
+            clean_predictions, clean_diagnostics, clean_mitigation = self._predict(normal, decision, FleetPolicy(enabled=mitigate))
             active = any(settings)
-            predictions, diagnostics = self._predict(received, decision) if active else (clean_predictions, clean_diagnostics)
+            anchors = position_anchors(normal) if trusted_fixes else ()
+            predictions, diagnostics, mitigation = self._predict(received, decision, policy, anchors=anchors) if active else (clean_predictions, clean_diagnostics, clean_mitigation)
             # Audience-only annotations are constructed strictly after inference.
             original = normal.set_index("record_id")
             records = []
@@ -220,6 +245,7 @@ class FleetService:
                 records.append({"record_id": report.record_id, "time": unix_seconds(report.time),
                                 "delivered": unix_seconds(report.delivered_time), **values,
                                 "poisoned_fields": fields, "attack_names": names.get(report.record_id, []),
+                                "estimated_values": mitigation["estimated_values"].get(report.record_id, {}),
                                 "original_values": {field: baseline[source] for source, field in REPORT_FIELDS.items() if field in fields},
                                 "original_longitude": baseline.longitude if "longitude" in fields else None,
                                 "original_latitude": baseline.latitude if "latitude" in fields else None})
@@ -241,6 +267,7 @@ class FleetService:
                           "poisoned_predictions": predictions if active else None, "prediction_time": time,
                           "age_minutes": (clock - received.time.max()).total_seconds() / 60 if len(received) else None,
                           "diagnostics": diagnostics,
+                          "mitigation": mitigation,
                           "comparison_inputs": {"normal_reports": len(normal), "poisoned_reports": len(received),
                               "withheld_reports": len(withheld), "modified_reports": modified,
                               "history_minutes": history_minutes, "normal_recent_reports": len(recent),
@@ -248,6 +275,7 @@ class FleetService:
                               "recent_inputs_differ": not recent[list(REPORT_FIELDS)].reset_index(drop=True).equals(
                                   attacked_recent[list(REPORT_FIELDS)].reset_index(drop=True))}})
         return {"time": time, "ships": ships,
+                "mitigations": {"enabled": mitigate, "trusted_fixes": trusted_fixes, "drift_direction": drift_direction},
                 "poisoning": {control["id"]: value for control, value in zip(ATTACK_CONTROLS, settings)},
                 "poisoning_active": any(settings), "source": "Historical AIS replay",
                 "scenario_label": "Simulated disruption" if any(settings) else "Original records"}

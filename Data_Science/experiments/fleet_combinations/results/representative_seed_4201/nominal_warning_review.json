@@ -1,0 +1,9 @@
+{
+  "decisions": 448,
+  "speed_drift_review_clocks": 397,
+  "reasons": {
+    "maneuvering_position_track": 336,
+    "inconsistent_position_track": 6,
+    "stale_or_unusable_position_history": 1
+  }
+}

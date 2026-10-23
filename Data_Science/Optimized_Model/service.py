@@ -569,8 +569,15 @@ def serve(config: OptimizedConfig, port: int) -> None:
                     self._send(200, fleet.catalog())
                 elif request.path == "/api/fleet/frame":
                     query = parse_qs(request.query)
+                    flags = {name: query.get(name, [default])[0] for name, default in
+                             (("mitigate", "true"), ("trusted_fixes", "false"))}
+                    if any(value not in ("true", "false") for value in flags.values()):
+                        raise ValueError("mitigate and trusted_fixes must be true or false.")
                     self._send(200, fleet.frame(float(query.get("time", [""])[0]),
-                                               json.loads(query.get("poisoning", ["{}"])[0])))
+                                               json.loads(query.get("poisoning", ["{}"])[0]),
+                                               mitigate=flags["mitigate"] == "true",
+                                               trusted_fixes=flags["trusted_fixes"] == "true",
+                                               drift_direction=query.get("drift_direction", ["under"])[0]))
                 elif request.path == "/api/catalog":
                     self._send(200, service.catalog())
                 elif request.path == "/api/metrics":

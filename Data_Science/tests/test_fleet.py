@@ -46,7 +46,7 @@ def test_catalog_and_clean_frame_use_current_clock_and_null_attacked_arm(fleet):
     frame = fleet.frame(catalog["initial_time"] + 30, {})
     ship = frame["ships"][0]
     assert catalog["start"] < catalog["initial_time"] < catalog["end"]
-    assert len(catalog["attack_controls"]) == 7
+    assert len(catalog["attack_controls"]) == 8
     assert ship["prediction_time"] == frame["time"]
     assert ship["poisoned_predictions"] is None and not frame["poisoning_active"]
     assert set(ship["predictions"]) == {"A", "B", "C"}
@@ -169,6 +169,7 @@ def test_server_serves_dashboard_assets_and_both_api_contracts(fleet, monkeypatc
         with urlopen(root, timeout=5) as response:
             assert response.url.endswith("/tracking/") and b"app.mjs" in response.read()
         for path, content_type in (("/tracking/app.mjs", "text/javascript"),
+                                   ("/tracking/mitigations.mjs", "text/javascript"),
                                    ("/tracking/style.css", "text/css"),
                                    ("/tracking/assets/geist-mono-variable.ttf", "font/ttf"),
                                    ("/eta_replay.html", "text/html")):
@@ -180,7 +181,11 @@ def test_server_serves_dashboard_assets_and_both_api_contracts(fleet, monkeypatc
         query = urlencode({"time": fleet.catalog()["initial_time"], "poisoning": '{"missing_speed":100}'})
         with urlopen(root + "/api/fleet/frame?" + query, timeout=5) as response:
             assert json.load(response)["ships"][0]["poisoned_predictions"]["C"]["available"]
-        for path in ("/api/fleet/frame?time=NaN", "/api/fleet/frame?time=1&poisoning=[]"):
+        options = urlencode({"time": fleet.catalog()["initial_time"], "mitigate": "false", "drift_direction": "over"})
+        with urlopen(root + "/api/fleet/frame?" + options, timeout=5) as response:
+            assert not json.load(response)["ships"][0]["mitigation"]["enabled"]
+        for path in ("/api/fleet/frame?time=NaN", "/api/fleet/frame?time=1&poisoning=[]",
+                     "/api/fleet/frame?time=1&mitigate=yes", "/api/fleet/frame?time=1&trusted_fixes=1"):
             with pytest.raises(HTTPError) as error:
                 urlopen(root + path, timeout=5)
             assert error.value.code == 400 and "error" in json.load(error.value)

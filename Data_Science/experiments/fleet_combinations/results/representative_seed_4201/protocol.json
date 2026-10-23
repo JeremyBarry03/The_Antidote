@@ -1,0 +1,578 @@
+{
+  "model_version": "vessel_class_v2",
+  "seed": 4201,
+  "clock_mode": "representative",
+  "approaches": 112,
+  "vessels": 110,
+  "decision_clocks": 448,
+  "scenarios": [
+    {
+      "id": "nominal",
+      "kind": "nominal",
+      "attacks": [],
+      "settings": {}
+    },
+    {
+      "id": "reporting_gap",
+      "kind": "single",
+      "attacks": [
+        "reporting_gap"
+      ],
+      "settings": {
+        "reporting_gap": 15
+      }
+    },
+    {
+      "id": "missing_speed",
+      "kind": "single",
+      "attacks": [
+        "missing_speed"
+      ],
+      "settings": {
+        "missing_speed": 50
+      }
+    },
+    {
+      "id": "missing_course",
+      "kind": "single",
+      "attacks": [
+        "missing_course"
+      ],
+      "settings": {
+        "missing_course": 50
+      }
+    },
+    {
+      "id": "missing_vessel_class",
+      "kind": "single",
+      "attacks": [
+        "missing_vessel_class"
+      ],
+      "settings": {
+        "missing_vessel_class": 50
+      }
+    },
+    {
+      "id": "sensor_drift",
+      "kind": "single",
+      "attacks": [
+        "sensor_drift"
+      ],
+      "settings": {
+        "sensor_drift": 50
+      }
+    },
+    {
+      "id": "location_drift",
+      "kind": "single",
+      "attacks": [
+        "location_drift"
+      ],
+      "settings": {
+        "location_drift": 50
+      }
+    },
+    {
+      "id": "sensor_deterioration",
+      "kind": "single",
+      "attacks": [
+        "sensor_deterioration"
+      ],
+      "settings": {
+        "sensor_deterioration": 50
+      }
+    },
+    {
+      "id": "position_jump",
+      "kind": "single",
+      "attacks": [
+        "position_jump"
+      ],
+      "settings": {
+        "position_jump": 50
+      }
+    },
+    {
+      "id": "reporting_gap__missing_speed",
+      "kind": "pair",
+      "attacks": [
+        "reporting_gap",
+        "missing_speed"
+      ],
+      "settings": {
+        "reporting_gap": 15,
+        "missing_speed": 50
+      }
+    },
+    {
+      "id": "reporting_gap__missing_course",
+      "kind": "pair",
+      "attacks": [
+        "reporting_gap",
+        "missing_course"
+      ],
+      "settings": {
+        "reporting_gap": 15,
+        "missing_course": 50
+      }
+    },
+    {
+      "id": "reporting_gap__missing_vessel_class",
+      "kind": "pair",
+      "attacks": [
+        "reporting_gap",
+        "missing_vessel_class"
+      ],
+      "settings": {
+        "reporting_gap": 15,
+        "missing_vessel_class": 50
+      }
+    },
+    {
+      "id": "reporting_gap__sensor_drift",
+      "kind": "pair",
+      "attacks": [
+        "reporting_gap",
+        "sensor_drift"
+      ],
+      "settings": {
+        "reporting_gap": 15,
+        "sensor_drift": 50
+      }
+    },
+    {
+      "id": "reporting_gap__location_drift",
+      "kind": "pair",
+      "attacks": [
+        "reporting_gap",
+        "location_drift"
+      ],
+      "settings": {
+        "reporting_gap": 15,
+        "location_drift": 50
+      }
+    },
+    {
+      "id": "reporting_gap__sensor_deterioration",
+      "kind": "pair",
+      "attacks": [
+        "reporting_gap",
+        "sensor_deterioration"
+      ],
+      "settings": {
+        "reporting_gap": 15,
+        "sensor_deterioration": 50
+      }
+    },
+    {
+      "id": "reporting_gap__position_jump",
+      "kind": "pair",
+      "attacks": [
+        "reporting_gap",
+        "position_jump"
+      ],
+      "settings": {
+        "reporting_gap": 15,
+        "position_jump": 50
+      }
+    },
+    {
+      "id": "missing_speed__missing_course",
+      "kind": "pair",
+      "attacks": [
+        "missing_speed",
+        "missing_course"
+      ],
+      "settings": {
+        "missing_speed": 50,
+        "missing_course": 50
+      }
+    },
+    {
+      "id": "missing_speed__missing_vessel_class",
+      "kind": "pair",
+      "attacks": [
+        "missing_speed",
+        "missing_vessel_class"
+      ],
+      "settings": {
+        "missing_speed": 50,
+        "missing_vessel_class": 50
+      }
+    },
+    {
+      "id": "missing_speed__sensor_drift",
+      "kind": "pair",
+      "attacks": [
+        "missing_speed",
+        "sensor_drift"
+      ],
+      "settings": {
+        "missing_speed": 50,
+        "sensor_drift": 50
+      }
+    },
+    {
+      "id": "missing_speed__location_drift",
+      "kind": "pair",
+      "attacks": [
+        "missing_speed",
+        "location_drift"
+      ],
+      "settings": {
+        "missing_speed": 50,
+        "location_drift": 50
+      }
+    },
+    {
+      "id": "missing_speed__sensor_deterioration",
+      "kind": "pair",
+      "attacks": [
+        "missing_speed",
+        "sensor_deterioration"
+      ],
+      "settings": {
+        "missing_speed": 50,
+        "sensor_deterioration": 50
+      }
+    },
+    {
+      "id": "missing_speed__position_jump",
+      "kind": "pair",
+      "attacks": [
+        "missing_speed",
+        "position_jump"
+      ],
+      "settings": {
+        "missing_speed": 50,
+        "position_jump": 50
+      }
+    },
+    {
+      "id": "missing_course__missing_vessel_class",
+      "kind": "pair",
+      "attacks": [
+        "missing_course",
+        "missing_vessel_class"
+      ],
+      "settings": {
+        "missing_course": 50,
+        "missing_vessel_class": 50
+      }
+    },
+    {
+      "id": "missing_course__sensor_drift",
+      "kind": "pair",
+      "attacks": [
+        "missing_course",
+        "sensor_drift"
+      ],
+      "settings": {
+        "missing_course": 50,
+        "sensor_drift": 50
+      }
+    },
+    {
+      "id": "missing_course__location_drift",
+      "kind": "pair",
+      "attacks": [
+        "missing_course",
+        "location_drift"
+      ],
+      "settings": {
+        "missing_course": 50,
+        "location_drift": 50
+      }
+    },
+    {
+      "id": "missing_course__sensor_deterioration",
+      "kind": "pair",
+      "attacks": [
+        "missing_course",
+        "sensor_deterioration"
+      ],
+      "settings": {
+        "missing_course": 50,
+        "sensor_deterioration": 50
+      }
+    },
+    {
+      "id": "missing_course__position_jump",
+      "kind": "pair",
+      "attacks": [
+        "missing_course",
+        "position_jump"
+      ],
+      "settings": {
+        "missing_course": 50,
+        "position_jump": 50
+      }
+    },
+    {
+      "id": "missing_vessel_class__sensor_drift",
+      "kind": "pair",
+      "attacks": [
+        "missing_vessel_class",
+        "sensor_drift"
+      ],
+      "settings": {
+        "missing_vessel_class": 50,
+        "sensor_drift": 50
+      }
+    },
+    {
+      "id": "missing_vessel_class__location_drift",
+      "kind": "pair",
+      "attacks": [
+        "missing_vessel_class",
+        "location_drift"
+      ],
+      "settings": {
+        "missing_vessel_class": 50,
+        "location_drift": 50
+      }
+    },
+    {
+      "id": "missing_vessel_class__sensor_deterioration",
+      "kind": "pair",
+      "attacks": [
+        "missing_vessel_class",
+        "sensor_deterioration"
+      ],
+      "settings": {
+        "missing_vessel_class": 50,
+        "sensor_deterioration": 50
+      }
+    },
+    {
+      "id": "missing_vessel_class__position_jump",
+      "kind": "pair",
+      "attacks": [
+        "missing_vessel_class",
+        "position_jump"
+      ],
+      "settings": {
+        "missing_vessel_class": 50,
+        "position_jump": 50
+      }
+    },
+    {
+      "id": "sensor_drift__location_drift",
+      "kind": "pair",
+      "attacks": [
+        "sensor_drift",
+        "location_drift"
+      ],
+      "settings": {
+        "sensor_drift": 50,
+        "location_drift": 50
+      }
+    },
+    {
+      "id": "sensor_drift__sensor_deterioration",
+      "kind": "pair",
+      "attacks": [
+        "sensor_drift",
+        "sensor_deterioration"
+      ],
+      "settings": {
+        "sensor_drift": 50,
+        "sensor_deterioration": 50
+      }
+    },
+    {
+      "id": "sensor_drift__position_jump",
+      "kind": "pair",
+      "attacks": [
+        "sensor_drift",
+        "position_jump"
+      ],
+      "settings": {
+        "sensor_drift": 50,
+        "position_jump": 50
+      }
+    },
+    {
+      "id": "location_drift__sensor_deterioration",
+      "kind": "pair",
+      "attacks": [
+        "location_drift",
+        "sensor_deterioration"
+      ],
+      "settings": {
+        "location_drift": 50,
+        "sensor_deterioration": 50
+      }
+    },
+    {
+      "id": "location_drift__position_jump",
+      "kind": "pair",
+      "attacks": [
+        "location_drift",
+        "position_jump"
+      ],
+      "settings": {
+        "location_drift": 50,
+        "position_jump": 50
+      }
+    },
+    {
+      "id": "sensor_deterioration__position_jump",
+      "kind": "pair",
+      "attacks": [
+        "sensor_deterioration",
+        "position_jump"
+      ],
+      "settings": {
+        "sensor_deterioration": 50,
+        "position_jump": 50
+      }
+    },
+    {
+      "id": "all_eight_50",
+      "kind": "stack",
+      "attacks": [
+        "reporting_gap",
+        "missing_speed",
+        "missing_course",
+        "missing_vessel_class",
+        "sensor_drift",
+        "location_drift",
+        "sensor_deterioration",
+        "position_jump"
+      ],
+      "settings": {
+        "reporting_gap": 15,
+        "missing_speed": 50,
+        "missing_course": 50,
+        "missing_vessel_class": 50,
+        "sensor_drift": 50,
+        "location_drift": 50,
+        "sensor_deterioration": 50,
+        "position_jump": 50
+      }
+    },
+    {
+      "id": "all_eight_100",
+      "kind": "stack",
+      "attacks": [
+        "reporting_gap",
+        "missing_speed",
+        "missing_course",
+        "missing_vessel_class",
+        "sensor_drift",
+        "location_drift",
+        "sensor_deterioration",
+        "position_jump"
+      ],
+      "settings": {
+        "reporting_gap": 30,
+        "missing_speed": 100,
+        "missing_course": 100,
+        "missing_vessel_class": 100,
+        "sensor_drift": 100,
+        "location_drift": 100,
+        "sensor_deterioration": 100,
+        "position_jump": 100
+      }
+    }
+  ],
+  "protected_hashes": {
+    "/Users/samharrington/Documents/GitHub/2026_WM_Hackathon/Data_Science/Optimized_Model/config_vessel_class_v2.json": "6744306e33df8b25ad48afd5a74819afa0637443146a6ed6598a88a4e9803b9e",
+    "/Users/samharrington/Documents/GitHub/2026_WM_Hackathon/Data_Science/artifacts/optimized/march_gate_vessel_class_v2/frozen_baselines/quadratic/model.joblib": "6268f9b486b99aae57a7e812cfa1e2a54f67354990de32bbe9b89ee18a356d77",
+    "/Users/samharrington/Documents/GitHub/2026_WM_Hackathon/Data_Science/artifacts/optimized/march_gate_vessel_class_v2/frozen_baselines/xgboost/model.joblib": "b6b2ef07643dc9dab1d9e1f7a21b46ae85521dd4dde5ca18d53c99d4d8373d71",
+    "/Users/samharrington/Documents/GitHub/2026_WM_Hackathon/Data_Science/artifacts/optimized/march_gate_vessel_class_v2/models/C.joblib": "58885d2692c9b8a29712f69db5d5380690b9097c530d2d8c73dcfb89065792af",
+    "/Users/samharrington/Documents/GitHub/2026_WM_Hackathon/data/hampton_roads_march_2024.csv": "de8946c04c3fa2dfd45c88f7c501d751c49091c30045a173020887c6cd69de71",
+    "/Users/samharrington/Documents/GitHub/2026_WM_Hackathon/data/hampton_roads_april_2024.csv": "0bd05942c85247f2c5aadaca31df9945c2805f787b0d425fabeea5f2748a4fbd"
+  },
+  "implementation_hashes": {
+    "Optimized_Model/scenarios.py": "e82b7eded742fdae6895b2e5a7778d7d91f19209cb62b07af50bb8238e48957c",
+    "Optimized_Model/configuration.py": "e6371a8b5207deac82d5439b816631c3e301c68f9f88744ddfd51e33096049db",
+    "Optimized_Model/service.py": "d5b15ac997f923913bbe9c6f69e2382a3bb6df52fc538adc44d79da3c92b20e9",
+    "Optimized_Model/fleet.py": "d9361262b1089e5cb0a5e1f181ff87c3913487e30002c3483552bf89e05a976d",
+    "Optimized_Model/evaluation.py": "806d1bfea85598789b863aeb1bea617e69ba17bc85bf4fb8e8642dbdc7d60e8c",
+    "Optimized_Model/__init__.py": "9fac5ea3aa7d3052c47dc11440fd16e480584b68add6dacb82a646f26be03084",
+    "Optimized_Model/features.py": "873c5252d1b28418c1abc2192f5f208deecd9dd1e35e0a2c3609c4b0de518b21",
+    "Optimized_Model/model.py": "1201efef668b7023eb968491d0a412311288339e9df878314695b1e7dd26780c",
+    "Optimized_Model/dataset.py": "5a49648c44282ea5b3034f446226f3340deb2d5548684452f4c1556ae64c06f1",
+    "Optimized_Model/sensor_deterioration.py": "1f11f691b8fb461d6391a7305a0e0df6159a46511a3fef37a23da64665ca3976",
+    "Optimized_Model/presentation.py": "5f198071e817947027923033dcf2bda8243b80ab82f668b310216f3f0f37f149",
+    "Optimized_Model/replay.py": "de62e46bd7e0d0542568dfcc3bfc97e808a0c08634afc3aee4cf2a3d6e1d446d",
+    "Optimized_Model/position_jump.py": "8530b3ee39dca459a8e1ba72bd9c36bcd8c632bc08e7bd1bb5b4ba4aab794af4",
+    "Optimized_Model/acquisition.py": "d697fbaab2e66970a3ddd4d296699220c915f99470d5b000b468c1c25a4c2ed1",
+    "Optimized_Model/quality.py": "7097ca8f643720fe6f0bc78f4b55b046ebd3e0e9e05d42faf498fe2cbed7f695",
+    "Optimized_Model/__main__.py": "00ee63babe6fbb03bcf4b3f6a3b1adaa2ea5ee6bc06d2d5c41bb344bd1ebacdf",
+    "Optimized_Model/fleet_mitigations.py": "55beb381c257e44331d249f0c6bc192f2d73c4a3ffe355e93b6af1e8519b6982",
+    "Optimized_Model/calibration.py": "862df271118ad30fc2de8d19754c6dce228bfb61521562f8d21876c1427d44de",
+    "Optimized_Model/views.py": "f2acafa7de12f1a103742d7a9f1daa500b36064e2724de61147c06010ecaf72d",
+    "attacks/missing_field.py": "ce1e01ab93ad12fb4da2745592fe2af12c1e0af80a3dcbf1bb2dc08bbe7e5a73",
+    "attacks/__init__.py": "efb17ea2cdba62b9c6b372c44b5c93e971d80b32fc5e6b331642d9ba2ca421ee",
+    "attacks/base_attack.py": "e4d24913be3d6bfaf9c1f0cd9142c40b2e2cc5b91b993bbe3d38ad965c1fc4ac",
+    "attacks/drift_profile.py": "da90f89931bf0b0e95b0afa14d49c39ce5ffb002fe47a9f47eaa04c4e57fc383",
+    "attacks/missingVesselClassAttack/__init__.py": "eae68457de1f96a12044886ef9c69d5d36b7bac904e8f0272088779159f73741",
+    "attacks/missingVesselClassAttack/missing_vessel_class_attack.py": "7deabc8e89cf8f8c874d194405898ad59d82d125253081f4d8a2f6d7fa4bf6f0",
+    "attacks/sensorDeteriorationAttack/__init__.py": "fa1bb60ad252a9a51359da6433b01da53145a1080e61545a456d66294ec4563a",
+    "attacks/sensorDeteriorationAttack/sensor_deterioration_attack.py": "77e38cca0f1834798781c1c68689ca7603e4059779df9653fd5d64c4a2f5d7be",
+    "attacks/locationDriftAttack/__init__.py": "eb5ed8c238e998d608c646902758ee65c9e81bbecc509aecd76edcd5fd97d601",
+    "attacks/locationDriftAttack/location_drift_attack.py": "135a29bb302a3b61cde3206a55fdddf1c7ee5d4d6f1c4fb0a9f1faab5b06b674",
+    "attacks/reportingGapAttack/reporting_gap_attack.py": "527c7b41324d1a6e93e39a7b332fd9c7ce04dac6364152a5a87f3a16b3fdf990",
+    "attacks/reportingGapAttack/__init__.py": "930d8059c72da5e0098b1b5a3be83b940c5dfbe640d261f1ed57ccb284e1a355",
+    "attacks/positionJumpAttack/__init__.py": "109c0fc92f145cb75ea568599653095856c428dfa3eaa11c922bbea4a4401757",
+    "attacks/positionJumpAttack/position_jump_attack.py": "b49de6e8af9ad355fc19901d7049df607cb9b9464dccaa0a642753453f59ef60",
+    "attacks/missingCourseAttack/__init__.py": "b1a6f08f598881f0552bbe8e750c3a4a7cdeb37d10d2658db19b8cace33c3f53",
+    "attacks/missingCourseAttack/missing_course_attack.py": "49f083588d7a44c069b533be98b9db9a157744cb7f1e4db0b903fe5633c2dfc5",
+    "attacks/sensorDriftAttack/__init__.py": "406cd6441207149a50d5904856163338a5e306f2c378eee17e7b2b1fe8788e0f",
+    "attacks/sensorDriftAttack/sensor_drift_attack.py": "a14ee813caf5922ac338689b98306ac63cacd1f9fe949631bdaa9a87a7e9bcc8",
+    "attacks/missingSpeedAttack/__init__.py": "243b49ed581380e00fcb8c503887ce633529c5b9b478bebf94a2c8bd2adcb653",
+    "attacks/missingSpeedAttack/missing_speed_attack.py": "488093f3de7822ff6cbc9765cf0519b07d6115ecee92389c2921fbda9104d854",
+    "mitigation/trusted_motion.py": "4c6f4867ffaeb08310916fe665654e3d1bcf98383cd80c76c000a08676f55e69",
+    "mitigation/__init__.py": "bc4e233386c224953fd8e95acae16b6afaf717ba8b8e9364aad828b660b25734",
+    "mitigation/base_mitigation.py": "1c5e57f47af4ee4ca7d14902ff113d3b517a9650b9ad682db23f84c869f63e1e",
+    "mitigation/navigation_features.py": "1c7c8b6a575f2f99e9db5e89284e8f3328d59814071d1658b35b16aa73f292cd",
+    "mitigation/_drift_helpers.py": "3c99775d8c58b638e8bdd7e92ec725c1e7209b7a7dc2d95b978ad4d85bd0378b",
+    "mitigation/location_drift_mitigation/__init__.py": "1fdbac87a1a0fc9541a0c967285290659a16d83b15cc87358fe8f9a39fd4170a",
+    "mitigation/location_drift_mitigation/location_drift_mitigation.py": "20c01543a9286b08f01dc170bb85fa16822c8de7f737b189dc507943dbaf5cb7",
+    "mitigation/sensor_drift_mitigation/__init__.py": "29066facf4dd4ba42b268ba31a13daccba355f352565351406d2d58a49d7bf86",
+    "mitigation/sensor_drift_mitigation/sensor_drift_mitigation.py": "25a90a4adfbb3a19cade0fcce95a3975344e257a7af621385a9f31727b691591",
+    "mitigation/missing_speed_mitigation/__init__.py": "26ca7593120062ed009d577b7327796a6f0a7ea9c7a8876020094ae59a81c109",
+    "mitigation/missing_speed_mitigation/optimized_model.py": "96d03d95d5ffe54d42b7614998690e56ac444095859f8560b117cc8461aab6b6",
+    "mitigation/missing_speed_mitigation/missing_speed_mitigation.py": "760cca78b75ecbb8574cfdc530a71ecca3bcf6e15881bd85fc36915073ce9ca9",
+    "mitigation/gap_mitigation/gap_mitigation.py": "082fda9cfb3c5dc5340713400b705b8981079db619ad9acbf85e506749ae279d",
+    "mitigation/gap_mitigation/__init__.py": "ba1e5154afea172a1acd5d1b70ee4f67c56c56349293366f0fd62444879cd819",
+    "mitigation/sensor_noise_mitigation/sensor_noise_mitigation.py": "17a7e90679c2bac283d50adee05b4d7ae5901c1ca460f9dc5a6b2577c840a41f",
+    "mitigation/sensor_noise_mitigation/__init__.py": "af1574d4946db78fbde7301c48b5bea53b768f4cf8f2576dca367c7065dc0bfb",
+    "mitigation/position_jump_mitigation/position_jump_mitigation.py": "6bd6b914374f4f7ecd2c635571457f8ed4c6c90c82f925e9ecd2d056da1d5062",
+    "mitigation/position_jump_mitigation/__init__.py": "bc125c9b8a55def47721a6c3cfb07fa3b806b04ffec12f0e944368d6c530818f",
+    "mitigation/missing_course_mitigation/missing_course_mitigation.py": "b8236aed73eb63941c28d5fd4a4f404fe22902e41ffb93d19711f2876fd9d856",
+    "mitigation/missing_course_mitigation/__init__.py": "d597820743c3537ffbe36d5392e9f3208bb9e44b8034f58ee7cf8f8e0dc8130f",
+    "mitigation/missing_course_mitigation/optimized_model.py": "12bbb6e04f95fde55c11699c6115c70d4074b0f2f0d859a678408ac6343b9b21",
+    "mitigation/missing_vessel_class_mitigation/__init__.py": "7790da827f45ec187cf084def16722225f97611f27eae28ffc5f24ec3e3a7489",
+    "mitigation/missing_vessel_class_mitigation/optimized_model.py": "0f608836365a84007711e50fb8b9c10134977f6bab0e55ff53c2a3e9832cfece",
+    "mitigation/missing_vessel_class_mitigation/missing_vessel_class_mitigation.py": "e710e40a55ddcd89cdd03ea4f31c1e8b237cab2aaa016c98751f612a9a39ec82",
+    "eta_baselines/configuration.py": "31a6b45d4c845de3345957b1fd542186ff8efb4f3aa75ef177ae656f80026b95",
+    "eta_baselines/approaches.py": "85eb5a62a5d9dec575202ebcaa70bf4a546e8360f09ea00dc03cc7d23ae57747",
+    "eta_baselines/observations.py": "7376339cc1af8fc6eaff2d3f3e9000528de5f1205cff48dc503f7ad4be330f0a",
+    "eta_baselines/evaluation.py": "584d405f5b4cf5d9a214072f4d249c2b4b6fd9619cd3b7f3ad0a4cef18ca1370",
+    "eta_baselines/__init__.py": "4cfc1f0bc5f026a1010adf98390ea29f29674cc78dbf92665eb49f587caf0588",
+    "eta_baselines/features.py": "dd58103f61dcbb8039f2989ce15f437cc7f6b36cdae84f7ff81599e1ef05da9b",
+    "eta_baselines/prediction.py": "66c92331ca318f2fe45e4f813b10f5d90bad804fbc6e6a4fad5a05d9904d811d",
+    "eta_baselines/dataset.py": "a34386d35f07d9a1ddbc1632c2acaf0c35150271bd2ba04013309cf1bb8401f3",
+    "eta_baselines/motion.py": "bbdc714add6c661624245d9ef7a8969e2c36f09508a5b89d09748bcbbb48351f",
+    "eta_baselines/fitting.py": "dea7ea490f79962a7bd98a1e38297fc2a3aee117e371fd47111df62f24bc2f24",
+    "eta_baselines/__main__.py": "5de95aa75b9c3db88df120daf3beaf9a9b4fc765a089b2ba03a93e248582f267",
+    "eta_baselines/training.py": "d3c060cc0692f7d998940609a2767fbe6acd1352a77c27b93a597796e8f27374",
+    "experiments/fleet_combinations/run.py": "b616605a00cd57795fb7f85510569e6a82119deaf3f85a961df66ea854391832"
+  },
+  "trusted_fixes": false,
+  "drift_direction": "under",
+  "bootstrap_seed": 20261023,
+  "bootstrap_samples": 1000,
+  "versions": {
+    "numpy": "2.4.4",
+    "pandas": "2.3.3",
+    "xgboost": "3.1.1",
+    "scikit-learn": "1.6.1",
+    "joblib": "1.5.3"
+  },
+  "run_key": "dad1b37b68578fbb"
+}
