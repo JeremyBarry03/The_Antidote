@@ -19,10 +19,25 @@ export function etaComparison(ship){
 }
 const minutes=value=>Number.isFinite(value)?`${value>=0?'+':''}${value.toFixed(1)}`:'—';
 
-export function createEtaComparison({select,body,empty,stamp,note,onSelect}){
- let selected=null,signature='';
+export function crossingDistance(arrival,clock){
+ if(!Number.isFinite(arrival)||!Number.isFinite(clock))return '—';
+ const seconds=arrival-clock,minutes=Math.floor(Math.abs(seconds)/60);
+ const duration=minutes<1?'Less than 1 min':minutes<60?`${minutes} min`:`${Math.floor(minutes/60)} h ${minutes%60} min`;
+ return seconds>=0?duration:`${duration} ago`;
+}
+
+export function createEtaComparison({select,body,empty,stamp,note,context,replayClock,remaining,onSelect,onVessel=()=>{}}){
+ let selected=null,signature='',currentShip=null,clockKey=null;
+ function updateClock(clock){
+  if(!context||!currentShip||!Number.isFinite(clock))return;
+  const key=`${currentShip.id}:${Math.floor(clock)}`;if(key===clockKey)return;clockKey=key;
+  replayClock.textContent=new Date(clock*1000).toLocaleTimeString('en-GB',{timeZone:'UTC',hour:'2-digit',minute:'2-digit',second:'2-digit'})+' UTC';
+  replayClock.dateTime=new Date(clock*1000).toISOString();replayClock.title=full(clock);
+  remaining.textContent=crossingDistance(currentShip.arrival,clock);
+  remaining.title=`${currentShip.name} · recorded crossing ${Number.isFinite(currentShip.arrival)?full(currentShip.arrival):'unavailable'}. This is the recorded reference, not a model countdown.`;
+ }
  select.addEventListener('change',()=>{selected=select.value;onSelect(selected);});
- return {update(frame,selectedOnMap){
+ return {updateClock,update(frame,selectedOnMap){
   const ships=frame?.ships??[];
   const next=ships.some(s=>s.id===selectedOnMap)?selectedOnMap:ships.some(s=>s.id===selected)?selected:ships.find(s=>!s.arrived)?.id??ships[0]?.id;
   selected=next??null;
@@ -35,7 +50,9 @@ export function createEtaComparison({select,body,empty,stamp,note,onSelect}){
   select.disabled=!ships.length;if(next)select.value=next;
   empty.hidden=ships.length>0;body.closest('table').hidden=!ships.length;
   const ship=ships.find(s=>s.id===selected);
+  currentShip=ship??null;clockKey=null;if(context)context.hidden=!ship;onVessel(ship??null,frame?.time);
   if(!ship){body.replaceChildren();stamp.textContent=frame?'No vessels':'Loading';note.textContent='Errors below ETAs are minutes vs actual arrival.';note.removeAttribute('title');return;}
+  updateClock(frame.time);
   select.title=`${ship.name} · MMSI ${ship.mmsi}`;
   stamp.textContent='UTC';stamp.title=`Matched predictions as of ${full(ship.prediction_time??frame.time)}. Actual is the recorded harbor crossing, not docking.`;
   const inputs=ship.comparison_inputs;

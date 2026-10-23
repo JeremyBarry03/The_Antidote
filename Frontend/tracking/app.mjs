@@ -1,28 +1,38 @@
-import {setupAppearance} from './appearance.mjs';
-import {arrivalVisual} from './arrival.mjs';
+import {arrivalVisual,ARRIVAL_RETENTION_SECONDS} from './arrival.mjs';
 import {FleetMotion} from './fleet-motion.mjs';
 import {deliveredReports,trailGeometry,poisonedFields} from './geometry.mjs';
 import {FeedHistory} from './feed-history.mjs';
 import {StableCalloutLayout,calloutPath} from './callout.mjs';
-import {createArcSelect,enhanceArcGroup,enhanceArcDisclosure,enhanceArcDialog,setupArcTooltips,enhanceArcSlider,setArcPlayIcon} from './arc-components.mjs';
+import {enhanceArcGroup,enhanceArcDisclosure,enhanceArcDialog,setupArcTooltips,enhanceArcSlider,setArcPlayIcon} from './arc-components.mjs';
 import {setupArcDateTime} from './arc-date-time.mjs';
 import {createArcFeedback} from './arc-feedback.mjs';
 import {createPoisoningControls} from './poisoning-controls.mjs';
 import {createAnomalyNotice} from './anomalies.mjs';
 import {createEtaComparison} from './eta-comparison.mjs';
-import {setupActivityNavigation} from './activity.mjs';
-import {fleetFrameURL,renderMitigations} from './mitigations.mjs?v=fleet-mitigations-3';
+import {createAntidoteEtas} from './antidote-etas.mjs';
+import {createEtaSequence} from './eta-sequence.mjs';
+import {createEvidenceChart} from './insights.mjs';
+import {createMonthlyChart} from './monthly-chart.mjs';
+import {createAnalysisChart,createStressChart} from './analysis-charts.mjs';
+import {activityTimeline,setupActivityNavigation} from './activity.mjs';
 const $=id=>document.getElementById(id);
-const names={A:'Poly',B:'XGBoost',C:'Antidote'};
 const state={catalog:null,frame:null,time:0,start:0,end:0,model:'C',playing:false,speedMultiplier:1,expanded:false,selected:null,busy:false,version:0,mapReady:false,loadedMinute:null,failedMinute:null,feedSignature:'',error:null,poisoning:{},appliedPoisoningSignature:null,pendingPoisoning:false};
+let activeTimeline=null,activityTransition=false;
 const motion=new FleetMotion(), markers=new Map(),callouts=new Map(),feedHistory=new FeedHistory();
 const presentationShips=new Map();
 const calloutLayout=new StableCalloutLayout();
 const feedPanel=document.querySelector('.feed-table-wrap');
 const feedback=createArcFeedback();
 const anomalyNotice=createAnomalyNotice($('antidote-alert'));
-const comparison=createEtaComparison({select:$('comparison-vessel'),body:$('comparison-body'),empty:$('comparison-empty'),stamp:$('comparison-stamp'),note:$('comparison-note'),onSelect:selectShip});
+const antidoteEtas=createAntidoteEtas($('antidote-eta'),{onSelect:selectShip});
+const comparison=createEtaComparison({select:$('comparison-vessel'),body:$('comparison-body'),empty:$('comparison-empty'),stamp:$('comparison-stamp'),note:$('comparison-note'),context:$('comparison-context'),replayClock:$('comparison-clock'),remaining:$('comparison-remaining'),onSelect:selectShip});
 const activity=setupActivityNavigation({track:$('activity-track'),previous:$('previous-ships'),next:$('next-ships'),label:$('activity-label'),onSeek:async time=>{await seek(time);fit();}});
+const etaSequence=createEtaSequence($('eta-window'),{onRetry:()=>monthlyChart.refresh()});
+const arrivalConvergence=createAnalysisChart($('arrival-convergence'),{kind:'convergence',onRetry:()=>monthlyChart.refresh()});
+const pairedImpact=createEvidenceChart($('paired-impact'),{kind:'impact',onRetry:()=>monthlyChart.refresh()});
+const forecastStability=createEvidenceChart($('forecast-stability'),{kind:'stability',onRetry:()=>monthlyChart.refresh()});
+const monthlyChart=createMonthlyChart($('monthly-eta'),{onResult:data=>{etaSequence.setResult(data);arrivalConvergence.setResult(data);pairedImpact.setResult(data);forecastStability.setResult(data);},onState:state=>{etaSequence.setStatus(state);arrivalConvergence.setStatus(state);pairedImpact.setStatus(state);forecastStability.setStatus(state);}});
+createStressChart($('poisoning-stress'));
 let feedRestoreScroll=null;
 const reduced=matchMedia('(prefers-reduced-motion: reduce)');
 const map=()=>window.coastalPreview?.map;
@@ -45,7 +55,12 @@ function multiplySpeed(factor){const next=state.speedMultiplier*factor;if(Number
 function playback(playing){state.playing=playing;renderSpeed();setArcPlayIcon($('play'),playing);$('play').setAttribute('aria-label',playing?'Pause replay':'Play replay');$('play').dataset.arcTooltip=playing?'Pause replay':'Play replay';if(!playing&&state.frame){drawTrails();updateMarkers();}}
 function shipVisual(ship){return arrivalVisual(ship,state.time,{reducedMotion:reduced.matches,arrivalTime:motion.arrivalTime(ship.id)});}
 function visibleShips(){return [...presentationShips.values()].filter(ship=>shipVisual(ship).phase!=='complete'&&deliveredReports(ship,state.time).length);}
-function renderClock(){if(!state.catalog)return;const full=`${fullClock(state.time)} UTC`;$('clock').textContent=new Date(state.time*1000).toLocaleString('en-GB',{timeZone:'UTC',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',second:'2-digit'}).replace(',','')+' UTC';$('clock').setAttribute('aria-label',full);$('clock').title=full;$('clock').dateTime=new Date(state.time*1000).toISOString();$('scrub').value=String(state.time);$('scrub').setAttribute('aria-valuetext',`${fullClock(state.time)} UTC`);const fraction=(state.time-state.start)/(state.end-state.start||1);const progress=Math.max(0,Math.min(1,fraction))*100+'%';document.querySelector('.timeline .timeline-thumb').style.left=progress;document.querySelector('.timeline .scrubber').style.setProperty('--progress',progress);}
+function configureTimeline(){
+ activeTimeline=activityTimeline(state.catalog.windows,state.start,state.end,{retention:ARRIVAL_RETENTION_SECONDS});
+ $('scrub').min='0';$('scrub').max=String(activeTimeline.maximum);$('scrub').step='60';$('scrub').disabled=!activeTimeline.total;
+ $('play').disabled=!activeTimeline.total;$('activity-label').textContent=activeTimeline.total?'Ships only':'No activity';
+}
+function renderClock(){if(!state.catalog)return;const full=`${fullClock(state.time)} UTC`;$('clock').textContent=new Date(state.time*1000).toLocaleString('en-GB',{timeZone:'UTC',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',second:'2-digit'}).replace(',','')+' UTC';$('clock').setAttribute('aria-label',full);$('clock').title=full;$('clock').dateTime=new Date(state.time*1000).toISOString();const offset=activeTimeline?.offsetAt(state.time)??0;$('scrub').value=String(offset);$('scrub').setAttribute('aria-valuetext',`${fullClock(state.time)} UTC. Ships only; empty periods omitted.`);const fraction=offset/(activeTimeline?.maximum||1);const progress=Math.max(0,Math.min(1,fraction))*100+'%';document.querySelector('.timeline .timeline-thumb').style.left=progress;document.querySelector('.timeline .scrubber').style.setProperty('--progress',progress);comparison.updateClock(state.time);}
 function renderPopup(){
  const ships=visibleShips(),ids=new Set(ships.map(ship=>ship.id));
  for(const [id,entry] of callouts)if(!ids.has(id)){entry.popup.remove();entry.shape.remove();callouts.delete(id);}
@@ -65,7 +80,7 @@ function renderPopup(){
   entry.popup.title=`${ship.name} · MMSI ${ship.mmsi}`;
   entry.popup.classList.toggle('selected',state.selected===ship.id);
  }
- positionPopups();
+ antidoteEtas.update(ships,state.time,state.selected);positionPopups();
 }
 function positionPopups(){
  const {width,height}=$('coastal-map').parentElement.getBoundingClientRect();
@@ -88,12 +103,7 @@ function positionPopups(){
   const fade=String(shipVisual(ship).opacity);popup.style.opacity=fade;shape.style.opacity=fade;
  }
 }
-function renderComparison(){
- const frame=state.frame?{...state.frame,ships:visibleShips()}:null;
- comparison.update(frame,state.selected);
- const selected=$('comparison-vessel').value;
- renderMitigations(document,frame?.ships.find(ship=>ship.id===selected),{loading:state.pendingPoisoning,error:!!state.error});
-}
+function renderComparison(){comparison.update(state.frame?{...state.frame,time:state.time,ships:visibleShips()}:null,state.selected);}
 function selectShip(id){state.selected=id;renderPopup();renderFeed();updateMarkers();renderComparison();}
 function feedRowHeight(){const cell=feedPanel.querySelector('tr[data-ship] td');return cell?.getBoundingClientRect().height||parseFloat(getComputedStyle(feedPanel).getPropertyValue('--feed-row-height'))||30;}
 function resetFeed(){feedHistory.clear();state.feedSignature='';feedPanel.scrollTop=0;feedRestoreScroll=null;renderFeed();}
@@ -127,16 +137,13 @@ function renderFeed(){
     const original=field==='longitude'?report.original_longitude:field==='latitude'?report.original_latitude:report.original_values?.[field];
     cell.className='poisoned';cell.title=report.withheld?'Report withheld · simulator audit; no measurement was delivered':`Poisoned ${field} · ${(report.attack_names??[]).join(', ')||'simulator audit'}${original!=null?` · original ${number(original,field==='longitude'||field==='latitude'?4:1)}`:''}`;
     cell.setAttribute('aria-label',report.withheld?`${field}: report withheld, simulator audit`:`${field} ${value}, poisoned data`);
-   }
-   const estimate=report.estimated_values?.[field];
-   if(estimate!=null){cell.classList.add('has-estimate');cell.title+=(cell.title?' · ':'')+`Antidote estimate: ${number(estimate,field==='longitude'||field==='latitude'?4:1)}. Displayed value is the received reading.`;cell.setAttribute('aria-label',`${field}: received ${value}; Antidote estimate ${estimate}`);}
-   row.append(cell);
+   }row.append(cell);
   }
   row.addEventListener('click',()=>selectShip(ship.id));row.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectShip(ship.id);}});fragment.append(row);
  }
  spacer(reports.length-end);body.replaceChildren(fragment);
  if(feedRestoreScroll){feedPanel.scrollTop=scroll;feedRestoreScroll=null;}
- $('feed-empty').hidden=reports.length>0;$('feed-empty').textContent='No received reports at this replay time. Scrub the timeline to another time.';
+ $('feed-empty').hidden=reports.length>0;$('feed-empty').textContent=activeTimeline?.total?'No received reports at this replay time. Scrub the timeline to another time.':'No vessel activity in this date range. Choose another date range to continue.';
  $('feed-note').textContent=`${reports.length.toLocaleString()} accumulated reports · newest first · UTC. Speeds are in knots. Red cells are audited modifications. Red rows with dashes are withheld-report audit events, not received measurements.`;
 }
 feedPanel.addEventListener('scroll',()=>renderFeed(),{passive:true});
@@ -144,7 +151,7 @@ async function loadFrame({snap=false}={}){
  if(state.busy&&!snap)return;const version=++state.version;state.busy=true;const requested=Math.floor(state.time/60)*60;
  syncFeedback();
  const settings={...state.poisoning},scenarioSignature=JSON.stringify(settings);
- const frameURL=time=>fleetFrameURL(time,settings);
+ const frameURL=time=>'/api/fleet/frame?'+new URLSearchParams({time:String(time),poisoning:JSON.stringify(settings)});
  try{
   const frame=await api(frameURL(state.time));if(version!==state.version)return;
   // Constrain the displayed stream to what was delivered at this frame.
@@ -166,11 +173,11 @@ async function loadFrame({snap=false}={}){
   for(const ship of frame.ships)presentationShips.set(ship.id,ship);
   if(state.appliedPoisoningSignature!==scenarioSignature){resetFeed();anomalyNotice.reset();state.appliedPoisoningSignature=scenarioSignature;}
   collectFeed({...frame,ships:[...frame.ships,...terminalShips]});state.frame=frame;state.loadedMinute=requested;state.failedMinute=null;state.feedSignature='';
-  motion.update([...presentationShips.values()],continuous,state.time);showError(null);renderAll();$('play').disabled=false;renderSpeed();
- }catch(error){if(version!==state.version)return;playback(false);state.failedMinute=requested;showError(error);renderComparison();}
+  motion.update([...presentationShips.values()],continuous,state.time);renderAll();showError(null);$('play').disabled=!activeTimeline?.total;renderSpeed();
+ }catch(error){if(version!==state.version)return;playback(false);state.failedMinute=requested;showError(error);}
  finally{if(version===state.version){state.busy=false;syncFeedback();}}
 }
-function renderAll(){renderClock();renderFeed();renderPopup();drawTrails();updateMarkers();anomalyNotice.update(state.frame?.ships??[],state.model);renderComparison();activity.update(state.catalog,state.start,state.end,state.time);}
+function renderAll(){renderClock();renderFeed();renderPopup();drawTrails();updateMarkers();anomalyNotice.update(state.frame?.ships??[],state.model);renderComparison();activity.update(state.catalog,state.start,state.end,state.time,activeTimeline);}
 function setupMap(){if(state.mapReady)return;state.mapReady=true;calloutLayout.clear();const m=map();m.addSource('fleet-trails',{type:'geojson',data:trailGeometry([],motion,state.time)});m.addLayer({id:'fleet-dots',type:'circle',source:'fleet-trails',paint:{'circle-radius':1.3,'circle-color':getComputedStyle(document.documentElement).getPropertyValue('--map-dot').trim(),'circle-opacity':['get','fade']}});m.on('move',()=>renderPopup());m.on('moveend',()=>{calloutLayout.clear();renderPopup();});m.on('click',e=>{if(e.originalEvent.target.closest('.ship-marker'))return;state.selected=null;renderPopup();renderFeed();updateMarkers();});$('fallback-map').hidden=true;drawTrails();updateMarkers();if(state.frame)fit();}
 function drawTrails(){if(state.mapReady)map().getSource('fleet-trails')?.setData(trailGeometry(visibleShips(),motion,state.time));else drawFallback();}
 const SHIP='<svg viewBox="-7 -14 14 28" aria-hidden="true"><path class="ship-hull" d="M0-12C-3-10-5-5-5 2L-4 10H4L5 2C5-5 3-10 0-12Z" fill="var(--ink)" stroke="var(--muted)" stroke-width="1" stroke-linejoin="round"/><path class="ship-deck" d="M-2 3H2V7H-2Z" fill="var(--map-bg)" opacity=".55"/></svg>';
@@ -205,17 +212,15 @@ function drawFallback(){
  }
  $('map-status').textContent='Coordinate view · coastal basemap unavailable';$('map-status').hidden=false;
 }
-function fit(){const points=visibleShips().flatMap(s=>deliveredReports(s,state.time).map(r=>[r.longitude,r.latitude]));if(!points.length)return;if(state.mapReady){const box=new mapboxgl.LngLatBounds();points.forEach(p=>box.extend(p));map().fitBounds(box,{padding:{top:75,bottom:85,left:65,right:65},maxZoom:11,duration:reduced.matches?0:600});}else{const xs=points.map(p=>p[0]),ys=points.map(p=>p[1]);bounds=[Math.min(...xs)-.025,Math.min(...ys)-.025,Math.max(...xs)+.025,Math.max(...ys)+.025];drawFallback();}}
+function fit(instant=false){const points=visibleShips().flatMap(s=>deliveredReports(s,state.time).map(r=>[r.longitude,r.latitude]));if(!points.length)return;if(state.mapReady){const box=new mapboxgl.LngLatBounds();points.forEach(p=>box.extend(p));map().fitBounds(box,{padding:{top:75,bottom:85,left:65,right:65},maxZoom:11,duration:instant===true||reduced.matches?0:600});}else{const xs=points.map(p=>p[0]),ys=points.map(p=>p[1]);bounds=[Math.min(...xs)-.025,Math.min(...ys)-.025,Math.max(...xs)+.025,Math.max(...ys)+.025];drawFallback();}}
 window.replayPreview={fit};
-const modelSelect=createArcSelect({trigger:$('model'),menu:$('model-menu'),label:$('model-name'),getValue:()=>state.model,onChange:model=>{state.model=model;renderAll();}});
-const closeModels=(restore=false)=>modelSelect.close(restore);
-$('play').addEventListener('click',async()=>{if(state.time>=state.end){await seek(state.start);}playback(!state.playing);});
-async function seek(time){playback(false);anomalyNotice.reset();clearTimeout(scrubTimer);state.pendingSeek=false;calloutLayout.clear();resetFeed();state.time=Math.max(state.start,Math.min(state.end,time));renderClock();await loadFrame({snap:true});}
-let scrubTimer;$('scrub').addEventListener('input',()=>{playback(false);state.version++;state.busy=false;state.pendingSeek=true;anomalyNotice.reset();calloutLayout.clear();resetFeed();state.time=Number($('scrub').value);renderClock();clearTimeout(scrubTimer);scrubTimer=setTimeout(()=>{state.pendingSeek=false;void loadFrame({snap:true});},100);});
+$('play').addEventListener('click',async()=>{if(activeTimeline?.offsetAt(state.time)>=activeTimeline?.maximum){await seek(state.start);}playback(!state.playing);});
+async function seek(time){playback(false);anomalyNotice.reset();clearTimeout(scrubTimer);state.pendingSeek=false;calloutLayout.clear();resetFeed();const bounded=Math.max(state.start,Math.min(state.end,time));state.time=activeTimeline?.snap(bounded)??bounded;renderClock();await loadFrame({snap:true});fit(true);}
+let scrubTimer;$('scrub').addEventListener('input',()=>{playback(false);state.version++;state.busy=false;state.pendingSeek=true;anomalyNotice.reset();calloutLayout.clear();resetFeed();state.time=activeTimeline.timeAt(Number($('scrub').value));renderClock();clearTimeout(scrubTimer);scrubTimer=setTimeout(()=>{state.pendingSeek=false;void loadFrame({snap:true}).then(()=>fit(true));},100);});
 for(const id of ['start-time','end-time'])$(id).addEventListener('change',()=>{
  const start=Date.parse($('start-time').value+'Z')/1000,end=Date.parse($('end-time').value+'Z')/1000;
  if(!Number.isFinite(start)||!Number.isFinite(end)||start>=end||start<state.catalog.start||end>state.catalog.end){showError(Error('Choose a start before the end, within March 2024 (UTC).'));$('start-time').value=localInput(state.start);$('end-time').value=localInput(state.end);endpointPickers.sync();return;}
- state.start=start;state.end=end;$('scrub').min=start;$('scrub').max=end;void seek(Math.max(start,Math.min(end,state.time)));
+ state.start=start;state.end=end;configureTimeline();void seek(Math.max(start,Math.min(end,state.time)));
 });
 const endpointPickers=setupArcDateTime();
 function setExpanded(expanded){
@@ -224,7 +229,7 @@ function setExpanded(expanded){
  $('map-console').classList.toggle('is-expanded',expanded);
  $('map-backdrop').hidden=!expanded;
  document.body.classList.toggle('map-expanded',expanded);
- for(const element of document.querySelectorAll('.timeline,.poison-panel,.feed-column,#error'))element.inert=expanded;
+ for(const element of document.querySelectorAll('.site-intro,.timeline,.poison-panel,.feed-column,#error'))element.inert=expanded;
  $('map-console').setAttribute('role',expanded?'dialog':'region');
  if(expanded)$('map-console').setAttribute('aria-modal','true');else $('map-console').removeAttribute('aria-modal');
  $('fullscreen').setAttribute('aria-expanded',String(expanded));
@@ -236,7 +241,7 @@ $('fullscreen').addEventListener('click',()=>setExpanded(!state.expanded));
 $('map-backdrop').addEventListener('click',()=>setExpanded(false));
 $('speed-boost').addEventListener('click',()=>multiplySpeed(2));
 $('speed-slow').addEventListener('click',()=>multiplySpeed(.5));
-function resize(){$('map-console').classList.toggle('compact-toolbar',$('map-console').clientWidth<560);map()?.resize();renderPopup();drawFallback();renderFeed();}
+function resize(){$('map-console').classList.toggle('compact-toolbar',$('map-console').clientWidth<320);map()?.resize();renderPopup();drawFallback();renderFeed();}
 for(const [toggleId,contentId,panelId] of [['feed-toggle','feed-content','live-feed'],['comparison-toggle','comparison-content','eta-comparison']]){
  $(toggleId).addEventListener('click',()=>{
   const expanded=$(toggleId).getAttribute('aria-expanded')!=='true';
@@ -247,7 +252,6 @@ for(const [toggleId,contentId,panelId] of [['feed-toggle','feed-content','live-f
 }
 document.addEventListener('keydown',e=>{
  if(e.key==='Escape'){
-  if(!$('model-menu').hidden){e.preventDefault();closeModels(true);return;}
   if(state.expanded){setExpanded(false);return;}
   if(!$('method-dialog').open){state.selected=null;renderPopup();}
  }
@@ -260,15 +264,13 @@ document.addEventListener('keydown',e=>{
 });
 new ResizeObserver(resize).observe($('coastal-map'));
 let poisonTimer;
-function scenarioChanged(){
- state.version++;state.busy=false;state.pendingPoisoning=true;state.failedMinute=null;
- anomalyNotice.reset();renderComparison();clearTimeout(poisonTimer);
- poisonTimer=setTimeout(()=>{state.pendingPoisoning=false;void loadFrame({snap:true});},180);
-}
 const poisoningControls=createPoisoningControls({container:$('poison-controls'),
  onExplain:control=>{document.dispatchEvent(new Event('arc-overlay-open'));$('method-title').textContent=control.label;$('method-description').textContent=control.description;$('method-dialog').showModal();},
  onChange:settings=>{
-  state.poisoning=settings;scenarioChanged();
+  monthlyChart.update(settings,state.catalog?.attack_controls);
+  state.poisoning=settings;state.version++;state.busy=false;state.pendingPoisoning=true;state.failedMinute=null;
+  anomalyNotice.reset();clearTimeout(poisonTimer);
+  poisonTimer=setTimeout(()=>{state.pendingPoisoning=false;void loadFrame({snap:true});},180);
  },
 });
 enhanceArcSlider($('scrub'));
@@ -279,26 +281,30 @@ enhanceArcGroup(document.querySelector('.replay-transport'));
 enhanceArcDisclosure($('poison-panel'),{fixed:true});
 enhanceArcDialog($('method-dialog'));
 setupArcTooltips();
-setupAppearance({button:$('invert'),onChange:()=>{if(state.mapReady&&map().getLayer('fleet-dots'))map().setPaintProperty('fleet-dots','circle-color',getComputedStyle(document.documentElement).getPropertyValue('--map-dot').trim());drawFallback();}});
 $('close-dialog').addEventListener('click',()=>$('method-dialog').close());$('method-dialog').addEventListener('click',e=>{if(e.target===$('method-dialog')){const r=$('method-dialog').getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)$('method-dialog').close();}});
 $('retry').addEventListener('click',()=>state.catalog?void loadFrame({snap:true}):void start());
 window.addEventListener('coastal-ready',setupMap,{once:true});if(window.coastalPreview?.getState().ready)setupMap();
 let last=0,lastDraw=0,lastRequest=0,raf;
 function tick(now){
  const delta=last?Math.max(0,(now-last)/1000):0;last=now;
- if(state.playing&&state.catalog){
-  const before=state.time;state.time=Math.min(state.end,state.time+delta*replayRate());
-  motion.advance(state.time-before);renderClock();
-  if(state.time>=state.end)playback(false);
+ if(state.playing&&activeTimeline?.total&&!activityTransition){
+  const before=state.time,elapsed=delta*replayRate();state.time=activeTimeline.advance(before,elapsed);
+  if(state.time-before>elapsed+.01){
+   // Keep the last rendered vessel while the next active scene loads, then
+   // replace it atomically. Never animate a boat across omitted clock time.
+   activityTransition=true;calloutLayout.clear();resetFeed();
+   void loadFrame({snap:true}).then(()=>{if(!state.error)fit(true);}).finally(()=>{activityTransition=false;});
+  }else{motion.advance(state.time-before);renderClock();}
+  if(activeTimeline.offsetAt(state.time)>=activeTimeline.maximum)playback(false);
  }
  // The replay clock never waits for inference. Keep one request in flight and
  // coalesce intermediate clocks when the requested playback rate is very high.
  const minute=Math.floor(state.time/60)*60;
  if(state.catalog&&!state.busy&&!state.pendingSeek&&!state.pendingPoisoning&&minute!==state.loadedMinute&&minute!==state.failedMinute&&now-lastRequest>=150){lastRequest=now;void loadFrame();}
- if(now-lastDraw>100){lastDraw=now;drawTrails();updateMarkers();renderFeed();activity.update(state.catalog,state.start,state.end,state.time);if(!state.mapReady)renderPopup();}
+ if(!activityTransition&&now-lastDraw>100){lastDraw=now;drawTrails();updateMarkers();renderFeed();activity.update(state.catalog,state.start,state.end,state.time,activeTimeline);if(!state.mapReady)renderPopup();}
  raf=requestAnimationFrame(tick);
 }
-async function start(){try{showError(null);state.catalog=await api('/api/fleet/catalog');const period=$('replay-period');period.textContent=state.catalog.evaluation_label??'';period.hidden=!period.textContent;period.title=state.catalog.training_year?`${state.catalog.training_year}-trained models · ${state.catalog.model_c_variant==='C_nominal'?'nominal-only Antidote':'Antidote'}`:'';state.poisoning=poisoningControls.configure(state.catalog.attack_controls);state.start=state.catalog.start;state.end=state.catalog.end;state.time=state.catalog.initial_time;for(const id of ['start-time','end-time']){$(id).disabled=false;$(id).min=localInput(state.catalog.start);$(id).max=localInput(state.catalog.end);}$('start-time').value=localInput(state.start);$('end-time').value=localInput(state.end);endpointPickers.sync();$('scrub').disabled=false;$('scrub').min=state.start;$('scrub').max=state.end;$('scrub').step='60';await loadFrame({snap:true});if(state.frame){playback(true);setTimeout(fit,900);}}catch(error){showError(error);$('feed-empty').textContent='The replay could not connect. Use Retry to reconnect.';}}
+async function start(){try{showError(null);state.catalog=await api('/api/fleet/catalog');state.poisoning=poisoningControls.configure(state.catalog.attack_controls);monthlyChart.update(state.poisoning,state.catalog.attack_controls);state.start=state.catalog.start;state.end=state.catalog.end;configureTimeline();state.time=activeTimeline.snap(state.catalog.initial_time)??state.start;for(const id of ['start-time','end-time']){$(id).disabled=false;$(id).min=localInput(state.catalog.start);$(id).max=localInput(state.catalog.end);}$('start-time').value=localInput(state.start);$('end-time').value=localInput(state.end);endpointPickers.sync();await loadFrame({snap:true});if(state.frame&&activeTimeline.total){playback(true);setTimeout(fit,900);}}catch(error){showError(error);$('feed-empty').textContent='The replay could not connect. Use Retry to reconnect.';}}
 // Replay scenarios use the repository attacks; display-only audit labels never enter model inputs.
 window.trackingConsole={getState:()=>({...state,feedCount:feedHistory.size,motion:undefined}),selectShip,seek,fit,refresh:()=>loadFrame({snap:true})};
 window.addEventListener('pagehide',()=>{cancelAnimationFrame(raf);clearTimeout(poisonTimer);clearTimeout(scrubTimer);playback(false);for(const entry of markers.values())entry.marker.remove();},{once:true});

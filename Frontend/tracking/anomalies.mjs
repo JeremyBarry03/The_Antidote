@@ -3,16 +3,12 @@ const REASONS={
  conflicting_bin_positions:'Conflicting positions in the same minute',
  no_reports:'No usable reports received',
  reporting_gap:'Reporting cadence interrupted',
- position_jump:'Navigation measurements disagree; verify position and motion',
 };
 
 export function inputWarnings(ship){
  if(ship.arrived)return [];
  const diagnostics=ship.diagnostics??{},reasons=(diagnostics.reasons??[]).filter(reason=>Object.hasOwn(REASONS,reason));
  const warnings=reasons.map(reason=>({code:reason,text:REASONS[reason]}));
- for(const strategy of ship.mitigation?.strategies??[]){
-  if((strategy.applied||strategy.requires_review)&&!warnings.some(warning=>warning.code===strategy.id))warnings.push({code:strategy.id,text:`${strategy.label}: ${strategy.message}`});
- }
  if(Number.isFinite(ship.age_minutes)&&ship.age_minutes>15)warnings.push({code:'stale_reports',text:`Latest received report is ${ship.age_minutes.toFixed(1)} min old`});
  if(diagnostics.state==='review'&&!ship.predictions?.C?.available&&!warnings.some(w=>w.code==='no_reports'))warnings.push({code:'eta_unavailable',text:'Insufficient usable input for an Antidote ETA'});
  return warnings;
@@ -35,9 +31,9 @@ export class AnomalyEpisodes{
 export function createAnomalyNotice(container){
  const episodes=new AnomalyEpisodes();let current=[],signature='';
  const header=document.createElement('div');header.className='anomaly-header';
- const title=document.createElement('strong');title.textContent='Antidote · Input status';
+ const title=document.createElement('strong');title.textContent='ANOMALY DETECTED';
  const close=document.createElement('button');close.type='button';close.textContent='×';close.setAttribute('aria-label','Dismiss Antidote warning');
- const list=document.createElement('ul'),note=document.createElement('p');note.className='anomaly-note';note.textContent='Checks use received measurements. Estimates are conditional; warnings do not confirm poisoning.';
+ const list=document.createElement('ul'),note=document.createElement('p');note.className='anomaly-note';note.textContent='Needs human review';
  header.append(title,close);container.append(header,list,note);
  function dismiss(){episodes.dismiss(current);container.hidden=true;signature='';}
  close.addEventListener('click',dismiss);

@@ -1,104 +1,30 @@
-# Antidote dashboard
+# Antidote UI only
 
-The dashboard at `tracking/index.html` is connected to the Python service in
-`Data_Science/Optimized_Model`. There is no frontend build step or second web
-server. The older single-vessel replay remains at `/eta_replay.html`.
+This folder contains 34 files: the approved dashboard's browser code, styles,
+font/license assets, this guide and the application license. No backend, models,
+datasets, tests, npm installation, lockfile, build tooling or component reference
+examples are included. The full source handoff retains those development files.
 
-## Run locally
+Upload this entire `Frontend/` folder at the team repository root. The page is
+`tracking/index.html`; keep the relative module and asset paths intact. The
+live dashboard is not changed by packaging. This is a frontend-only replacement
+for the earlier upload; the team's backend must implement the routes below.
 
-From the repository root, install the pinned browser dependencies once:
+## Included interface
 
-```powershell
-cd Frontend
-npm ci
-cd ../Data_Science
-python -m pip install -r requirements-dev.txt
-python -m Optimized_Model serve --port 8765
-```
+- All six graphs: Monthly ETA error, Average ETA change, Arrival convergence,
+  Poisoning stress curve, Poisoning impact and Forecast stability.
+- Slider-linked graph scenarios, model legends, smooth monthly Y-axis refitting,
+  keyboard/hover inspection, numeric progress, coverage and Retry states.
+- The project overview and rubric-aligned brief, active-vessel timeline without
+  idle gaps, date pickers, playback controls and vessel name tags.
+- Independent original/disrupted ETA comparison, replay clock and time to the
+  recorded crossing, plus Antidote ETAs for every vessel on the map.
+- Seven data-poisoning controls, red field-audit highlighting and the dark-red
+  anomaly popup with white outline and a prominent human-review prompt.
 
-Open <http://127.0.0.1:8765>. The service redirects to `/tracking/`, serves all
-browser assets and the pinned Mapbox SDK, and exposes the fleet API on the same
-origin. Serving defaults to `Optimized_Model/config_data_eval.json`: the
-2023-trained A/B artifacts and **nominal-only C** (`C_nominal.joblib`) on the
-full March 1–31, 2024 evaluation set. The timeline/date pickers are restricted
-to that evaluation period. The existing C mitigation pipeline remains enabled.
-Its prepared replay dataset and frozen models must already exist. A clone
-does not include these ignored artifacts or source CSVs. Follow
-`../Data_Science/Optimized_Model/README.md` to acquire data and prepare/train them.
-The service rejects incompatible artifacts; it does not train models on startup.
-
-For the coastal basemap, set `MAPBOX_PUBLIC_TOKEN=pk.<public token>` in the
-repository root `.env` (or your environment). Only public `pk.` tokens are
-exposed. The coordinate fallback works without a token.
-
-## Connected behavior
-
-The dashboard requires the configured evaluation partition and never falls
-back to training/exploratory records. Each frame runs Poly (A), ordinary XGBoost
-(B), and Antidote (C) on reports delivered by the selected UTC clock. Clean and
-attacked forecasts are computed independently at that same clock; attacks off
-leaves the poisoned column empty. Errors refer to the original analytical harbor
-crossing, not docking. Vessels are labeled by source MMSI because the prepared
-histories do not contain vessel names.
-
-All eight controls call the existing report attacks, including location drift.
-The speed-drift slider uses under-reporting. Over-reporting remains available
-through the backend experiment API.
-Reporting gaps start ten
-minutes after each approach begins and last for the selected duration; they do
-not move with the replay clock. Noise/drift strength and position-jump settings
-are described by each control's explanation. Attacks are seeded and compose in
-the order gap, speed drift, location drift, deterioration, position jump, then missing fields. Original
-records, frozen artifacts and reference crossings stay unchanged. Display audit
-labels are attached after inference; withheld events contain no measurements.
-
-C uses the 2023 nominal-only artifact under the stable system name C, with its
-trained input guard plus the existing strategies through
-`Optimized_Model/fleet_mitigations.py`. Mitigations are built into Antidote;
-the dashboard always enables them without a separate repair switch. Missing speed/course
-can be reconstructed independently from checked original position history;
-class recovery uses consistent received MMSI metadata. Gaussian noise and speed
-drift use their existing conditional sensor reconstruction. Gap and navigation
-consistency detectors provide warnings; the position-jump detector never repairs
-coordinates. The per-vessel Antidote status lists applied estimates, unavailable
-motion estimates, and review requirements. An optional noise/drift estimate without
-a usable reference does not itself request review; detected inconsistencies,
-blocked corrections, and unsupported forecasts retain their warnings.
-Underlined feed cells expose derived estimates in their tooltip;
-displayed measurements remain the actual received values. A/B, raw quality
-features, source files, clocks and trained models stay unchanged.
-
-Selected position faults pause position-based sensor/missing-navigation repairs.
-Noise plus speed drift pauses their overlapping sensor corrections. These are
-explicit experiment reference policies, not automatic fault classification.
-Detectors continue to inspect the unmodified received stream. Metadata recovery
-is independent of navigation and may still operate. Compatible repairs can run
-together, but combined-attack accuracy has not been established or calibrated.
-
-The augmented C artifact is retained for experiments. For an explicit alternate
-bundle, pass `--config path/to/config.json --model-c C` to the serving command.
-Training/evaluation CLI defaults and frozen training configurations are unchanged.
-The augmented model's C calibration is not transferred to nominal-only C.
-
-Location drift warns by default. The dashboard does not add simulated reference
-fixes. The backend's explicit `trusted_fixes=true` experiment adds original-position
-reference fixes from the first report in each five-minute bin.
-Each fix becomes available only at its measurement/delivery clock; the
-existing five-minute projection expiry and navigation checks still apply.
-This is an oracle-reference simulation, not a deployed independent data source.
-It is available only with location drift, mitigations on, and no speed, course,
-noise, speed-drift or position-jump attack. Original crossing outcomes never
-become repair inputs. No previous calibration is transferred to these repairs.
-
-## Checks
-
-```powershell
-# From Frontend
-npm run check
-npm test
-# From Data_Science
-python -m pytest tests -q
-```
+The frontend displays supplied inference results. Backend inference, attack
+generation, model artifacts and datasets remain the team's responsibility.
 
 ## Connect your backend
 
@@ -110,7 +36,8 @@ does not include mock predictions or a standalone demo backend.
 
 The network helper is `api()` in `tracking/app.mjs`. Frame request construction
 is `frameURL()` in that file. Change those if your service uses another base URL
-or authentication. The coastal-map config request is in `tracking/coastal.js`.
+or authentication. Monthly graph requests are in `tracking/monthly-chart.mjs`.
+The coastal-map config request is in `tracking/coastal.js`.
 
 ### Required routes
 
@@ -119,11 +46,14 @@ or authentication. The coastal-map config request is in `tracking/coastal.js`.
 | `GET /api/config` | `{ "mapbox_public_token": "pk.<public token>" }`; optional map config |
 | `GET /api/fleet/catalog` | Replay bounds, initial time, activity windows and attack-control definitions |
 | `GET /api/fleet/frame?time=<seconds>&poisoning=<URL-encoded JSON>` | Current causal vessel reports and model outputs for the chosen scenario |
+| `GET /api/fleet/monthly?poisoning=<JSON>&client=<tab ID>` | Shared asynchronous monthly/sequence/convergence/insight job; poll with `?job=<id>` |
+| `GET /api/fleet/stress` | Independent asynchronous report-delay experiment; use `?retry=1` after a failed run |
 | `GET /map-assets/mapbox-gl.js` | Mapbox GL JS 3.32.0 SDK, served by the team's host |
 | `GET /map-assets/mapbox-gl.css` | Matching SDK stylesheet |
 
-The Python service serves the SDK from `Frontend/node_modules/mapbox-gl/dist`
-after `npm ci`. Public map configuration and network access are required for
+The SDK itself is not vendored. Serve its pinned distribution at the asset URLs
+above, or update the two Mapbox tags in `tracking/index.html` to your approved
+SDK hosting URLs. Public map configuration and network access are required for
 the geographic basemap. Keep existing Mapbox/OpenStreetMap attribution. Without
 a geographic map the UI can render the coordinate fallback.
 
@@ -135,20 +65,9 @@ array of `{ id, label, maximum, unit, description }`. The backend supplies those
 labels, bounds and explanations; the UI does not implement the attacks.
 
 Existing control IDs: `reporting_gap` (0–60 minutes), `missing_speed`,
-`missing_course`, `missing_vessel_class`, `sensor_drift`, `location_drift`, `sensor_deterioration`,
+`missing_course`, `missing_vessel_class`, `sensor_drift`, `sensor_deterioration`,
 and `position_jump` (each 0–100). The client sends their numeric settings in the
 `poisoning` JSON query. Return the applied settings as `frame.poisoning`.
-
-For backend experiment controls the same frame route accepts
-`mitigate=true|false` (default true; the dashboard always sends true),
-`trusted_fixes=true|false` (default false; always false in the dashboard), and `drift_direction=under|over`
-(default under). Invalid flags or unsupported trusted-fix combinations return
-400. The catalog includes `mitigation_defaults`; `frame.mitigations` echoes the
-selected options. Each ship includes `mitigation` with `enabled`, `strategies`,
-`features_changed`, `estimated_values`, `reference_simulated`, and an explicit
-uncalibrated ETA policy. Strategy results contain status, detection, applied
-count, review requirement and the original strategy diagnostics. Display reports
-optionally contain `estimated_values`; these never overwrite received fields.
 
 ### Frame and vessel shape
 
@@ -179,8 +98,10 @@ attached after inference; they are display evidence, not model inputs.
 
 Antidote warnings read `age_minutes` and `diagnostics` with `state` and `reasons`.
 Recognized input reasons are `implausible_position_jump`,
-`conflicting_bin_positions`, `no_reports` and `reporting_gap`. Simulator poison labels alone do
-not trigger warnings. Warnings appear only while model C is selected.
+`conflicting_bin_positions`, `no_reports` and `reporting_gap`; stale received
+reports and unavailable Antidote forecasts can also produce warnings. Simulator
+poison labels alone do not trigger warnings. The map uses model C (Antidote);
+the comparison table and graphs retain all three models.
 
 Optional `comparison_inputs` explains matching forecasts after an older gap:
 `normal_reports`, `poisoned_reports`, `withheld_reports`, `modified_reports`,
@@ -188,12 +109,64 @@ Optional `comparison_inputs` explains matching forecasts after an older gap:
 `recent_inputs_differ`. See `tracking/eta-comparison.mjs` for presentation.
 Return non-2xx failures as `{ "error": "Readable message" }`.
 
+## Monthly graph API
+
+Six populated analysis panels sit below the existing replay. The monthly,
+sequence, convergence, paired impact and stability views follow the seven sliders
+with an attack boundary at March 15; the report-delay stress sweep is separate.
+Serve `GET /api/fleet/monthly?poisoning=<JSON>&client=<tab ID>`, returning a 202
+job snapshot (`job_id`, `status`, `phase`, `completed`, `total`) or a 200 ready
+result. Poll with `GET /api/fleet/monthly?job=<job_id>`. A snapshot can also report
+`error` (with readable `error`) or `superseded`.
+The visible loader shows only `completed / total`; phase explanations remain
+available to assistive technology. Numeric counts must reflect actual work.
+
+The ready result has `status: "ready"`, epoch-second `start`, `end` (exclusive),
+`cutover`, `poisoning_active`, `affected_reports`, `seed`, `matched_decisions`,
+`scheduled_decisions`, `approaches`, `vessels`, `methodology`, `source`, `caveat`
+and `days`. Each day has epoch-second `day`, `poisoned`, coverage counts and
+`models.A/B/C` entries with `mean_error`, `mae`, `clean_mean_error`, `clean_mae`,
+`available_decisions` and `unavailable_decisions`. Errors are minutes, using
+predicted ETA minus actual crossing. Missing forecasts must remain null. Use
+identical decisions for all models and clean/scenario comparisons; average
+checkpoints within an approach, then weight approaches equally within a UTC day.
+Preserve all pre-March-15 reports and only attack new reports after the cutover.
+The ready payload also needs `sequence`: `window_minutes: 30`, `approaches`,
+`vessels`, `matched_instances`, `methodology`, `coverage_note` and `samples`.
+Each sample has `minute` (0–30), `scheduled_instances`, `matched_instances`,
+`vessels`, and `models.A/B/C` entries with `mean_eta_shift`,
+`clean_mean_eta_shift`, `mean_remaining_minutes` and
+`clean_mean_remaining_minutes`. ETA shifts are minutes from each model's own
+initial predicted arrival, computed within each approach before averaging.
+These samples share the first graph's inference job and poisoning scenario.
+The `convergence` field contains 12 final-hour five-minute bins (`minute`,
+`from_minutes`, `to_minutes`, coverage and A/B/C `mae`, `clean_mae`), plus totals,
+methodology and coverage notes. The separate stress endpoint returns 202 progress
+(`status`, `phase`, `completed`, `total`) or a 200 ready result with five samples
+at `minute` 0, 2, 5, 10, 15. Each has coverage and A/B/C `mae`,
+`available_decisions`, `unavailable_decisions`. Its fixed delay experiment is
+independent of the poisoning sliders; errors and source definitions are in docs.
+
+The `insights` field supplies `impact` and `stability`. Impact contains per-model
+`mae_clean`, `mae_scenario`, `added_mae` for the matched post-cutover period,
+plus coverage and methodology. Stability contains seven elapsed-minute samples,
+one fixed supported cohort across all models and both scenarios, and per-model
+`movement`/`updates` entries with `mean`, `median`, `p10`, `p90`, `clean_mean`.
+Movement is absolute change from the initial ETA; updates are absolute changes
+from the prior five-minute ETA. The spread is observed vessel variability, not
+a confidence interval. Preserve explicit excluded sequence counts and null means.
+The source handoff includes the complete adapters and contract in integration docs.
+The UI expects actual backend inference, not preselected degradation curves.
+
 ## Files
 
 `app.mjs` coordinates the page. `arc-*` files implement the native UI controls.
 `coastal.js` draws the original map. The other ES modules handle vessel motion,
 arrival presentation, name-tag layout, feed history, ETA comparison, anomaly
-notices and timeline navigation. `style.css` includes the arrival presentation
+notices, all-vessel Antidote ETAs, timeline navigation and monthly analysis.
+`chart-status.mjs` shares numeric progress presentation across graphs.
+`introduction.css` styles the project overview and map overlays.
+`style.css` includes the arrival presentation
 rules that previously lived in a separate stylesheet. These browser presentation
 modules are required to preserve the current interface; they do no model training
 or backend inference.
