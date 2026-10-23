@@ -11,7 +11,7 @@ import {createPoisoningControls} from './poisoning-controls.mjs';
 import {createAnomalyNotice} from './anomalies.mjs';
 import {createEtaComparison} from './eta-comparison.mjs';
 import {setupActivityNavigation} from './activity.mjs';
-import {fleetFrameURL,renderMitigations} from './mitigations.mjs?v=fleet-mitigations-2';
+import {fleetFrameURL,renderMitigations} from './mitigations.mjs?v=fleet-mitigations-3';
 const $=id=>document.getElementById(id);
 const names={A:'Poly',B:'XGBoost',C:'Antidote'};
 const state={catalog:null,frame:null,time:0,start:0,end:0,model:'C',playing:false,speedMultiplier:1,expanded:false,selected:null,busy:false,version:0,mapReady:false,loadedMinute:null,failedMinute:null,feedSignature:'',error:null,poisoning:{},appliedPoisoningSignature:null,pendingPoisoning:false};
