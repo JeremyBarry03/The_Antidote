@@ -173,6 +173,10 @@ class DemoService:
 
     @classmethod
     def load(cls, config: OptimizedConfig, *, model_c: str = "C") -> "DemoService":
+        if (config.output_directory / "serving_bundle.json").exists() and model_c == "C_nominal":
+            from .serving_bundle import load_bundle
+            dataset, systems, extractor = load_bundle(config)
+            return cls(config, dataset, systems, extractor, None)
         calibration = load_calibration(config) if (config.output_directory / "calibration.json").exists() else None
         systems = load_systems(config)
         if model_c not in ("C", "C_nominal"):

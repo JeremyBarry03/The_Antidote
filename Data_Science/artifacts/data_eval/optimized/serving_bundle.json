@@ -1,0 +1,548 @@
+{
+  "description": "Original March 2024 evaluation replay with 2023 nominal A/B/C; no synthetic source observations. Nominal C has no augmented-C calibration.",
+  "models": [
+    [
+      "A",
+      "frozen_baselines/quadratic/model.joblib",
+      "raw"
+    ],
+    [
+      "B",
+      "frozen_baselines/xgboost/model.joblib",
+      "raw"
+    ],
+    [
+      "C",
+      "models/C_nominal.joblib",
+      "guarded"
+    ]
+  ],
+  "scientific_config": {
+    "calibration_start": "2023-07-30",
+    "evaluation_start": "2024-03-01",
+    "evaluation_end": "2024-04-01",
+    "training_delays_minutes": [
+      5,
+      15,
+      30
+    ],
+    "offsets_nautical_miles": [
+      0.1,
+      0.5,
+      2.0
+    ],
+    "affected_fractions": [
+      0.1,
+      0.25,
+      0.5
+    ],
+    "evaluation_seeds": [
+      4201,
+      4202,
+      4203,
+      4204,
+      4205
+    ],
+    "guard": {
+      "bin_seconds": 60,
+      "maximum_speed_knots": 60,
+      "maximum_bin_spread_meters": 500,
+      "maximum_velocity_gap_seconds": 300
+    },
+    "review": {
+      "coverage_target": 0.9,
+      "maximum_half_width_minutes": 5,
+      "minimum_calibration_approaches": 30,
+      "minimum_evaluation_approaches": 60,
+      "age_only_threshold_minutes": 15,
+      "bootstrap_samples": 1000
+    }
+  },
+  "baseline_config": {
+    "gate": {
+      "longitude": -76.3,
+      "south_latitude": 36.95,
+      "north_latitude": 37.05,
+      "approach_east_longitude": -75.8,
+      "approach_south_latitude": 36.9,
+      "approach_north_latitude": 37.1,
+      "maximum_crossing_gap_seconds": 120,
+      "episode_break_hours": 6
+    },
+    "features": {
+      "history_minutes": 10,
+      "decision_interval_minutes": 5,
+      "minimum_episode_minutes": 10
+    },
+    "splits": {
+      "start": "2023-01-01",
+      "validation_start": "2023-06-30",
+      "test_start": "2023-07-20",
+      "end_exclusive": "2023-07-30"
+    },
+    "training": {
+      "seed": 42,
+      "cpu_threads": 4,
+      "ridge_alphas": [
+        0.1,
+        1.0,
+        10.0,
+        100.0
+      ],
+      "xgboost_depths": [
+        2,
+        4,
+        6
+      ],
+      "xgboost_learning_rates": [
+        0.03,
+        0.1
+      ],
+      "xgboost_max_rounds": 500,
+      "xgboost_early_stopping_rounds": 30
+    }
+  },
+  "inference_lf_sha256": {
+    "Optimized_Model/features.py": "873c5252d1b28418c1abc2192f5f208deecd9dd1e35e0a2c3609c4b0de518b21",
+    "Optimized_Model/quality.py": "7097ca8f643720fe6f0bc78f4b55b046ebd3e0e9e05d42faf498fe2cbed7f695",
+    "Optimized_Model/replay.py": "de62e46bd7e0d0542568dfcc3bfc97e808a0c08634afc3aee4cf2a3d6e1d446d",
+    "eta_baselines/features.py": "dd58103f61dcbb8039f2989ce15f437cc7f6b36cdae84f7ff81599e1ef05da9b",
+    "eta_baselines/motion.py": "bbdc714add6c661624245d9ef7a8969e2c36f09508a5b89d09748bcbbb48351f",
+    "eta_baselines/prediction.py": "66c92331ca318f2fe45e4f813b10f5d90bad804fbc6e6a4fad5a05d9904d811d"
+  },
+  "files": {
+    "frozen_baselines/quadratic/model.joblib": "89fe1db93983fd5ad46cc4899844fb338b2714a60244efe1d73a93feffc1fe51",
+    "frozen_baselines/xgboost/model.joblib": "cc52fecb94992e94f267f6cb165d170c77c5ff8c6ad3ea8e684dd0800986d0a5",
+    "models/C_nominal.joblib": "f47d56f56352fce85cf77418a941883af48a268e9f872f7e883479b6ad460d99",
+    "serving_replay.joblib": "9a9dbb5572160b9ddb17cd6052edab9cacea239ac50fa9113b70a6af299d07f2"
+  },
+  "source_manifest": {
+    "sources": {
+      "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\data\\hampton_roads_2023_220days_fit_development.csv": "074ae718e742ff5463a24d265ddd5e3302d6602e3e36878dd4982780fac47df3",
+      "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\data\\hampton_roads_2023_220days_calibration_march_2024.csv": "11237618de28078560033178858dd531f169fa1240218b0eb10b4fde5f9c2d8f"
+    },
+    "config": {
+      "baseline_config": "C:\\Users\\jerem\\Downloads\\the_antidote_data_eval\\Data_Science\\config_data_eval.json",
+      "output_directory": "C:\\Users\\jerem\\Downloads\\the_antidote_data_eval\\Data_Science\\artifacts\\data_eval\\optimized",
+      "later_csv": "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\data\\hampton_roads_2023_220days_calibration_march_2024.csv",
+      "calibration_start": "2023-07-30",
+      "evaluation_start": "2024-03-01",
+      "evaluation_end": "2024-04-01",
+      "training_delays_minutes": [
+        5,
+        15,
+        30
+      ],
+      "offsets_nautical_miles": [
+        0.1,
+        0.5,
+        2.0
+      ],
+      "affected_fractions": [
+        0.1,
+        0.25,
+        0.5
+      ],
+      "evaluation_seeds": [
+        4201,
+        4202,
+        4203,
+        4204,
+        4205
+      ],
+      "guard": {
+        "bin_seconds": 60,
+        "maximum_speed_knots": 60,
+        "maximum_bin_spread_meters": 500,
+        "maximum_velocity_gap_seconds": 300
+      },
+      "review": {
+        "coverage_target": 0.9,
+        "maximum_half_width_minutes": 5,
+        "minimum_calibration_approaches": 30,
+        "minimum_evaluation_approaches": 60,
+        "age_only_threshold_minutes": 15,
+        "bootstrap_samples": 1000
+      }
+    },
+    "split_counts": {
+      "calibration": {
+        "decisions": 1407,
+        "approaches": 69,
+        "vessels": 67
+      },
+      "evaluation": {
+        "decisions": 5382,
+        "approaches": 243,
+        "vessels": 219
+      },
+      "exploratory": {
+        "decisions": 1780,
+        "approaches": 87,
+        "vessels": 87
+      },
+      "train": {
+        "decisions": 27263,
+        "approaches": 1319,
+        "vessels": 799
+      },
+      "validation": {
+        "decisions": 3108,
+        "approaches": 140,
+        "vessels": 136
+      }
+    },
+    "baseline_configuration": {
+      "input_csv": "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\data\\hampton_roads_2023_220days_fit_development.csv",
+      "output_directory": "C:\\Users\\jerem\\Downloads\\the_antidote_data_eval\\Data_Science\\artifacts\\data_eval\\baselines",
+      "gate": {
+        "longitude": -76.3,
+        "south_latitude": 36.95,
+        "north_latitude": 37.05,
+        "approach_east_longitude": -75.8,
+        "approach_south_latitude": 36.9,
+        "approach_north_latitude": 37.1,
+        "maximum_crossing_gap_seconds": 120,
+        "episode_break_hours": 6
+      },
+      "features": {
+        "history_minutes": 10,
+        "decision_interval_minutes": 5,
+        "minimum_episode_minutes": 10
+      },
+      "splits": {
+        "start": "2023-01-01",
+        "validation_start": "2023-06-30",
+        "test_start": "2023-07-20",
+        "end_exclusive": "2023-07-30"
+      },
+      "training": {
+        "seed": 42,
+        "cpu_threads": 4,
+        "ridge_alphas": [
+          0.1,
+          1.0,
+          10.0,
+          100.0
+        ],
+        "xgboost_depths": [
+          2,
+          4,
+          6
+        ],
+        "xgboost_learning_rates": [
+          0.03,
+          0.1
+        ],
+        "xgboost_max_rounds": 500,
+        "xgboost_early_stopping_rounds": 30
+      }
+    },
+    "baseline_model_hashes": {
+      "quadratic": "89fe1db93983fd5ad46cc4899844fb338b2714a60244efe1d73a93feffc1fe51",
+      "xgboost": "cc52fecb94992e94f267f6cb165d170c77c5ff8c6ad3ea8e684dd0800986d0a5"
+    },
+    "source_audit": {
+      "cargo_tanker_rows": 3519615,
+      "invalid_identity_time_position_rows": 0,
+      "exact_duplicate_rows_removed": 207,
+      "conflicting_key_rows_removed": 4,
+      "invalid_sog_replaced_with_missing": 358,
+      "invalid_cog_replaced_with_missing": 33540
+    },
+    "frozen_baseline_hashes": {
+      "quadratic": "89fe1db93983fd5ad46cc4899844fb338b2714a60244efe1d73a93feffc1fe51",
+      "xgboost": "cc52fecb94992e94f267f6cb165d170c77c5ff8c6ad3ea8e684dd0800986d0a5"
+    },
+    "later_source_audit": {
+      "cargo_tanker_rows": 777547,
+      "invalid_identity_time_position_rows": 0,
+      "exact_duplicate_rows_removed": 742,
+      "conflicting_key_rows_removed": 0,
+      "invalid_sog_replaced_with_missing": 1,
+      "invalid_cog_replaced_with_missing": 389,
+      "episodes": {
+        "enrollments": 1112,
+        "unresolved_episodes": 798,
+        "qualifying_crossings": 314
+      }
+    },
+    "reference_labels": "Original nominal gate-crossing brackets, never corrupted.",
+    "geographic_review": "Analytical gate remains provisional; no official berth-arrival claim.",
+    "baseline_test_status": "Inspected by baseline training; exploratory only."
+  },
+  "original_C_manifest": {
+    "name": "C_nominal",
+    "feature_columns": [
+      "east_meters",
+      "north_meters",
+      "speed_knots",
+      "course_sin",
+      "course_cos",
+      "mean_speed_knots",
+      "mean_east_meters",
+      "speed_trend_knots_per_minute",
+      "is_tanker",
+      "history_missing",
+      "is_cargo",
+      "vessel_class_unknown",
+      "speed_median",
+      "speed_q25",
+      "speed_q75",
+      "speed_iqr",
+      "speed_variability",
+      "low_speed_fraction",
+      "course_dispersion",
+      "recent_turn_degrees",
+      "history_east_velocity_mps",
+      "history_north_velocity_mps",
+      "motion_fit_residual_meters",
+      "latest_received_age_minutes",
+      "latest_usable_age_minutes",
+      "maximum_gap_seconds",
+      "occupied_minute_bins",
+      "history_span_seconds",
+      "missing_speed_fraction",
+      "missing_course_fraction",
+      "velocity_disagreement_mps",
+      "flagged_fraction",
+      "maximum_bin_spread_meters",
+      "velocity_unavailable"
+    ],
+    "target_clock": "decision",
+    "input_view": "guarded",
+    "nominal_training_only": true,
+    "train_rows": 27263,
+    "train_approaches": 1319,
+    "train_unavailable_rows": 0,
+    "development_rows": 3108,
+    "development_approaches": 140,
+    "development_mae_minutes": 7.97071372860802,
+    "selected_parameters": {
+      "depth": 2,
+      "learning_rate": 0.1
+    },
+    "fit_seconds": 7.826384899992263,
+    "versions": {
+      "xgboost": "3.1.1",
+      "scikit-learn": "1.6.1",
+      "numpy": "2.4.4",
+      "pandas": "2.3.3",
+      "joblib": "1.5.3"
+    },
+    "model_sha256": "f47d56f56352fce85cf77418a941883af48a268e9f872f7e883479b6ad460d99",
+    "replay_manifest": {
+      "sources": {
+        "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\data\\hampton_roads_2023_220days_fit_development.csv": "074ae718e742ff5463a24d265ddd5e3302d6602e3e36878dd4982780fac47df3",
+        "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\data\\hampton_roads_2023_220days_calibration_march_2024.csv": "11237618de28078560033178858dd531f169fa1240218b0eb10b4fde5f9c2d8f"
+      },
+      "config": {
+        "baseline_config": "C:\\Users\\jerem\\Downloads\\the_antidote_data_eval\\Data_Science\\config_data_eval.json",
+        "output_directory": "C:\\Users\\jerem\\Downloads\\the_antidote_data_eval\\Data_Science\\artifacts\\data_eval\\optimized",
+        "later_csv": "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\data\\hampton_roads_2023_220days_calibration_march_2024.csv",
+        "calibration_start": "2023-07-30",
+        "evaluation_start": "2024-03-01",
+        "evaluation_end": "2024-04-01",
+        "training_delays_minutes": [
+          5,
+          15,
+          30
+        ],
+        "offsets_nautical_miles": [
+          0.1,
+          0.5,
+          2.0
+        ],
+        "affected_fractions": [
+          0.1,
+          0.25,
+          0.5
+        ],
+        "evaluation_seeds": [
+          4201,
+          4202,
+          4203,
+          4204,
+          4205
+        ],
+        "guard": {
+          "bin_seconds": 60,
+          "maximum_speed_knots": 60,
+          "maximum_bin_spread_meters": 500,
+          "maximum_velocity_gap_seconds": 300
+        },
+        "review": {
+          "coverage_target": 0.9,
+          "maximum_half_width_minutes": 5,
+          "minimum_calibration_approaches": 30,
+          "minimum_evaluation_approaches": 60,
+          "age_only_threshold_minutes": 15,
+          "bootstrap_samples": 1000
+        }
+      },
+      "split_counts": {
+        "calibration": {
+          "decisions": 1407,
+          "approaches": 69,
+          "vessels": 67
+        },
+        "evaluation": {
+          "decisions": 5382,
+          "approaches": 243,
+          "vessels": 219
+        },
+        "exploratory": {
+          "decisions": 1780,
+          "approaches": 87,
+          "vessels": 87
+        },
+        "train": {
+          "decisions": 27263,
+          "approaches": 1319,
+          "vessels": 799
+        },
+        "validation": {
+          "decisions": 3108,
+          "approaches": 140,
+          "vessels": 136
+        }
+      },
+      "baseline_configuration": {
+        "input_csv": "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\data\\hampton_roads_2023_220days_fit_development.csv",
+        "output_directory": "C:\\Users\\jerem\\Downloads\\the_antidote_data_eval\\Data_Science\\artifacts\\data_eval\\baselines",
+        "gate": {
+          "longitude": -76.3,
+          "south_latitude": 36.95,
+          "north_latitude": 37.05,
+          "approach_east_longitude": -75.8,
+          "approach_south_latitude": 36.9,
+          "approach_north_latitude": 37.1,
+          "maximum_crossing_gap_seconds": 120,
+          "episode_break_hours": 6
+        },
+        "features": {
+          "history_minutes": 10,
+          "decision_interval_minutes": 5,
+          "minimum_episode_minutes": 10
+        },
+        "splits": {
+          "start": "2023-01-01",
+          "validation_start": "2023-06-30",
+          "test_start": "2023-07-20",
+          "end_exclusive": "2023-07-30"
+        },
+        "training": {
+          "seed": 42,
+          "cpu_threads": 4,
+          "ridge_alphas": [
+            0.1,
+            1.0,
+            10.0,
+            100.0
+          ],
+          "xgboost_depths": [
+            2,
+            4,
+            6
+          ],
+          "xgboost_learning_rates": [
+            0.03,
+            0.1
+          ],
+          "xgboost_max_rounds": 500,
+          "xgboost_early_stopping_rounds": 30
+        }
+      },
+      "baseline_model_hashes": {
+        "quadratic": "89fe1db93983fd5ad46cc4899844fb338b2714a60244efe1d73a93feffc1fe51",
+        "xgboost": "cc52fecb94992e94f267f6cb165d170c77c5ff8c6ad3ea8e684dd0800986d0a5"
+      },
+      "source_audit": {
+        "cargo_tanker_rows": 3519615,
+        "invalid_identity_time_position_rows": 0,
+        "exact_duplicate_rows_removed": 207,
+        "conflicting_key_rows_removed": 4,
+        "invalid_sog_replaced_with_missing": 358,
+        "invalid_cog_replaced_with_missing": 33540
+      },
+      "frozen_baseline_hashes": {
+        "quadratic": "89fe1db93983fd5ad46cc4899844fb338b2714a60244efe1d73a93feffc1fe51",
+        "xgboost": "cc52fecb94992e94f267f6cb165d170c77c5ff8c6ad3ea8e684dd0800986d0a5"
+      },
+      "later_source_audit": {
+        "cargo_tanker_rows": 777547,
+        "invalid_identity_time_position_rows": 0,
+        "exact_duplicate_rows_removed": 742,
+        "conflicting_key_rows_removed": 0,
+        "invalid_sog_replaced_with_missing": 1,
+        "invalid_cog_replaced_with_missing": 389,
+        "episodes": {
+          "enrollments": 1112,
+          "unresolved_episodes": 798,
+          "qualifying_crossings": 314
+        }
+      },
+      "reference_labels": "Original nominal gate-crossing brackets, never corrupted.",
+      "geographic_review": "Analytical gate remains provisional; no official berth-arrival claim.",
+      "baseline_test_status": "Inspected by baseline training; exploratory only."
+    },
+    "training_view_sha256": "8e2d93a0707d26fa04f936f4ebdd7397e96351a1d123f563a58c992af0421bfd",
+    "development_view_sha256": "81cf9c7f9d31b27efba932a1a2a466f3dd846e11fa98bfc95134eb6caf6f2cbf",
+    "feature_schema_version": "vessel_class_v2",
+    "inference_implementation": {
+      "Optimized_Model/features.py": "b47399d7b84b0ba4b626b764d0d859ec5963f4bf0d1c784d9010cd3fa817b38a",
+      "Optimized_Model/quality.py": "398a506d28f23b7567b1cd616121ce9699c7b18dd07b2a8447baa123bc32e428",
+      "Optimized_Model/replay.py": "5081135355d21bb74999c5d0c62dd0d8324492587d17314308527c41fa5b15d3",
+      "eta_baselines/features.py": "bb9ac3e52f494ae6f293f03cc66080770c0a9a4b951b5c19daabc894074708cb",
+      "eta_baselines/motion.py": "ddaaca00c31105c033c90736b5ed7a2c7658e6b8641bd49fd71e151ee923eae0",
+      "eta_baselines/prediction.py": "5ccd793ae2d47687d6a01a5fee10221cc3fd5373079d7fb5cc16fae55cdc172a"
+    },
+    "config": {
+      "baseline_config": "C:\\Users\\jerem\\Downloads\\the_antidote_data_eval\\Data_Science\\config_data_eval.json",
+      "output_directory": "C:\\Users\\jerem\\Downloads\\the_antidote_data_eval\\Data_Science\\artifacts\\data_eval\\optimized",
+      "later_csv": "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\data\\hampton_roads_2023_220days_calibration_march_2024.csv",
+      "calibration_start": "2023-07-30",
+      "evaluation_start": "2024-03-01",
+      "evaluation_end": "2024-04-01",
+      "training_delays_minutes": [
+        5,
+        15,
+        30
+      ],
+      "offsets_nautical_miles": [
+        0.1,
+        0.5,
+        2.0
+      ],
+      "affected_fractions": [
+        0.1,
+        0.25,
+        0.5
+      ],
+      "evaluation_seeds": [
+        4201,
+        4202,
+        4203,
+        4204,
+        4205
+      ],
+      "guard": {
+        "bin_seconds": 60,
+        "maximum_speed_knots": 60,
+        "maximum_bin_spread_meters": 500,
+        "maximum_velocity_gap_seconds": 300
+      },
+      "review": {
+        "coverage_target": 0.9,
+        "maximum_half_width_minutes": 5,
+        "minimum_calibration_approaches": 30,
+        "minimum_evaluation_approaches": 60,
+        "age_only_threshold_minutes": 15,
+        "bootstrap_samples": 1000
+      }
+    },
+    "seed": 42
+  },
+  "approaches": 243,
+  "decisions": 5382
+}
