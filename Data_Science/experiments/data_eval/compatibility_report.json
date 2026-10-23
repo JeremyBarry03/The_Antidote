@@ -1,0 +1,123 @@
+{
+  "source": "C:\\Users\\jerem\\Downloads\\AISVesselTracks2023\\AISVesselTracks2023.gpkg",
+  "source_bytes": 15463698432,
+  "reference_csv": "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\data\\hampton_roads_march_2024.csv",
+  "reference_columns": [
+    "mmsi",
+    "base_date_time",
+    "longitude",
+    "latitude",
+    "sog",
+    "cog",
+    "heading",
+    "vessel_name",
+    "imo",
+    "call_sign",
+    "vessel_type",
+    "status",
+    "length",
+    "width",
+    "draft",
+    "cargo",
+    "transceiver"
+  ],
+  "required_report_columns": [
+    "mmsi",
+    "base_date_time",
+    "longitude",
+    "latitude",
+    "sog",
+    "cog",
+    "vessel_type"
+  ],
+  "layers": [
+    {
+      "table": "AISVesselTracks2023",
+      "row_count": 7596268,
+      "columns": [
+        {
+          "name": "OBJECTID",
+          "type": "INTEGER"
+        },
+        {
+          "name": "Shape",
+          "type": "MULTILINESTRING"
+        },
+        {
+          "name": "MMSI",
+          "type": "MEDIUMINT"
+        },
+        {
+          "name": "TrackStartTime",
+          "type": "DATETIME"
+        },
+        {
+          "name": "TrackEndTime",
+          "type": "DATETIME"
+        },
+        {
+          "name": "VesselType",
+          "type": "MEDIUMINT"
+        },
+        {
+          "name": "Length",
+          "type": "DOUBLE"
+        },
+        {
+          "name": "Width",
+          "type": "DOUBLE"
+        },
+        {
+          "name": "Draft",
+          "type": "DOUBLE"
+        },
+        {
+          "name": "DurationMinutes",
+          "type": "MEDIUMINT"
+        },
+        {
+          "name": "VesselGroup",
+          "type": "TEXT(25)"
+        }
+      ],
+      "geometry": {
+        "column": "Shape",
+        "type": "MULTILINESTRING",
+        "srs_id": 4269,
+        "z": 0,
+        "m": 0
+      },
+      "date_ranges": {
+        "MIN(\"TrackStartTime\")": "2023-01-01T00:00:00.0Z",
+        "MAX(\"TrackStartTime\")": "2023-12-31T23:57:53.0Z",
+        "MIN(\"TrackEndTime\")": "2023-01-01T00:02:07.0Z",
+        "MAX(\"TrackEndTime\")": "2023-12-31T23:59:59.0Z"
+      },
+      "missing_required_report_columns": [
+        "base_date_time",
+        "longitude",
+        "latitude",
+        "sog",
+        "cog"
+      ],
+      "has_point_geometry": false,
+      "report_schema_compatible": false,
+      "extent": [
+        null,
+        null,
+        null,
+        null
+      ]
+    }
+  ],
+  "status": "blocked_incompatible_training_source",
+  "schema_check_scope": "Column/geometry check; not a substitute for value/date/cohort validation.",
+  "requested_evaluation_period": {
+    "start": "2024-03-01",
+    "end_exclusive": "2024-04-01"
+  },
+  "april_2024_data_used": false,
+  "training_performed": false,
+  "evaluation_performed": false,
+  "reason": "Track endpoints and untimed line vertices do not provide individual AIS report timestamps, SOG or COG. Interpolating them would create synthetic training data and cannot reproduce the existing A/B/C observation and gate-crossing contract."
+}

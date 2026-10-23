@@ -1,0 +1,44 @@
+{
+  "baseline_config": "../config_data_eval.json",
+  "output_directory": "../artifacts/data_eval/optimized",
+  "later_csv": "../../data/hampton_roads_2023_calibration_march_2024.csv",
+  "calibration_start": "2023-12-01",
+  "evaluation_start": "2024-03-01",
+  "evaluation_end": "2024-04-01",
+  "training_delays_minutes": [
+    5,
+    15,
+    30
+  ],
+  "offsets_nautical_miles": [
+    0.1,
+    0.5,
+    2.0
+  ],
+  "affected_fractions": [
+    0.1,
+    0.25,
+    0.5
+  ],
+  "evaluation_seeds": [
+    4201,
+    4202,
+    4203,
+    4204,
+    4205
+  ],
+  "guard": {
+    "bin_seconds": 60,
+    "maximum_speed_knots": 60,
+    "maximum_bin_spread_meters": 500,
+    "maximum_velocity_gap_seconds": 300
+  },
+  "review": {
+    "coverage_target": 0.9,
+    "maximum_half_width_minutes": 5,
+    "minimum_calibration_approaches": 30,
+    "minimum_evaluation_approaches": 60,
+    "age_only_threshold_minutes": 15,
+    "bootstrap_samples": 1000
+  }
+}
