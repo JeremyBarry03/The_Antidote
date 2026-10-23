@@ -47,7 +47,8 @@ FRONTEND_DIRECTORY = Path(__file__).resolve().parents[2] / "Frontend"
 MAPBOX_ENV_FILE = FRONTEND_DIRECTORY.parent / ".env"
 MAPBOX_TOKEN_KEYS = ("MAPBOX_PUBLIC_TOKEN", "MAPBOX_TOKEN")
 ASSET_TYPES = {".js": "text/javascript; charset=utf-8", ".mjs": "text/javascript; charset=utf-8",
-               ".css": "text/css; charset=utf-8", ".html": "text/html; charset=utf-8", ".ttf": "font/ttf"}
+               ".css": "text/css; charset=utf-8", ".html": "text/html; charset=utf-8", ".ttf": "font/ttf",
+               ".pdf": "application/pdf", ".tex": "text/plain; charset=utf-8"}
 
 
 def load_mapbox_public_token(env_file: Path) -> str | None:
@@ -532,6 +533,15 @@ def serve(config: OptimizedConfig, port: int) -> None:
                    for path in (FRONTEND_DIRECTORY / "tracking").rglob("*")
                    if path.is_file() and path.suffix in ASSET_TYPES})
     assets["/tracking/"] = FRONTEND_DIRECTORY / "tracking" / "index.html"
+    research = FRONTEND_DIRECTORY / "research"
+    assets.update({f"/research/{name}": research / name for name in
+                   ("index.html", "style.css", "research.mjs", "paper.tex", "paper.pdf")})
+    assets["/research/"] = research / "index.html"
+    assets.update({f"/overview/{name}": research / name for name in
+                   ("index.html", "style.css", "research.mjs")})
+    assets["/overview/"] = research / "index.html"
+    assets["/overview/overview.pdf"] = research / "paper.pdf"
+    assets["/overview/overview.tex"] = research / "paper.tex"
     assets["/eta_replay.html"] = FRONTEND_DIRECTORY / "eta_replay.html"
     sdk = FRONTEND_DIRECTORY / "node_modules" / "mapbox-gl" / "dist"
     assets.update({f"/map-assets/{name}": sdk / name for name in ("mapbox-gl.js", "mapbox-gl.css")})
@@ -555,9 +565,10 @@ def serve(config: OptimizedConfig, port: int) -> None:
         def do_GET(self) -> None:
             request = urlparse(self.path)
             try:
-                if request.path in ("/", "/tracking"):
+                if request.path in ("/", "/tracking", "/research", "/research/", "/overview"):
                     self.send_response(302)
-                    self.send_header("Location", "/tracking/")
+                    self.send_header("Location", "/overview/" if request.path in
+                                     ("/research", "/research/", "/overview") else "/tracking/")
                     self.send_header("Content-Length", "0")
                     self.end_headers()
                 elif request.path in assets:
