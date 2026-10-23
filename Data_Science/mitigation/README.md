@@ -52,3 +52,9 @@ saved predictors or model feature schema.
 `MissingVesselClassMitigation` carries forward recent consistent broad class
 metadata for the same MMSI. It updates only C's three class flags and keeps all
 reports; no history means unknown. See [its README](missing_vessel_class_mitigation/README.md).
+
+`PositionJumpMitigation` is now an anomaly-only detector. It compares adjacent
+positions with SOG/COG-implied movement and exposes per-vessel warnings through
+`api/anamoly_detector.py`. It never filters reports, replaces features, projects
+positions or changes ETA predictions. See
+[its README](position_jump_mitigation/README.md) for the policy and limits.

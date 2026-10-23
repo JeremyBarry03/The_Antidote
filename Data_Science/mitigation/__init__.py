@@ -6,10 +6,12 @@ from .sensor_noise_mitigation import SensorNoiseConfig, SensorNoiseMitigation, S
 from .missing_speed_mitigation import MissingSpeedMitigation, MissingSpeedResult, SpeedStatus
 from .missing_course_mitigation import CourseStatus, MissingCourseMitigation, MissingCourseResult
 from .missing_vessel_class_mitigation import MissingVesselClassMitigation, MissingVesselClassResult, VesselClassStatus
+from .position_jump_mitigation import PositionJumpMitigation, PositionJumpMitigationConfig, PositionJumpResult, PositionStatus
 
 __all__ = ["BaseMitigation", "MitigationParameters", "MitigationResult",
            "GapMitigation", "GapMitigationConfig", "GapMitigationResult", "GapStatus",
            "SensorNoiseConfig", "SensorNoiseMitigation", "SensorNoiseResult", "SensorNoiseStatus",
            "MissingSpeedMitigation", "MissingSpeedResult", "SpeedStatus",
            "CourseStatus", "MissingCourseMitigation", "MissingCourseResult",
-           "MissingVesselClassMitigation", "MissingVesselClassResult", "VesselClassStatus"]
+           "MissingVesselClassMitigation", "MissingVesselClassResult", "VesselClassStatus",
+           "PositionJumpMitigation", "PositionJumpMitigationConfig", "PositionJumpResult", "PositionStatus"]

@@ -63,6 +63,101 @@ def test_vessel_class_mitigation_only_changes_antidote_flags(demo_service, monke
                               mitigate_missing_speed=True, mitigate_missing_vessel_class=True)
 
 
+def test_position_warning_preserves_all_model_features_cards_source_and_hidden_outcomes(demo_service, monkeypatch):
+    from Optimized_Model import service
+
+    captured = []
+    original_predict = service.predict_systems
+
+    def capture(frame, systems):
+        captured.append(frame.copy(deep=True))
+        return original_predict(frame, systems)
+
+    monkeypatch.setattr(service, "predict_systems", capture)
+    source = demo_service.dataset.histories["voyage"].copy(deep=True)
+    config = PositionJumpConfig(affected_fraction=1., displacement_meters=500., displacement_std_meters=0.,
+        start_time="2024-03-05 12:15", end_time="2024-03-05 12:17")
+    raw = demo_service.position_jump_snapshot("decision", config, reveal=True, inspect=True)
+    corrected = demo_service.position_jump_snapshot("decision", config, reveal=True, inspect=True,
+                                                   mitigate_position_jump=True)
+    metadata = corrected["attacked"]["position_jump_mitigation"]
+    assert metadata["assessment"]["flagged_reports"] > 0
+    assert metadata["mode"] == "anomaly_only" and not metadata["features_changed"]
+    assert not metadata["forecast_modified"] and not metadata["model_retrained"]
+    pd.testing.assert_frame_equal(captured[0], captured[2])
+    pd.testing.assert_frame_equal(captured[1], captured[3])
+    for arm in ("original", "attacked"):
+        assert corrected[arm]["received_history"] == raw[arm]["received_history"]
+        assert corrected[arm]["cards"] == raw[arm]["cards"]
+        assert corrected[arm]["reference_arrival"] == raw[arm]["reference_arrival"]
+    assert corrected["attacked"]["inspection"] == raw["attacked"]["inspection"]
+    assert corrected["attacked"]["anomaly_detection"]["anomaly_detected"]
+    event = next(a for a in corrected["attacked"]["anomaly_detection"]["anomalies"] if a["type"] == "position_jump")
+    assert event["message"] == "Navigation measurements disagree; ETA may be unreliable."
+    assert not event["forecast_modified"] and not event["eta_reliable"]
+    pd.testing.assert_frame_equal(source, demo_service.dataset.histories["voyage"])
+    hidden = demo_service.position_jump_snapshot("decision", config, mitigate_position_jump=True)["attacked"]
+    assert hidden["reference_arrival"] is None and hidden["inspection"] is None
+    assert all("error_minutes" not in item for item in hidden["cards"])
+
+
+@pytest.mark.parametrize("flag", ["mitigate_missing_speed", "mitigate_missing_course", "mitigate_missing_vessel_class"])
+def test_position_mitigation_rejects_unevaluated_combinations(demo_service, flag):
+    with pytest.raises(ValueError, match="one mitigation at a time"):
+        demo_service.snapshot("decision", "nominal", reveal=False, verify=False,
+                              mitigate_position_jump=True, **{flag: True})
+
+
+def test_position_mitigation_rejects_other_attacks_and_verification(demo_service):
+    from attacks import MissingSpeedAttack
+
+    for scenario, verify, attack in [("stale_15", False, None), ("nominal", True, None),
+                                    ("nominal", False, MissingSpeedAttack(MissingSpeedConfig(1.)))]:
+        with pytest.raises(ValueError, match="unattended nominal/position-jump"):
+            demo_service.snapshot("decision", scenario, reveal=False, verify=verify, attack=attack,
+                                  mitigate_position_jump=True)
+
+
+def test_position_mitigation_http_option_and_timeline_are_consistent(demo_service, monkeypatch):
+    from http.server import HTTPServer
+    from queue import Queue
+    from threading import Thread
+    from urllib.error import HTTPError
+    from urllib.request import urlopen
+    from Optimized_Model import service
+
+    ready = Queue()
+
+    def create_server(address, handler):
+        server = HTTPServer((address[0], 0), handler)
+        ready.put(server)
+        return server
+
+    monkeypatch.setattr(service, "HTTPServer", create_server)
+    monkeypatch.setattr(DemoService, "load", classmethod(lambda cls, config: demo_service))
+    thread = Thread(target=service.serve, args=(demo_service.config, 8765), daemon=True)
+    thread.start()
+    server = ready.get(timeout=5)
+    root = f"http://127.0.0.1:{server.server_port}"
+    try:
+        path = "/api/attacks/position-jump?decision=decision&affected_fraction=0.25"
+        with urlopen(root + path + "&mitigate_position_jump=true", timeout=10) as response:
+            assert "position_jump_mitigation" in json.load(response)["attacked"]
+        with pytest.raises(HTTPError) as error:
+            urlopen(root + path + "&mitigate_position_jump=invalid", timeout=5)
+        assert error.value.code == 400
+        params = "?decision=decision&scenario=position_jump_25pct&mitigate_position_jump=true"
+        with urlopen(root + "/api/replay" + params, timeout=10) as response:
+            replay = json.load(response)
+        with urlopen(root + "/api/timeline" + params, timeout=10) as response:
+            timeline = json.load(response)
+        assert {point["system"]: point["predicted_arrival_time"] for point in timeline["points"]} == {
+            card["system"]: card["predicted_arrival_time"] for card in replay["cards"]}
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+
+
 def test_vessel_class_mitigation_http_option_and_cold_cache(demo_service, monkeypatch):
     from http.server import HTTPServer
     from queue import Queue

@@ -1,0 +1,17 @@
+{
+  "cohort": "March navigation only; no April or ETA labels",
+  "quantile": 0.995,
+  "weighting": "Equal vessel, equal approaches within vessel, equal valid pairs within approach",
+  "approaches": 242,
+  "vessels": 218,
+  "pairs": 25202,
+  "policy": {
+    "position_sigma_meters": 25.0,
+    "velocity_sigma_mps": 0.5,
+    "distance_threshold_squared": 1.948477151551384,
+    "maximum_pair_gap_seconds": 120.0,
+    "warning_window_minutes": 5.0
+  },
+  "source_hash": "de8946c04c3fa2dfd45c88f7c501d751c49091c30045a173020887c6cd69de71",
+  "limits": "Empirical clean-pair score threshold, not a guaranteed false-alarm probability. The position/velocity scales are fixed experimental normalizers, not sensor specifications. Decision-window false alerts are evaluated separately."
+}

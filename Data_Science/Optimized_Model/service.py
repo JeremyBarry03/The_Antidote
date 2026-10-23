@@ -22,6 +22,7 @@ from mitigation.missing_course_mitigation import CourseStatus, MissingCourseMiti
 from mitigation.missing_course_mitigation.optimized_model import missing_course_snapshot
 from mitigation.missing_vessel_class_mitigation import MissingVesselClassMitigation
 from mitigation.missing_vessel_class_mitigation.optimized_model import CLASS_FEATURES, vessel_class_snapshot
+from mitigation.position_jump_mitigation import PositionJumpMitigation
 
 from attacks import (BaseAttack, MissingCourseAttack, MissingCourseConfig,
                      MissingSpeedAttack, MissingSpeedConfig, MissingVesselClassAttack, MissingVesselClassConfig,
@@ -121,8 +122,11 @@ class DemoService:
             self._evidence = EvaluationEvidence(self.config.output_directory, self.config.evaluation_seeds[0])
         return self._evidence
 
-    def timeline(self, decision_id: str, scenario_name: str, *, reveal: bool) -> dict[str, object]:
+    def timeline(self, decision_id: str, scenario_name: str, *, reveal: bool,
+                 mitigate_position_jump: bool = False) -> dict[str, object]:
         decision = self._decision(decision_id)
+        if mitigate_position_jump and scenario_name not in position_jump_presets(self.config.evaluation_seeds[0]):
+            raise ValueError("Position-jump timeline mitigation requires a position-jump preset.")
         presets = deterioration_presets(self.config.evaluation_seeds[0])
         if scenario_name in presets:
             return self._attack_timeline(decision, SensorDeteriorationAttack(presets[scenario_name]), scenario_name,
@@ -131,21 +135,25 @@ class DemoService:
         jumps = position_jump_presets(self.config.evaluation_seeds[0])
         if scenario_name in jumps:
             return self._attack_timeline(decision, PositionJumpAttack(jumps[scenario_name]), scenario_name,
-                                         reveal, "Live historical replay with simulated position jumps")
+                reveal, "Live historical replay with simulated position jumps",
+                detect_position_jump=mitigate_position_jump)
         if scenario_name not in demo_scenarios():
             raise ValueError("Unknown predeclared replay scenario.")
         return _json_value(self._evaluation_evidence().timeline(decision["approach_id"], scenario_name,
                                                               decision["decision_time"], reveal=reveal))
 
     def _attack_timeline(self, decision: pd.Series, attack: BaseAttack, scenario_name: str,
-                         reveal: bool, source: str, *, mitigation: SensorNoiseMitigation | None = None) -> dict[str, object]:
-        if mitigation is not None and not isinstance(attack, SensorDeteriorationAttack):
+                         reveal: bool, source: str, *,
+                         mitigation: SensorNoiseMitigation | None = None,
+                         detect_position_jump: bool = False) -> dict[str, object]:
+        if isinstance(mitigation, SensorNoiseMitigation) and not isinstance(attack, SensorDeteriorationAttack):
             raise ValueError("Sensor noise mitigation is supported only for SensorDeteriorationAttack.")
         stream = attack.apply(self.dataset.histories[decision.approach_id])
         past = self.dataset.decisions.loc[
             self.dataset.decisions.approach_id.eq(decision.approach_id)
             & self.dataset.decisions.decision_time.le(decision.decision_time)].sort_values("decision_time")
         rows = []
+        anomalies = {}
         for _, previous in past.iterrows():
             row = previous.to_dict()
             received = stream.available(previous.decision_time)
@@ -156,6 +164,9 @@ class DemoService:
                 row.update(corrected)
             row.update(scenario=scenario_name, condition=attack.condition.value, seed=attack.parameters["seed"])
             rows.append(row)
+            if detect_position_jump:
+                anomalies[previous.decision_id] = AnomalyDetector(
+                    GapMitigation(self.config.baseline.gate), PositionJumpMitigation()).evaluate(received, previous.decision_time)
         frame = pd.DataFrame(rows)
         for column in (*OPTIMIZED_COLUMNS, *(f"raw_{c}" for c in RICH_COLUMNS)):
             if column not in frame:
@@ -167,15 +178,26 @@ class DemoService:
         columns = ["decision_id", "decision_time", "system", "available", "predicted_arrival_time"]
         if reveal:
             columns.append("error_minutes")
-        return _json_value({"available": True, "seed": attack.parameters["seed"], "source": source,
-                            "points": predictions[columns].to_dict(orient="records")})
+        points = predictions[columns].to_dict(orient="records")
+        if detect_position_jump:
+            for point in points:
+                point["anomaly_detection"] = anomalies[point["decision_id"]]
+        return _json_value({"available": True, "seed": attack.parameters["seed"], "source": source, "points": points})
 
     def snapshot(self, decision_id: str, scenario_name: str, *, reveal: bool, verify: bool,
                  inspect: bool = False, attack: BaseAttack | None = None,
                  mitigate_missing_speed: bool = False,
                  mitigate_missing_course: bool = False,
                  mitigate_missing_vessel_class: bool = False,
+                 mitigate_position_jump: bool = False,
                  sensor_noise_mitigation: SensorNoiseMitigation | None = None) -> dict[str, object]:
+        jumps = position_jump_presets(self.config.evaluation_seeds[0])
+        if mitigate_position_jump:
+            if mitigate_missing_speed or mitigate_missing_course or mitigate_missing_vessel_class or sensor_noise_mitigation is not None:
+                raise ValueError("Enable one mitigation at a time until their combination is evaluated.")
+            if verify or (scenario_name != "nominal" and scenario_name not in jumps) or (
+                    attack is not None and not isinstance(attack, PositionJumpAttack)):
+                raise ValueError("Position-jump mitigation supports unattended nominal/position-jump replay only.")
         if sensor_noise_mitigation is not None and not isinstance(attack, SensorDeteriorationAttack):
             raise ValueError("Sensor noise mitigation is supported only for SensorDeteriorationAttack.")
         if sensor_noise_mitigation is not None and (
@@ -194,12 +216,11 @@ class DemoService:
         if mitigate_missing_vessel_class and (scenario_name != "nominal" or verify
                 or (attack is not None and not isinstance(attack, MissingVesselClassAttack))):
             raise ValueError("Vessel-class mitigation currently supports unattended nominal/missing-vessel-class replay only.")
-        jumps = position_jump_presets(self.config.evaluation_seeds[0])
         if scenario_name in jumps:
             if verify or attack is not None:
                 raise ValueError("Position jump presets require unattended replay without another attack.")
             result = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False, inspect=inspect,
-                                   attack=PositionJumpAttack(jumps[scenario_name]))
+                                   attack=PositionJumpAttack(jumps[scenario_name]), mitigate_position_jump=mitigate_position_jump)
             result["scenario"] = scenario_name
             return result
         presets = deterioration_presets(self.config.evaluation_seeds[0])
@@ -318,11 +339,20 @@ class DemoService:
             "human_assisted": verify, "verified_observation_time": verified_time,
             "reference_arrival": decision["arrival_time"] if reveal else None,
             "reference_bracket": [decision["crossing_before"], decision["crossing_after"]] if reveal else None,
-            "anomaly_detection": AnomalyDetector(GapMitigation(self.config.baseline.gate)).evaluate(
+            "anomaly_detection": AnomalyDetector(GapMitigation(self.config.baseline.gate),
+                PositionJumpMitigation() if mitigate_position_jump else None).evaluate(
                 available, decision["decision_time"]),
         }
         if mitigation_metadata is not None:
             result["sensor_noise_mitigation"] = mitigation_metadata
+        if mitigate_position_jump:
+            statuses = result["anomaly_detection"]["position_statuses"]
+            result["position_jump_mitigation"] = {
+                "enabled": True, "mode": "anomaly_only", "model_retrained": False,
+                "features_changed": False, "forecast_modified": False,
+                "assessment": statuses[0] if statuses else None,
+                "policy": PositionJumpMitigation().parameters,
+            }
         if speed_mitigation is not None:
             result["missing_speed_mitigation"] = {
                 "enabled": True, "model_retrained": False,
@@ -367,11 +397,13 @@ class DemoService:
 
     def position_jump_snapshot(
         self, decision_id: str, config: PositionJumpConfig, *, reveal: bool = False, inspect: bool = False,
+        mitigate_position_jump: bool = False,
     ) -> dict[str, object]:
         """Same decision and reference crossing; position measurements differ."""
-        original = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False)
+        original = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False,
+                                 mitigate_position_jump=mitigate_position_jump)
         attacked = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False,
-                                 inspect=inspect, attack=PositionJumpAttack(config))
+                                 inspect=inspect, attack=PositionJumpAttack(config), mitigate_position_jump=mitigate_position_jump)
         return {"original": original, "attacked": attacked}
 
     def sensor_deterioration_snapshot(
@@ -545,6 +577,9 @@ def serve(config: OptimizedConfig, port: int) -> None:
                         gap_config=gap, detector_config=detector, stream_ended=ended == "true"))
                 elif request.path == "/api/attacks/position-jump":
                     query = parse_qs(request.query)
+                    mitigation_flag = query.get("mitigate_position_jump", ["false"])[0]
+                    if mitigation_flag not in ("true", "false"):
+                        raise ValueError("mitigate_position_jump must be true or false.")
                     bearing = query.get("bearing_degrees", [None])[0]
                     config = PositionJumpConfig(
                         displacement_meters=float(query.get("displacement_meters", ["2000"])[0]),
@@ -555,7 +590,8 @@ def serve(config: OptimizedConfig, port: int) -> None:
                         start_time=query.get("start_time", [None])[0], end_time=query.get("end_time", [None])[0])
                     self._send(200, service.position_jump_snapshot(query.get("decision", [""])[0], config,
                         reveal=query.get("reveal", ["false"])[0] == "true",
-                        inspect=query.get("inspect", ["false"])[0] == "true"))
+                        inspect=query.get("inspect", ["false"])[0] == "true",
+                        mitigate_position_jump=mitigation_flag == "true"))
                 elif request.path == "/api/attacks/sensor-deterioration":
                     query = parse_qs(request.query)
                     mitigate = query.get("mitigate", ["false"])[0]
@@ -635,14 +671,19 @@ def serve(config: OptimizedConfig, port: int) -> None:
                     ))
                 elif request.path in ("/api/replay", "/api/timeline"):
                     query = parse_qs(request.query)
+                    mitigation_flag = query.get("mitigate_position_jump", ["false"])[0]
+                    if mitigation_flag not in ("true", "false"):
+                        raise ValueError("mitigate_position_jump must be true or false.")
                     decision = query.get("decision", [""])[0]
                     scenario = query.get("scenario", ["nominal"])[0]
                     reveal = query.get("reveal", ["false"])[0] == "true"
                     if request.path == "/api/timeline":
-                        self._send(200, service.timeline(decision, scenario, reveal=reveal))
+                        self._send(200, service.timeline(decision, scenario, reveal=reveal,
+                            mitigate_position_jump=mitigation_flag == "true"))
                     else:
                         self._send(200, service.snapshot(decision, scenario, reveal=reveal, verify=False,
-                            inspect=query.get("inspect", ["false"])[0] == "true"))
+                            inspect=query.get("inspect", ["false"])[0] == "true",
+                            mitigate_position_jump=mitigation_flag == "true"))
                 else:
                     self._send(404, {"error": "Unknown route."})
             except (ValueError, KeyError) as error:
