@@ -34,6 +34,7 @@ from .configuration import OptimizedConfig
 from .dataset import ReplayDataset, load_replay
 from .evaluation import PredictionSystem, load_systems, predict_systems
 from .features import OPTIMIZED_COLUMNS, RICH_COLUMNS, OptimizedFeatures
+from .fleet import FleetService
 from .presentation import EvaluationEvidence, VISIBLE_REPORT_LIMIT, demo_scenarios, feed_counts, inspect_feed, scenario_options
 from .replay import create_stream
 from .scenarios import primary_scenarios
@@ -45,7 +46,8 @@ logger = logging.getLogger(__name__)
 FRONTEND_DIRECTORY = Path(__file__).resolve().parents[2] / "Frontend"
 MAPBOX_ENV_FILE = FRONTEND_DIRECTORY.parent / ".env"
 MAPBOX_TOKEN_KEYS = ("MAPBOX_PUBLIC_TOKEN", "MAPBOX_TOKEN")
-ASSET_TYPES = {".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8"}
+ASSET_TYPES = {".js": "text/javascript; charset=utf-8", ".mjs": "text/javascript; charset=utf-8",
+               ".css": "text/css; charset=utf-8", ".html": "text/html; charset=utf-8", ".ttf": "font/ttf"}
 
 
 def load_mapbox_public_token(env_file: Path) -> str | None:
@@ -523,9 +525,16 @@ def serve(config: OptimizedConfig, port: int) -> None:
         raise ValueError("Choose a local port between 1024 and 65535.")
     mapbox_token = load_mapbox_public_token(MAPBOX_ENV_FILE)
     service = DemoService.load(config)
-    page = FRONTEND_DIRECTORY / "eta_replay.html"
+    fleet = FleetService(config, service.dataset, service.systems, service.extractor)
     assets = {f"/replay/{path.name}": path for path in (FRONTEND_DIRECTORY / "replay").iterdir()
               if path.is_file() and path.suffix in ASSET_TYPES}
+    assets.update({f"/tracking/{path.relative_to(FRONTEND_DIRECTORY / 'tracking').as_posix()}": path
+                   for path in (FRONTEND_DIRECTORY / "tracking").rglob("*")
+                   if path.is_file() and path.suffix in ASSET_TYPES})
+    assets["/tracking/"] = FRONTEND_DIRECTORY / "tracking" / "index.html"
+    assets["/eta_replay.html"] = FRONTEND_DIRECTORY / "eta_replay.html"
+    sdk = FRONTEND_DIRECTORY / "node_modules" / "mapbox-gl" / "dist"
+    assets.update({f"/map-assets/{name}": sdk / name for name in ("mapbox-gl.js", "mapbox-gl.css")})
 
     class ReplayRequest(BaseHTTPRequestHandler):
         def _send_bytes(self, status: int, body: bytes, content_type: str, cache_control: str) -> None:
@@ -546,13 +555,22 @@ def serve(config: OptimizedConfig, port: int) -> None:
         def do_GET(self) -> None:
             request = urlparse(self.path)
             try:
-                if request.path == "/":
-                    self._send_bytes(200, page.read_bytes(), "text/html; charset=utf-8", "no-cache")
+                if request.path in ("/", "/tracking"):
+                    self.send_response(302)
+                    self.send_header("Location", "/tracking/")
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
                 elif request.path in assets:
                     path = assets[request.path]
                     self._send_bytes(200, path.read_bytes(), ASSET_TYPES[path.suffix], "no-cache")
                 elif request.path == "/api/config":
                     self._send(200, {"mapbox_public_token": mapbox_token})
+                elif request.path == "/api/fleet/catalog":
+                    self._send(200, fleet.catalog())
+                elif request.path == "/api/fleet/frame":
+                    query = parse_qs(request.query)
+                    self._send(200, fleet.frame(float(query.get("time", [""])[0]),
+                                               json.loads(query.get("poisoning", ["{}"])[0])))
                 elif request.path == "/api/catalog":
                     self._send(200, service.catalog())
                 elif request.path == "/api/metrics":
@@ -688,6 +706,11 @@ def serve(config: OptimizedConfig, port: int) -> None:
                     self._send(404, {"error": "Unknown route."})
             except (ValueError, KeyError) as error:
                 self._send(400, {"error": str(error)})
+            except FileNotFoundError:
+                self._send(503, {"error": "A dashboard asset is missing. Run npm ci in Frontend to install the pinned Mapbox SDK."})
+            except Exception:
+                logger.exception("Replay request failed: %s", request.path)
+                self._send(500, {"error": "Replay processing failed. See the Python server log for details."})
 
         def do_POST(self) -> None:
             if self.path != "/api/verify":

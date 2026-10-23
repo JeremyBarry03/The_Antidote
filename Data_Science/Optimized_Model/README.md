@@ -6,8 +6,11 @@ longitude -76.30, latitude 36.95-37.05. It does not predict docking at VIG.
 
 The corrected interactive demo is available with
 `python -m Optimized_Model serve --config Optimized_Model/config_vessel_class_v2.json` at
-`http://127.0.0.1:8765`. See `../../Frontend/README.md` for the corruption inspector,
-optional Mapbox token, playback, saved evidence and frontend checks.
+`http://127.0.0.1:8765`. The corrected config is also the CLI default. The server
+opens the fleet dashboard at `/tracking/`; the older replay is at
+`/eta_replay.html`. Run `npm ci` in `Frontend` once to install the pinned Mapbox
+SDK. See `../../Frontend/README.md` for startup, API shapes, attack behavior,
+optional Mapbox token and checks.
 
 The vessel-class v2 run keeps cargo, tanker and unknown distinct in both raw and
 guarded features. Its frozen A/B models and C/control models are separately

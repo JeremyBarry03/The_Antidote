@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 # AIS reliability replay
 
 The existing vanilla JavaScript page uses focused ES modules with strict JSDoc
@@ -6,6 +7,71 @@ serve. Python continues to own scenario generation, feature extraction, and ETA
 inference. No models are trained or changed by this UI.
 
 ## Start
+=======
+# Antidote dashboard
+
+The dashboard at `tracking/index.html` is connected to the Python service in
+`Data_Science/Optimized_Model`. There is no frontend build step or second web
+server. The older single-vessel replay remains at `/eta_replay.html`.
+
+## Run locally
+
+From the repository root, install the pinned browser dependencies once:
+
+```powershell
+cd Frontend
+npm ci
+cd ../Data_Science
+python -m pip install -r requirements-dev.txt
+python -m Optimized_Model serve --port 8765
+```
+
+Open <http://127.0.0.1:8765>. The service redirects to `/tracking/`, serves all
+browser assets and the pinned Mapbox SDK, and exposes the fleet API on the same
+origin. The default config is `Optimized_Model/config_vessel_class_v2.json`;
+its prepared replay dataset and frozen A/B/C models must already exist. A clone
+does not include these ignored artifacts or source CSVs. Follow
+`../Data_Science/Optimized_Model/README.md` to acquire data and prepare/train them.
+The service rejects incompatible artifacts; it does not train models on startup.
+
+For the coastal basemap, set `MAPBOX_PUBLIC_TOKEN=pk.<public token>` in the
+repository root `.env` (or your environment). Only public `pk.` tokens are
+exposed. The coordinate fallback works without a token.
+
+## Connected behavior
+
+The fleet catalog uses the protected evaluation approaches when available,
+otherwise the exploratory partition. Each frame runs Poly (A), ordinary XGBoost
+(B), and Antidote (C) on reports delivered by the selected UTC clock. Clean and
+attacked forecasts are computed independently at that same clock; attacks off
+leaves the poisoned column empty. Errors refer to the original analytical harbor
+crossing, not docking. Vessels are labeled by source MMSI because the prepared
+histories do not contain vessel names.
+
+All seven controls call the existing report attacks. Reporting gaps start ten
+minutes after each approach begins and last for the selected duration; they do
+not move with the replay clock. Noise/drift strength and position-jump settings
+are described by each control's explanation. Attacks are seeded and compose in
+the order gap, drift, deterioration, position jump, then missing fields. Original
+records, frozen artifacts and reference crossings stay unchanged. Display audit
+labels are attached after inference; withheld events contain no measurements.
+
+C uses its trained input guard. Experimental missing-speed, course and class
+repairs are still opt-in through the existing single-attack API endpoints;
+the dashboard does not silently combine unevaluated repair policies. Reporting
+gap warnings use the existing observable cadence detector and clear when reports
+resume. This integration does not claim new calibration or robustness results.
+
+## Checks
+
+```powershell
+# From Frontend
+npm run check
+npm test
+# From Data_Science
+python -m pytest tests -q
+```
+>>>>>>> Stashed changes
 
 From `Data_Science`, with the existing trained artifacts present:
 
@@ -23,9 +89,16 @@ The server automatically reads `.env` from the repository root (beside
 `CODE_GUIDELINES.md`), regardless of the current working folder. Set a public
 token there using the template in `.env.example`:
 
+<<<<<<< Updated upstream
 ```dotenv
 MAPBOX_TOKEN=<your public token>
 ```
+=======
+The Python service serves the SDK from `Frontend/node_modules/mapbox-gl/dist`
+after `npm ci`. Public map configuration and network access are required for
+the geographic basemap. Keep existing Mapbox/OpenStreetMap attribution. Without
+a geographic map the UI can render the coordinate fallback.
+>>>>>>> Stashed changes
 
 The local `.env` is ignored by Git and is not served as a browser asset. Restart
 the server after editing it. `MAPBOX_PUBLIC_TOKEN` is also supported; explicit
