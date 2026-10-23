@@ -1,0 +1,22 @@
+{
+  "protected_hashes_unchanged": true,
+  "protected_files": 136,
+  "implementation_unchanged_during_run": true,
+  "forecast_modified": false,
+  "model_retrained": false,
+  "prefix_checks": 5624,
+  "saved_model_failure_case": {
+    "decision_id": "249489000_20240421T162855:2024-04-21 14:40:00",
+    "seed": 4203,
+    "fraction": 0.5,
+    "all_A_B_C_cards_exactly_unchanged": true,
+    "source_and_reference_unchanged": true,
+    "position_warning_triggered": true,
+    "C_error_minutes": -5.732315948033333,
+    "C_absolute_error_minutes": 5.732315948033333,
+    "forecast_modified": false
+  },
+  "elapsed_seconds": 63.92592139999033,
+  "independent_final_hash_verification": true,
+  "old_correction_implementation_and_results_removed": true
+}

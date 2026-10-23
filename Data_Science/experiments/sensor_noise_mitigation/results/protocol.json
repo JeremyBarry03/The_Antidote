@@ -1,0 +1,101 @@
+{
+  "status": "exploratory_legacy_v1",
+  "current_v2_artifacts_available": false,
+  "model_version": "march_gate_v1 C",
+  "model_hash": "308b888f0bb2ecbdbb35c30e944077ed04644a8149008fb89fcda550decb6fd2",
+  "approaches": 112,
+  "vessels": 110,
+  "decisions": 2402,
+  "reports": 11605,
+  "seeds": [
+    4201,
+    4202,
+    4203
+  ],
+  "severity_sigmas": {
+    "low": [
+      0.5,
+      2.0
+    ],
+    "medium": [
+      1.0,
+      5.0
+    ],
+    "high": [
+      2.0,
+      10.0
+    ],
+    "extreme": [
+      4.0,
+      20.0
+    ]
+  },
+  "affected_fraction": 1.0,
+  "mitigation_config": {
+    "window_minutes": 5.0,
+    "minimum_reports": 3,
+    "minimum_span_seconds": 60.0,
+    "maximum_gap_seconds": 180.0,
+    "maximum_report_age_minutes": 5.0,
+    "maximum_speed_knots": 60.0,
+    "maximum_fit_residual_meters": 50.0,
+    "maximum_segment_speed_difference_knots": 2.0,
+    "maximum_track_turn_degrees": 30.0,
+    "speed_difference_knots": 2.0,
+    "course_difference_degrees": 15.0,
+    "minimum_course_speed_knots": 1.0
+  },
+  "methods": [
+    "unmitigated",
+    "replacement",
+    "half_blend",
+    "development_blend"
+  ],
+  "blending_scope": "Flagged fields only, preserving all existing geometry checks and decision gates",
+  "development_blend": {
+    "alpha_speed": 0.9736760135273184,
+    "alpha_course": 0.8825237200860703,
+    "flagged_development_observations": {
+      "speed": 10613,
+      "course": 7146
+    },
+    "development_approaches": 36,
+    "interpretation": "Fraction of the difference moved toward the position estimate, fixed before April scoring"
+  },
+  "eta_mae": "Approach-weighted mean absolute error; seeds averaged within approaches",
+  "sensor_errors": "Deviation from uncorrupted AIS reference, approach weighted; not independent physical truth",
+  "course_blend": "Interpolate along shortest compass arc; never arithmetic-average compass headings",
+  "geometry_cache": "Only causal position prefixes and observable validity; no original navigation values",
+  "validation": {
+    "all_legacy_nominal_predictions_reproduced": true,
+    "max_prediction_difference_minutes": 1.4210854715202004e-14,
+    "production_adapter_checks": 224,
+    "protected_hashes_unchanged": true
+  },
+  "model_training": "None",
+  "calibration": "None",
+  "limits": [
+    "v1 results cannot be attributed to current vessel-class v2 model",
+    "April has been inspected previously; this is not a fresh protected holdout",
+    "Gate crossing reference, not docking; perfect event-time delivery is assumed",
+    "Fixed development blend is not an uncertainty-adaptive or Kalman filter",
+    "No source/model/production mitigation changes"
+  ],
+  "elapsed_seconds": 248.8206249169889,
+  "source_and_model_hashes": {
+    "/Users/samharrington/Documents/GitHub/2026_WM_Hackathon/Data_Science/artifacts/optimized/march_gate_v1/models/C.joblib": "308b888f0bb2ecbdbb35c30e944077ed04644a8149008fb89fcda550decb6fd2",
+    "/Users/samharrington/Documents/GitHub/2026_WM_Hackathon/data/hampton_roads_march_2024.csv": "de8946c04c3fa2dfd45c88f7c501d751c49091c30045a173020887c6cd69de71",
+    "/Users/samharrington/Documents/GitHub/2026_WM_Hackathon/data/hampton_roads_april_2024.csv": "0bd05942c85247f2c5aadaca31df9945c2805f787b0d425fabeea5f2748a4fbd"
+  },
+  "legacy_implementation_changes": {
+    "eta_baselines/features.py": {
+      "trained": "774b64b9b7a9426ba52fe737006a1ad96ffaa0d82ed99a9c770b266ff98ff8d2",
+      "current": "dd58103f61dcbb8039f2989ce15f437cc7f6b36cdae84f7ff81599e1ef05da9b"
+    },
+    "eta_baselines/prediction.py": {
+      "trained": "292526a49d93dcdea488fec0bd73ed2217b84cbf2b577d743e8b0f4ed7eac282",
+      "current": "66c92331ca318f2fe45e4f813b10f5d90bad804fbc6e6a4fad5a05d9904d811d"
+    }
+  },
+  "experiment_code_sha256": "7d3c9fc03bf7f86f26729835717f33c97c057cffddb1383c03ae5c90ae169437"
+}

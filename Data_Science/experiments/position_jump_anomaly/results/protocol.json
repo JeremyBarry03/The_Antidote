@@ -1,0 +1,135 @@
+{
+  "policy": {
+    "position_sigma_meters": 25.0,
+    "velocity_sigma_mps": 0.5,
+    "distance_threshold_squared": 1.948477151551384,
+    "maximum_pair_gap_seconds": 120.0,
+    "warning_window_minutes": 5.0
+  },
+  "settings": [
+    [
+      "clean",
+      0.0,
+      0
+    ],
+    [
+      "whole_feed",
+      0.1,
+      4201
+    ],
+    [
+      "whole_feed",
+      0.1,
+      4202
+    ],
+    [
+      "whole_feed",
+      0.1,
+      4203
+    ],
+    [
+      "whole_feed",
+      0.2,
+      4201
+    ],
+    [
+      "whole_feed",
+      0.2,
+      4202
+    ],
+    [
+      "whole_feed",
+      0.2,
+      4203
+    ],
+    [
+      "whole_feed",
+      0.25,
+      4201
+    ],
+    [
+      "whole_feed",
+      0.25,
+      4202
+    ],
+    [
+      "whole_feed",
+      0.25,
+      4203
+    ],
+    [
+      "whole_feed",
+      0.5,
+      4201
+    ],
+    [
+      "whole_feed",
+      0.5,
+      4202
+    ],
+    [
+      "whole_feed",
+      0.5,
+      4203
+    ],
+    [
+      "whole_feed",
+      1.0,
+      4201
+    ],
+    [
+      "whole_feed",
+      1.0,
+      4202
+    ],
+    [
+      "whole_feed",
+      1.0,
+      4203
+    ],
+    [
+      "warm_burst",
+      1.0,
+      4201
+    ],
+    [
+      "warm_burst",
+      1.0,
+      4202
+    ],
+    [
+      "warm_burst",
+      1.0,
+      4203
+    ]
+  ],
+  "training": "none",
+  "ETA_features_modified": false,
+  "calibration": {
+    "cohort": "March navigation only; no April or ETA labels",
+    "quantile": 0.995,
+    "weighting": "Equal vessel, equal approaches within vessel, equal valid pairs within approach",
+    "approaches": 242,
+    "vessels": 218,
+    "pairs": 25202,
+    "policy": {
+      "position_sigma_meters": 25.0,
+      "velocity_sigma_mps": 0.5,
+      "distance_threshold_squared": 1.948477151551384,
+      "maximum_pair_gap_seconds": 120.0,
+      "warning_window_minutes": 5.0
+    },
+    "source_hash": "de8946c04c3fa2dfd45c88f7c501d751c49091c30045a173020887c6cd69de71",
+    "limits": "Empirical clean-pair score threshold, not a guaranteed false-alarm probability. The position/velocity scales are fixed experimental normalizers, not sensor specifications. Decision-window false alerts are evaluated separately."
+  },
+  "implementation_hashes": {
+    "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\Data_Science\\experiments\\position_jump_anomaly\\run.py": "fe29e87f60d51d4f5434b756396da2e5662e102282a3dbcfa5b581d64230159c",
+    "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\Data_Science\\experiments\\position_jump_anomaly\\calibrate.py": "efc95f390228f835ed59548340fe592ca57f75a793fb663885db36ba5d297f10",
+    "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\Data_Science\\experiments\\position_jump_anomaly\\report.py": "dc4b315c8ad7c95acc8b711484364e6854d7855cceb1f17f34c03da69bbe74f9",
+    "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\Data_Science\\Optimized_Model\\service.py": "7fe82bf6da12a4a19577dad954d26218c7e339aef6537fe95d24ae9fdd10c031",
+    "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\Data_Science\\api\\anamoly_detector.py": "365875d4fb943dad9dd9e3e0aeb59232861b0868cf06eff1e768aef0d4d8b505",
+    "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\Data_Science\\mitigation\\position_jump_mitigation\\position_jump_mitigation.py": "6bd6b914374f4f7ecd2c635571457f8ed4c6c90c82f925e9ecd2d056da1d5062",
+    "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\Data_Science\\mitigation\\position_jump_mitigation\\__init__.py": "bc125c9b8a55def47721a6c3cfb07fa3b806b04ffec12f0e944368d6c530818f"
+  },
+  "metrics": "Pooled eligible adjacent pairs and scheduled decision/seed windows; pair positive means either endpoint injected. Reference alerts are a false-alarm proxy. First delay is from first affected eligible pair to first flagged affected pair; undetected profiles excluded and counted separately."
+}

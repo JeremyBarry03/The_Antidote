@@ -1,0 +1,31 @@
+{
+  "python": {
+    "command": "python -m pytest -q",
+    "passed": 464,
+    "failed": 0,
+    "elapsed_seconds": 28.1
+  },
+  "report_runner_regression": {
+    "command": "python -m pytest tests/test_position_jump_anomaly_experiment.py -q",
+    "passed": 3,
+    "failed": 0
+  },
+  "frontend_typecheck": {
+    "command": "npm run check",
+    "exit_code": 0
+  },
+  "frontend_tests": {
+    "command": "npm test",
+    "passed": 10,
+    "failed": 0
+  },
+  "invariants": [
+    "complete A/B/C inference frames and cards unchanged",
+    "original AIS unchanged",
+    "ground-truth labels excluded from detector",
+    "future and late report causality",
+    "per-MMSI isolation",
+    "no trusted-track estimation or feature adapter",
+    "old correction implementation and results removed"
+  ]
+}

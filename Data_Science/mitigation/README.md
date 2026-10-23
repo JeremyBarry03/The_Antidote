@@ -31,6 +31,11 @@ It detects per-vessel reporting silence; it does not reconstruct positions,
 modify features, or retrain models. The former projection adapter and experiment
 outputs have been removed.
 
+`SensorNoiseMitigation` implements detection and conditional SOG/COG
+reconstruction for the Gaussian `SensorDeteriorationAttack` experiment only.
+It follows the same base contract and keeps received readings separate from
+derived estimates. See [the strategy and initial policy](sensor_noise_mitigation/README.md).
+
 `MissingSpeedMitigation` reconstructs supported missing speed from prior trusted
 positions without retraining C. Its frozen-model adapter is opt-in. See
 [the module README](missing_speed_mitigation/README.md) and
@@ -73,3 +78,9 @@ The [conditional location-correction study](../experiments/location_drift_correc
 evaluates simulated periodic verified fixes and legacy-v1 ETA models. It reports
 the extra reference/trust assumptions, unchanged outputs without those references,
 and combined-attack controls.
+
+`PositionJumpMitigation` is now an anomaly-only detector. It compares adjacent
+positions with SOG/COG-implied movement and exposes per-vessel warnings through
+`api/anamoly_detector.py`. It never filters reports, replaces features, projects
+positions or changes ETA predictions. See
+[its README](position_jump_mitigation/README.md) for the policy and limits.
