@@ -6,7 +6,7 @@ Simulated disruption of copied AIS positions: mean displacement 2 km, SD 0.2 km.
 
 The innovation is observed east/north displacement minus the average of endpoint SOG/COG velocities multiplied by elapsed seconds. Isotropic effective variance is 2*(25 m)^2 + 0.5*(0.5 m/s)^2*dt^2. Score is squared innovation divided by this variance. Threshold 1.948477151551384 is the vessel-balanced March 99.5th percentile over 25,202 eligible pairs from 242 approaches / 218 vessels; no April data or ETA labels select it. The scales are experimental normalizers, not measured sensor specifications. The empirical threshold is not a calibrated probability of bad GPS.
 
-Pairs over 120 seconds apart or with unavailable velocity are unassessed. Invalid/missing coordinates and conflicting same-time positions warn separately. Warnings persist while flagged evidence is within the past five minutes, then expire. Silence is handled independently by the existing gap detector. No alert does not certify correct navigation or ETA.
+Pairs over 120 seconds apart or with unavailable velocity are unassessed. Invalid/missing coordinates and conflicting same-time positions warn separately. Warnings persist while flagged evidence is within the past five minutes, then expire. Silence is handled independently by the existing reporting-gap detector. No alert does not certify correct navigation or ETA.
 
 ## March development
 
