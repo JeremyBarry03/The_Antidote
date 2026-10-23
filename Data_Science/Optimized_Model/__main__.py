@@ -53,12 +53,16 @@ def evaluate_partition(config: OptimizedConfig, partition: str, suite: str) -> p
 def main() -> None:
     parser = argparse.ArgumentParser(description="Train and evaluate degradation-aware model C.")
     parser.add_argument("command", choices=("acquire", "prepare", "train", "calibrate", "evaluate", "pilot", "serve"))
-    parser.add_argument("--config", type=Path, default=Path(__file__).with_name("config_vessel_class_v2.json"))
+    parser.add_argument("--config", type=Path, help="Experiment config; serving defaults to the 2023-trained March evaluation")
+    parser.add_argument("--model-c", choices=("C_nominal", "C"), default="C_nominal",
+                        help="Frozen C artifact to serve; nominal-only C is the dashboard default")
     parser.add_argument("--suite", choices=("primary", "stress", "volume"), default="primary")
     parser.add_argument("--port", type=int, default=8765)
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
-    config = OptimizedConfig.load(args.config)
+    config_path = args.config or Path(__file__).with_name(
+        "config_data_eval.json" if args.command == "serve" else "config_vessel_class_v2.json")
+    config = OptimizedConfig.load(config_path)
     if args.command == "acquire":
         from .acquisition import acquire_later_data
 
@@ -88,7 +92,7 @@ def main() -> None:
     else:
         from .service import serve
 
-        serve(config, args.port)
+        serve(config, args.port, model_c=args.model_c)
 
 
 if __name__ == "__main__":

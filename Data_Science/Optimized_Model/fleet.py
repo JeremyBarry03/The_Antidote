@@ -78,12 +78,14 @@ class FleetService:
     """
 
     def __init__(self, config: OptimizedConfig, dataset: ReplayDataset,
-                 systems: list[PredictionSystem], extractor: OptimizedFeatures) -> None:
+                 systems: list[PredictionSystem], extractor: OptimizedFeatures, *, evaluation_only: bool = False) -> None:
         self.config, self.dataset, self.extractor = config, dataset, extractor
         self.systems = [system for system in systems if system.name in ("A", "B", "C")]
         if {system.name for system in self.systems} != {"A", "B", "C"}:
             raise ValueError("The fleet dashboard requires frozen models A, B and C.")
         self.split = "evaluation" if len(dataset.partition("evaluation")) else "exploratory"
+        if evaluation_only and self.split != "evaluation":
+            raise ValueError("The dashboard requires its configured evaluation set; training replay is disabled.")
         selected = dataset.partition(self.split).sort_values("decision_time")
         if selected.empty:
             raise ValueError("No evaluation or exploratory approaches are available for fleet replay.")
@@ -91,6 +93,11 @@ class FleetService:
         self.starts = {identity: dataset.histories[identity].time.min() for identity in self.approaches.index}
         self.start = min(self.starts.values()).floor("min")
         self.end = (self.approaches.arrival_time.max() + pd.Timedelta(seconds=ARRIVAL_RETENTION_SECONDS)).ceil("min")
+        if evaluation_only:
+            beginning, ending = pd.Timestamp(config.evaluation_start), pd.Timestamp(config.evaluation_end)
+            if not (selected.decision_time.ge(beginning) & selected.crossing_after.lt(ending)).all():
+                raise ValueError("Replay records fall outside the configured evaluation period.")
+            self.start, self.end = beginning, ending - pd.Timedelta(minutes=1)
         self.initial_time = selected.decision_time.iloc[0]
         self._crossings: dict[str, list[float]] | None = None
         self.mitigations = FleetMitigations(extractor)
@@ -104,6 +111,9 @@ class FleetService:
                 "attack_controls": list(ATTACK_CONTROLS),
                 "mitigation_defaults": {"enabled": True, "trusted_fixes": False, "drift_direction": "under"},
                 "models": {"A": "Poly", "B": "XGBoost", "C": "Antidote"},
+                "evaluation_label": pd.Timestamp(self.config.evaluation_start).strftime("%B %Y"),
+                "training_year": pd.Timestamp(self.config.baseline.splits.start).year,
+                "model_c_variant": next(system.predictor.model_name for system in self.systems if system.name == "C"),
                 "arrival_reference": "Original analytical harbor crossing, not docking.",
                 "seed": self.config.evaluation_seeds[0]}
 

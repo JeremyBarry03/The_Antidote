@@ -18,8 +18,11 @@ python -m Optimized_Model serve --port 8765
 
 Open <http://127.0.0.1:8765>. The service redirects to `/tracking/`, serves all
 browser assets and the pinned Mapbox SDK, and exposes the fleet API on the same
-origin. The default config is `Optimized_Model/config_vessel_class_v2.json`;
-its prepared replay dataset and frozen A/B/C models must already exist. A clone
+origin. Serving defaults to `Optimized_Model/config_data_eval.json`: the
+2023-trained A/B artifacts and **nominal-only C** (`C_nominal.joblib`) on the
+full March 1–31, 2024 evaluation set. The timeline/date pickers are restricted
+to that evaluation period. The existing C mitigation pipeline remains enabled.
+Its prepared replay dataset and frozen models must already exist. A clone
 does not include these ignored artifacts or source CSVs. Follow
 `../Data_Science/Optimized_Model/README.md` to acquire data and prepare/train them.
 The service rejects incompatible artifacts; it does not train models on startup.
@@ -30,8 +33,8 @@ exposed. The coordinate fallback works without a token.
 
 ## Connected behavior
 
-The fleet catalog uses the protected evaluation approaches when available,
-otherwise the exploratory partition. Each frame runs Poly (A), ordinary XGBoost
+The dashboard requires the configured evaluation partition and never falls
+back to training/exploratory records. Each frame runs Poly (A), ordinary XGBoost
 (B), and Antidote (C) on reports delivered by the selected UTC clock. Clean and
 attacked forecasts are computed independently at that same clock; attacks off
 leaves the poisoned column empty. Errors refer to the original analytical harbor
@@ -49,7 +52,8 @@ the order gap, speed drift, location drift, deterioration, position jump, then m
 records, frozen artifacts and reference crossings stay unchanged. Display audit
 labels are attached after inference; withheld events contain no measurements.
 
-C uses its trained input guard plus the existing strategies through
+C uses the 2023 nominal-only artifact under the stable system name C, with its
+trained input guard plus the existing strategies through
 `Optimized_Model/fleet_mitigations.py`. Mitigations are built into Antidote;
 the dashboard always enables them without a separate repair switch. Missing speed/course
 can be reconstructed independently from checked original position history;
@@ -70,6 +74,11 @@ explicit experiment reference policies, not automatic fault classification.
 Detectors continue to inspect the unmodified received stream. Metadata recovery
 is independent of navigation and may still operate. Compatible repairs can run
 together, but combined-attack accuracy has not been established or calibrated.
+
+The augmented C artifact is retained for experiments. For an explicit alternate
+bundle, pass `--config path/to/config.json --model-c C` to the serving command.
+Training/evaluation CLI defaults and frozen training configurations are unchanged.
+The augmented model's C calibration is not transferred to nominal-only C.
 
 Location drift warns by default. The dashboard does not add simulated reference
 fixes. The backend's explicit `trusted_fixes=true` experiment adds original-position

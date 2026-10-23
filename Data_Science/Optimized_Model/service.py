@@ -90,9 +90,23 @@ class DemoService:
     _evidence: EvaluationEvidence | None = field(default=None, init=False, repr=False)
 
     @classmethod
-    def load(cls, config: OptimizedConfig) -> "DemoService":
+    def load(cls, config: OptimizedConfig, *, model_c: str = "C") -> "DemoService":
         calibration = load_calibration(config) if (config.output_directory / "calibration.json").exists() else None
-        return cls(config, load_replay(config), load_systems(config),
+        systems = load_systems(config)
+        if model_c not in ("C", "C_nominal"):
+            raise ValueError("Choose C or C_nominal as the serving C artifact.")
+        if model_c == "C_nominal":
+            selected = {system.name: system for system in systems}
+            candidate = selected["C_nominal"]
+            systems = [selected["A"], selected["B"],
+                       PredictionSystem("C", candidate.predictor, candidate.input_view)]
+            # The augmented C's intervals do not describe the nominal-only model.
+            if calibration is not None:
+                calibration = {**calibration, "bands": dict(calibration["bands"])}
+                calibration["bands"].pop("C", None)
+                if "C_nominal" in calibration["bands"]:
+                    calibration["bands"]["C"] = calibration["bands"]["C_nominal"]
+        return cls(config, load_replay(config), systems,
                    OptimizedFeatures(config.baseline, config.guard), calibration)
 
     def catalog(self) -> dict[str, object]:
@@ -108,7 +122,7 @@ class DemoService:
                 "scenario_options": [*scenario_options(), *deterioration_options(self.config.evaluation_seeds[0]),
                                      *position_jump_options(self.config.evaluation_seeds[0])],
                 "replay_seed": self.config.evaluation_seeds[0],
-                "split": split, "calibrated": self.calibration is not None,
+                "split": split, "calibrated": self.calibration is not None and "C" in self.calibration["bands"],
                 "gate": {"longitude": self.config.baseline.gate.longitude,
                          "south": self.config.baseline.gate.south_latitude,
                          "north": self.config.baseline.gate.north_latitude}}
@@ -520,12 +534,12 @@ class DemoService:
         return _json_value(result)
 
 
-def serve(config: OptimizedConfig, port: int) -> None:
+def serve(config: OptimizedConfig, port: int, *, model_c: str = "C_nominal", evaluation_only: bool = True) -> None:
     if not 1024 <= port <= 65535:
         raise ValueError("Choose a local port between 1024 and 65535.")
     mapbox_token = load_mapbox_public_token(MAPBOX_ENV_FILE)
-    service = DemoService.load(config)
-    fleet = FleetService(config, service.dataset, service.systems, service.extractor)
+    service = DemoService.load(config, model_c=model_c)
+    fleet = FleetService(config, service.dataset, service.systems, service.extractor, evaluation_only=evaluation_only)
     assets = {f"/replay/{path.name}": path for path in (FRONTEND_DIRECTORY / "replay").iterdir()
               if path.is_file() and path.suffix in ASSET_TYPES}
     assets.update({f"/tracking/{path.relative_to(FRONTEND_DIRECTORY / 'tracking').as_posix()}": path

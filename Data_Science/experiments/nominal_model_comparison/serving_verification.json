@@ -1,0 +1,174 @@
+{
+  "verified_utc": "2026-10-23T05:23:56.086544+00:00",
+  "url": "http://127.0.0.1:8765/tracking/",
+  "status": "passed",
+  "evaluation_period": "March 1-31, 2024",
+  "training_year": 2023,
+  "model_C": "C_nominal",
+  "approaches": 243,
+  "live_predictions_matched_saved_nominal_comparison": 3,
+  "out_of_period_requests_rejected": true,
+  "controls": [
+    {
+      "control": "reporting_gap",
+      "amount": 15,
+      "ships": 1,
+      "strategies": [
+        "location_drift",
+        "missing_course",
+        "missing_speed",
+        "missing_vessel_class",
+        "position_jump",
+        "reporting_gap",
+        "sensor_drift"
+      ],
+      "applied": [],
+      "ships_with_changed_C_features": 0,
+      "A_B_unchanged": true
+    },
+    {
+      "control": "missing_speed",
+      "amount": 100,
+      "ships": 1,
+      "strategies": [
+        "location_drift",
+        "missing_course",
+        "missing_speed",
+        "missing_vessel_class",
+        "position_jump",
+        "reporting_gap",
+        "sensor_drift"
+      ],
+      "applied": [
+        "missing_speed"
+      ],
+      "ships_with_changed_C_features": 1,
+      "A_B_unchanged": true
+    },
+    {
+      "control": "missing_course",
+      "amount": 100,
+      "ships": 1,
+      "strategies": [
+        "location_drift",
+        "missing_course",
+        "missing_speed",
+        "missing_vessel_class",
+        "position_jump",
+        "reporting_gap",
+        "sensor_drift"
+      ],
+      "applied": [
+        "missing_course"
+      ],
+      "ships_with_changed_C_features": 1,
+      "A_B_unchanged": true
+    },
+    {
+      "control": "missing_vessel_class",
+      "amount": 100,
+      "ships": 1,
+      "strategies": [
+        "location_drift",
+        "missing_course",
+        "missing_speed",
+        "missing_vessel_class",
+        "position_jump",
+        "reporting_gap",
+        "sensor_drift"
+      ],
+      "applied": [],
+      "ships_with_changed_C_features": 0,
+      "A_B_unchanged": true
+    },
+    {
+      "control": "sensor_drift",
+      "amount": 100,
+      "ships": 1,
+      "strategies": [
+        "location_drift",
+        "missing_course",
+        "missing_speed",
+        "missing_vessel_class",
+        "position_jump",
+        "reporting_gap",
+        "sensor_drift"
+      ],
+      "applied": [],
+      "ships_with_changed_C_features": 0,
+      "A_B_unchanged": true
+    },
+    {
+      "control": "location_drift",
+      "amount": 100,
+      "ships": 1,
+      "strategies": [
+        "location_drift",
+        "missing_course",
+        "missing_speed",
+        "missing_vessel_class",
+        "position_jump",
+        "reporting_gap",
+        "sensor_drift"
+      ],
+      "applied": [],
+      "ships_with_changed_C_features": 0,
+      "A_B_unchanged": true
+    },
+    {
+      "control": "sensor_deterioration",
+      "amount": 50,
+      "ships": 1,
+      "strategies": [
+        "location_drift",
+        "missing_course",
+        "missing_speed",
+        "missing_vessel_class",
+        "position_jump",
+        "reporting_gap",
+        "sensor_drift",
+        "sensor_noise"
+      ],
+      "applied": [
+        "sensor_noise"
+      ],
+      "ships_with_changed_C_features": 1,
+      "A_B_unchanged": true
+    },
+    {
+      "control": "position_jump",
+      "amount": 25,
+      "ships": 1,
+      "strategies": [
+        "location_drift",
+        "missing_course",
+        "missing_speed",
+        "missing_vessel_class",
+        "position_jump",
+        "reporting_gap",
+        "sensor_drift"
+      ],
+      "applied": [],
+      "ships_with_changed_C_features": 0,
+      "A_B_unchanged": true
+    }
+  ],
+  "models": {
+    "A": {
+      "path": "artifacts\\data_eval\\optimized\\frozen_baselines\\quadratic\\model.joblib",
+      "sha256": "89fe1db93983fd5ad46cc4899844fb338b2714a60244efe1d73a93feffc1fe51"
+    },
+    "B": {
+      "path": "artifacts\\data_eval\\optimized\\frozen_baselines\\xgboost\\model.joblib",
+      "sha256": "cc52fecb94992e94f267f6cb165d170c77c5ff8c6ad3ea8e684dd0800986d0a5"
+    },
+    "C": {
+      "path": "artifacts\\data_eval\\optimized\\models\\C_nominal.joblib",
+      "sha256": "f47d56f56352fce85cf77418a941883af48a268e9f872f7e883479b6ad460d99"
+    }
+  },
+  "python_tests_passed": 611,
+  "frontend_tests_passed": 22,
+  "frontend_typecheck": "passed",
+  "browser_visual_check": "unavailable: no connected browser provider"
+}

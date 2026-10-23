@@ -134,8 +134,10 @@ def test_position_mitigation_http_option_and_timeline_are_consistent(demo_servic
         return server
 
     monkeypatch.setattr(service, "HTTPServer", create_server)
-    monkeypatch.setattr(DemoService, "load", classmethod(lambda cls, config: demo_service))
-    thread = Thread(target=service.serve, args=(demo_service.config, 8765), daemon=True)
+    # This legacy endpoint fixture intentionally uses the exploratory partition;
+    # strict dashboard evaluation boundaries are tested in test_fleet.py.
+    monkeypatch.setattr(DemoService, "load", classmethod(lambda cls, config, **kwargs: demo_service))
+    thread = Thread(target=service.serve, args=(demo_service.config, 8765), kwargs={"evaluation_only": False}, daemon=True)
     thread.start()
     server = ready.get(timeout=5)
     root = f"http://127.0.0.1:{server.server_port}"
@@ -174,8 +176,8 @@ def test_vessel_class_mitigation_http_option_and_cold_cache(demo_service, monkey
         return server
 
     monkeypatch.setattr(service, "HTTPServer", create_server)
-    monkeypatch.setattr(DemoService, "load", classmethod(lambda cls, config: demo_service))
-    thread = Thread(target=service.serve, args=(demo_service.config, 8765), daemon=True)
+    monkeypatch.setattr(DemoService, "load", classmethod(lambda cls, config, **kwargs: demo_service))
+    thread = Thread(target=service.serve, args=(demo_service.config, 8765), kwargs={"evaluation_only": False}, daemon=True)
     thread.start()
     server = ready.get(timeout=5)
     root = f"http://127.0.0.1:{server.server_port}"
@@ -248,8 +250,8 @@ def test_missing_course_mitigation_http_option(demo_service, monkeypatch):
         return server
 
     monkeypatch.setattr(service, "HTTPServer", create_server)
-    monkeypatch.setattr(DemoService, "load", classmethod(lambda cls, config: demo_service))
-    thread = Thread(target=service.serve, args=(demo_service.config, 8765), daemon=True)
+    monkeypatch.setattr(DemoService, "load", classmethod(lambda cls, config, **kwargs: demo_service))
+    thread = Thread(target=service.serve, args=(demo_service.config, 8765), kwargs={"evaluation_only": False}, daemon=True)
     thread.start()
     server = ready.get(timeout=5)
     root = f"http://127.0.0.1:{server.server_port}"
@@ -319,8 +321,8 @@ def test_missing_speed_mitigation_http_option(demo_service, monkeypatch):
         return server
 
     monkeypatch.setattr(service, "HTTPServer", create_server)
-    monkeypatch.setattr(DemoService, "load", classmethod(lambda cls, config: demo_service))
-    thread = Thread(target=service.serve, args=(demo_service.config, 8765), daemon=True)
+    monkeypatch.setattr(DemoService, "load", classmethod(lambda cls, config, **kwargs: demo_service))
+    thread = Thread(target=service.serve, args=(demo_service.config, 8765), kwargs={"evaluation_only": False}, daemon=True)
     thread.start()
     server = ready.get(timeout=5)
     root = f"http://127.0.0.1:{server.server_port}"
@@ -371,8 +373,8 @@ def test_anomaly_http_polling_ticks_gap_recovery_and_stream_end(demo_service, mo
         return server
 
     monkeypatch.setattr(service, "HTTPServer", create_server)
-    monkeypatch.setattr(DemoService, "load", classmethod(lambda cls, config: demo_service))
-    thread = Thread(target=service.serve, args=(demo_service.config, 8765), daemon=True)
+    monkeypatch.setattr(DemoService, "load", classmethod(lambda cls, config, **kwargs: demo_service))
+    thread = Thread(target=service.serve, args=(demo_service.config, 8765), kwargs={"evaluation_only": False}, daemon=True)
     thread.start()
     server = ready.get(timeout=5)
     root = f"http://127.0.0.1:{server.server_port}"
@@ -901,8 +903,8 @@ def test_deterioration_http_endpoint_and_existing_routes(demo_service: DemoServi
         return server
 
     monkeypatch.setattr(service, "HTTPServer", create_server)
-    monkeypatch.setattr(DemoService, "load", classmethod(lambda cls, config: demo_service))
-    thread = Thread(target=service.serve, args=(demo_service.config, 8765), daemon=True)
+    monkeypatch.setattr(DemoService, "load", classmethod(lambda cls, config, **kwargs: demo_service))
+    thread = Thread(target=service.serve, args=(demo_service.config, 8765), kwargs={"evaluation_only": False}, daemon=True)
     thread.start()
     server = ready.get(timeout=5)
     root = f"http://127.0.0.1:{server.server_port}"
@@ -1002,8 +1004,8 @@ def test_position_jump_http_endpoint_reuses_paired_replay(demo_service: DemoServ
         return server
 
     monkeypatch.setattr(service,"HTTPServer",create_server)
-    monkeypatch.setattr(DemoService,"load",classmethod(lambda cls,config:demo_service))
-    thread = Thread(target=service.serve,args=(demo_service.config,8765),daemon=True)
+    monkeypatch.setattr(DemoService,"load",classmethod(lambda cls,config,**kwargs:demo_service))
+    thread = Thread(target=service.serve,args=(demo_service.config,8765),kwargs={"evaluation_only":False},daemon=True)
     thread.start()
     server = ready.get(timeout=5)
     root = f"http://127.0.0.1:{server.server_port}"

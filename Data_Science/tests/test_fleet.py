@@ -56,6 +56,23 @@ def test_catalog_and_clean_frame_use_current_clock_and_null_attacked_arm(fleet):
     json.dumps(_json_value(frame), allow_nan=False)
 
 
+def test_dashboard_evaluation_window_is_complete_and_rejects_outside_clocks(fleet):
+    dashboard = FleetService(fleet.config, fleet.dataset, fleet.systems, fleet.extractor, evaluation_only=True)
+    catalog = dashboard.catalog()
+    assert catalog["start"] == unix_seconds(pd.Timestamp(fleet.config.evaluation_start))
+    assert catalog["end"] == unix_seconds(pd.Timestamp(fleet.config.evaluation_end) - pd.Timedelta(minutes=1))
+    with pytest.raises(ValueError):
+        dashboard.frame(catalog["start"] - 1, {})
+    with pytest.raises(ValueError):
+        dashboard.frame(catalog["end"] + 60, {})
+
+
+def test_dashboard_never_falls_back_to_exploratory_records(fleet):
+    fleet.dataset.decisions["split"] = "exploratory"
+    with pytest.raises(ValueError, match="evaluation set"):
+        FleetService(fleet.config, fleet.dataset, fleet.systems, fleet.extractor, evaluation_only=True)
+
+
 @pytest.mark.parametrize("control", [control["id"] for control in ATTACK_CONTROLS])
 def test_every_control_runs_all_models_without_mutating_source(fleet, control):
     source = fleet.dataset.histories["voyage"].copy(deep=True)
@@ -160,7 +177,7 @@ def test_server_serves_dashboard_assets_and_both_api_contracts(fleet, monkeypatc
 
     demo = DemoService(fleet.config, fleet.dataset, fleet.systems, fleet.extractor, None)
     monkeypatch.setattr(service, "HTTPServer", create_server)
-    monkeypatch.setattr(DemoService, "load", classmethod(lambda cls, config: demo))
+    monkeypatch.setattr(DemoService, "load", classmethod(lambda cls, config, **kwargs: demo))
     worker = Thread(target=service.serve, args=(fleet.config, 8765), daemon=True)
     worker.start()
     server = ready.get(timeout=5)

@@ -3,12 +3,12 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#090a0c">
 <title>Antidote · Historical Replay</title><link rel="preload" href="./assets/geist-mono-variable.ttf" as="font" type="font/ttf" crossorigin><link rel="icon" href="data:,">
 <link rel="stylesheet" href="/map-assets/mapbox-gl.css"><link rel="stylesheet" href="./style.css"><link rel="stylesheet" href="./arc-components.css"><link rel="stylesheet" href="./arc-date-time.css"><link rel="stylesheet" href="./arc-feedback.css">
-<script src="/map-assets/mapbox-gl.js" defer></script><script src="./coastal.js" defer></script><script src="./app.mjs?v=fleet-mitigations-3" type="module"></script>
+<script src="/map-assets/mapbox-gl.js" defer></script><script src="./coastal.js" defer></script><script src="./app.mjs?v=nominal-2023-march-2024" type="module"></script>
 </head><body>
 <main class="console">
  <section class="tracking-column">
   <section id="map-console" class="map-console" aria-label="Historical ship replay">
-   <header class="section-bar map-toolbar"><h1>Historical replay</h1><div class="map-actions">
+   <header class="section-bar map-toolbar"><h1>Historical replay <small id="replay-period" hidden></small></h1><div class="map-actions">
     <div class="model-select"><button id="model" type="button" aria-label="Model: Antidote" aria-haspopup="listbox" aria-expanded="false" aria-controls="model-menu"><span id="model-name" aria-hidden="true">Antidote</span><svg class="dropdown-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></button><div id="model-menu" class="model-menu" role="listbox" aria-label="Prediction model" hidden><button role="option" aria-selected="false" tabindex="-1" data-model="A">Poly</button><button role="option" aria-selected="false" tabindex="-1" data-model="B">XGBoost</button><button role="option" aria-selected="true" tabindex="-1" data-model="C">Antidote</button></div></div>
     <button id="recenter" aria-label="Recenter">Recenter</button><button id="invert" type="button" aria-pressed="false" aria-label="Switch to light view">Invert</button><button id="fullscreen" class="icon-button" aria-expanded="false" aria-label="Expand map" title="Expand map"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 3H3v4m10-4h4v4M3 13v4h4m10-4v4h-4"/></svg></button>
    </div></header>

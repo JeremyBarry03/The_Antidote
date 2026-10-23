@@ -4,13 +4,21 @@ This package builds on the existing `eta_baselines`, `Simple_baseline` and
 `XGBoost_Model` code. It retains their analytical east-to-west crossing at
 longitude -76.30, latitude 36.95-37.05. It does not predict docking at VIG.
 
-The corrected interactive demo is available with
-`python -m Optimized_Model serve --config Optimized_Model/config_vessel_class_v2.json` at
-`http://127.0.0.1:8765`. The corrected config is also the CLI default. The server
+The interactive demo is available with `python -m Optimized_Model serve` at
+`http://127.0.0.1:8765`. Serving defaults to `config_data_eval.json`: the new
+2023-trained A/B artifacts and nominal-only C (`C_nominal.joblib`), exposed under
+the stable A/B/C names. The UI covers only March 1–31, 2024, and all existing
+fleet mitigation hooks remain connected to C. The augmented C is retained for
+experiments; its calibration is not reused for the nominal-only model. See
+`../experiments/nominal_model_comparison/RESULTS.md` and `serving_verification.json`
+in that experiment folder for the model comparison and live integration checks.
+Other training/evaluation commands retain their explicit experiment behavior. The server
 opens the fleet dashboard at `/tracking/`; the older replay is at
 `/eta_replay.html`. Run `npm ci` in `Frontend` once to install the pinned Mapbox
 SDK. See `../../Frontend/README.md` for startup, API shapes, attack behavior,
 optional Mapbox token and checks.
+
+## Historical vessel-class experiment
 
 The vessel-class v2 run keeps cargo, tanker and unknown distinct in both raw and
 guarded features. Its frozen A/B models and C/control models are separately
@@ -23,7 +31,7 @@ Run the following from `Data_Science` to reproduce the corrected version:
 python experiments/vessel_class_attacks/run.py --train
 python -m Optimized_Model prepare --config Optimized_Model/config_vessel_class_v2.json
 python -m Optimized_Model train --config Optimized_Model/config_vessel_class_v2.json
-python -m Optimized_Model serve --config Optimized_Model/config_vessel_class_v2.json
+python -m Optimized_Model serve --config Optimized_Model/config_vessel_class_v2.json --model-c C
 ```
 
 The new run must be independently calibrated/evaluated before using accuracy
