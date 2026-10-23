@@ -1,0 +1,129 @@
+{
+  "scenarios": {
+    "original": [
+      0.0,
+      false
+    ],
+    "speed_under": [
+      -0.1,
+      false
+    ],
+    "speed_over": [
+      0.1,
+      false
+    ],
+    "location": [
+      0.0,
+      true
+    ],
+    "combined_under": [
+      -0.1,
+      true
+    ],
+    "combined_over": [
+      0.1,
+      true
+    ]
+  },
+  "seed": 42,
+  "speed_attack": {
+    "drift_rate_knots_per_minute": -0.1,
+    "rate_variation_fraction": 0.25,
+    "variation_period_minutes": 20.0,
+    "maximum_bias_knots": 3.0,
+    "seed": 42,
+    "target_mmsi": null,
+    "start_time": null
+  },
+  "location_attack": {
+    "drift_rate_meters_per_minute": 20.0,
+    "maximum_bias_meters": 1852.0,
+    "rate_variation_fraction": 0.25,
+    "variation_period_minutes": 20.0,
+    "bearing_degrees": null,
+    "seed": 42,
+    "target_mmsi": null,
+    "start_time": null
+  },
+  "speed_policy": {
+    "config": {
+      "position_window_minutes": 5.0,
+      "detection_window_minutes": 15.0,
+      "minimum_reports": 3,
+      "minimum_span_seconds": 60.0,
+      "maximum_gap_seconds": 180.0,
+      "maximum_report_age_minutes": 5.0,
+      "maximum_speed_knots": 60.0,
+      "maximum_fit_residual_meters": 50.0,
+      "maximum_segment_speed_difference_knots": 2.0,
+      "maximum_reference_acceleration_knots_per_minute": 0.2,
+      "maximum_track_turn_degrees": 30.0,
+      "ewma_time_constant_minutes": 2.0,
+      "minimum_disagreement_knots": 0.2,
+      "drift_threshold_knots": 0.5,
+      "minimum_persistent_reports": 3,
+      "minimum_persistence_minutes": 2.0
+    },
+    "gate": {
+      "longitude": -76.3,
+      "south_latitude": 36.95,
+      "north_latitude": 37.05,
+      "approach_east_longitude": -75.8,
+      "approach_south_latitude": 36.9,
+      "approach_north_latitude": 37.1,
+      "maximum_crossing_gap_seconds": 120,
+      "episode_break_hours": 6
+    },
+    "scope": "speed_drift"
+  },
+  "location_policy": {
+    "config": {
+      "ewma_time_constant_minutes": 2.0,
+      "minimum_disagreement_meters_per_minute": 4.0,
+      "drift_threshold_meters_per_minute": 8.0,
+      "minimum_persistent_reports": 3,
+      "minimum_persistence_minutes": 2.0,
+      "minimum_accumulated_disagreement_meters": 30.0,
+      "maximum_direction_change_degrees": 45.0,
+      "maximum_gap_seconds": 180.0,
+      "maximum_report_age_minutes": 5.0,
+      "maximum_speed_knots": 60.0,
+      "maximum_course_change_degrees": 15.0,
+      "maximum_speed_change_knots_per_minute": 2.0,
+      "stationary_speed_knots": 0.1
+    },
+    "gate": {
+      "longitude": -76.3,
+      "south_latitude": 36.95,
+      "north_latitude": 37.05,
+      "approach_east_longitude": -75.8,
+      "approach_south_latitude": 36.9,
+      "approach_north_latitude": 37.1,
+      "maximum_crossing_gap_seconds": 120,
+      "episode_break_hours": 6
+    },
+    "scope": "location_drift",
+    "action": "flag_and_require_verified_position",
+    "history": "complete_received_session"
+  },
+  "input_cache": "/Users/samharrington/Documents/GitHub/2026_WM_Hackathon/Data_Science/artifacts/optimized/march_gate_v1/replay_dataset.joblib",
+  "source_hashes": {
+    "/Users/samharrington/Documents/GitHub/2026_WM_Hackathon/data/hampton_roads_march_2024.csv": "de8946c04c3fa2dfd45c88f7c501d751c49091c30045a173020887c6cd69de71",
+    "/Users/samharrington/Documents/GitHub/2026_WM_Hackathon/data/hampton_roads_april_2024.csv": "0bd05942c85247f2c5aadaca31df9945c2805f787b0d425fabeea5f2748a4fbd"
+  },
+  "policy_code_hashes": {
+    "mitigation/sensor_drift_mitigation/sensor_drift_mitigation.py": "25a90a4adfbb3a19cade0fcce95a3975344e257a7af621385a9f31727b691591",
+    "mitigation/location_drift_mitigation/location_drift_mitigation.py": "5610d6b473a9c8993d430e0f4f5e616b9e402f396ba4c95e19ebbe9d6844823f",
+    "mitigation/_drift_helpers.py": "3c99775d8c58b638e8bdd7e92ec725c1e7209b7a7dc2d95b978ad4d85bd0378b",
+    "mitigation/base_mitigation.py": "1c5e57f47af4ee4ca7d14902ff113d3b517a9650b9ad682db23f84c869f63e1e",
+    "attacks/sensorDriftAttack/sensor_drift_attack.py": "a14ee813caf5922ac338689b98306ac63cacd1f9fe949631bdaa9a87a7e9bcc8",
+    "attacks/locationDriftAttack/location_drift_attack.py": "135a29bb302a3b61cde3206a55fdddf1c7ee5d4d6f1c4fb0a9f1faab5b06b674",
+    "attacks/drift_profile.py": "da90f89931bf0b0e95b0afa14d49c39ce5ffb002fe47a9f47eaa04c4e57fc383"
+  },
+  "evaluation": "Previously inspected April 8\u201321; exploratory follow-up",
+  "sensors_reference": "Original AIS, not independently verified physical truth",
+  "no_threshold_fitting": true,
+  "no_forecasts_evaluated": true,
+  "metric": "Approach-weighted current sensor absolute error; all decisions retained",
+  "interval": "1000 paired vessel-cluster bootstrap draws, seed 20261022"
+}

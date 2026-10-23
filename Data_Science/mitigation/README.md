@@ -47,3 +47,29 @@ saved predictors or model feature schema.
 `MissingVesselClassMitigation` carries forward recent consistent broad class
 metadata for the same MMSI. It updates only C's three class flags and keeps all
 reports; no history means unknown. See [its README](missing_vessel_class_mitigation/README.md).
+
+`SensorDriftMitigation` monitors persistent signed speed/position disagreement.
+After its EWMA and persistence checks pass, it returns guarded replacement speed
+in a derived copy. See [the speed-drift strategy](sensor_drift_mitigation/README.md).
+
+`LocationDriftMitigation` monitors persistent position/navigation disagreement.
+It reconstructs coordinates briefly from an independent verified position when
+speed/course are independently trusted; otherwise it requests verification.
+Its raw-feed warning remains active through the supplied session.
+See [the location-drift strategy](location_drift_mitigation/README.md).
+
+These are separate strategies, not a classifier that can determine which of two
+disagreeing sensors is correct. Their reference assumptions differ. Like the gap
+strategy, they keep rules in their own modules; callers own API, ETA and review
+workflow integration. Defaults require calibration before reliability claims.
+
+The [initial drift evaluation](../experiments/drift_mitigation/results/REPORT.md)
+measures separate and combined speed/location faults, original-feed alert burden,
+and a coordinated-corruption counterexample. It predates the optional location
+correction extension and supplies no verified anchors. It does not establish
+location-correction or ETA improvement.
+
+The [conditional location-correction study](../experiments/location_drift_correction/results/REPORT.md)
+evaluates simulated periodic verified fixes and legacy-v1 ETA models. It reports
+the extra reference/trust assumptions, unchanged outputs without those references,
+and combined-attack controls.

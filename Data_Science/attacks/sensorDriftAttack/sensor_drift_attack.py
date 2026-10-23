@@ -8,8 +8,9 @@ import numpy as np
 import pandas as pd
 from pandas.api.types import is_bool_dtype, is_complex_dtype, is_numeric_dtype
 
-from Optimized_Model.replay import Condition, ReportStream, seeded_generator
+from Optimized_Model.replay import Condition, ReportStream
 from attacks.base_attack import AttackParameters, BaseAttack
+from attacks.drift_profile import smooth_bias
 
 MAXIMUM_REPORTED_SPEED_KNOTS = 102.2
 
@@ -78,21 +79,9 @@ class SensorDriftAttack(BaseAttack):
     def _bias(self, elapsed_minutes: np.ndarray, mmsi: str) -> np.ndarray:
         """Integrate a smoothly varying signed rate, then smoothly bound the bias."""
         settings = self.config
-        if settings.drift_rate_knots_per_minute == 0 or settings.maximum_bias_knots == 0:
-            return np.zeros_like(elapsed_minutes)
-        phase = seeded_generator(settings.seed, f"sensor-drift:{mmsi}").uniform(0, 2*np.pi)
-        # This sinc identity equals (cos(phi)-cos(phi+w*t))/w, but stays
-        # accurate near t=0 and for very long variation periods.
-        with np.errstate(over="ignore", divide="ignore"):
-            cycles = elapsed_minutes/settings.variation_period_minutes
-            half_angle = np.pi*cycles
-        if not np.isfinite(half_angle).all():
-            raise ValueError("variation_period_minutes is too small for the supplied report times.")
-        integral = elapsed_minutes*(1 + settings.rate_variation_fraction
-            * np.sin(phase + half_angle)*np.sinc(cycles))
-        with np.errstate(over="ignore", divide="ignore"):
-            unbounded = settings.drift_rate_knots_per_minute*integral
-            return settings.maximum_bias_knots*np.tanh(unbounded/settings.maximum_bias_knots)
+        return smooth_bias(elapsed_minutes, rate=settings.drift_rate_knots_per_minute,
+                           variation=settings.rate_variation_fraction, period_minutes=settings.variation_period_minutes,
+                           maximum=settings.maximum_bias_knots, seed=settings.seed, identity=f"sensor-drift:{mmsi}")
 
     def apply(self, reports: pd.DataFrame) -> ReportStream:
         prepared = self._prepare_reports(reports)

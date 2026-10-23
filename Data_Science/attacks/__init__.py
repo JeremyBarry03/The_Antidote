@@ -8,8 +8,10 @@ from .reportingGapAttack import ReportingGapAttack, ReportingGapConfig
 from .sensorDriftAttack import SensorDriftAttack, SensorDriftConfig
 from .sensorDeteriorationAttack import SensorDeteriorationAttack, SensorDeteriorationConfig
 from .positionJumpAttack import PositionJumpAttack, PositionJumpConfig
+from .locationDriftAttack import LocationDriftAttack, LocationDriftConfig
 
 __all__ = ["BaseAttack", "MissingCourseAttack", "MissingCourseConfig", "MissingSpeedAttack", "MissingSpeedConfig",
            "MissingVesselClassAttack", "MissingVesselClassConfig",
            "ReportingGapAttack", "ReportingGapConfig", "SensorDriftAttack", "SensorDriftConfig",
-           "SensorDeteriorationAttack", "SensorDeteriorationConfig", "PositionJumpAttack", "PositionJumpConfig"]
+           "SensorDeteriorationAttack", "SensorDeteriorationConfig", "PositionJumpAttack", "PositionJumpConfig",
+           "LocationDriftAttack", "LocationDriftConfig"]
