@@ -1,0 +1,11 @@
+{
+  "command": "python -m pytest -q",
+  "passed": 365,
+  "actual_saved_models_api_smoke": {
+    "mmsi": "255803201",
+    "A_B_cards_unchanged": true,
+    "received_history_unchanged": true,
+    "estimated_course_reports": 7,
+    "unsupported_course_reports": 2
+  }
+}

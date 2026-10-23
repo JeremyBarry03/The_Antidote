@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "prediction_pairs": 34749,
+  "maximum_error_difference_minutes": 1.4210854715202004e-14,
+  "tolerance_minutes": 1e-09,
+  "reconstruction_diagnostics_identical": true,
+  "saved_speed_results_unchanged": true,
+  "reference_sha256": "a76a796ebf858d1453215598864062f4d1348f08b03a6cdb92943c2d9e994e55",
+  "implementation_hashes": {
+    "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\Data_Science\\mitigation\\trusted_motion.py": "4c6f4867ffaeb08310916fe665654e3d1bcf98383cd80c76c000a08676f55e69",
+    "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\Data_Science\\mitigation\\navigation_features.py": "1c7c8b6a575f2f99e9db5e89284e8f3328d59814071d1658b35b16aa73f292cd",
+    "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\Data_Science\\mitigation\\missing_speed_mitigation\\missing_speed_mitigation.py": "760cca78b75ecbb8574cfdc530a71ecca3bcf6e15881bd85fc36915073ce9ca9",
+    "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\Data_Science\\mitigation\\missing_speed_mitigation\\optimized_model.py": "96d03d95d5ffe54d42b7614998690e56ac444095859f8560b117cc8461aab6b6"
+  }
+}

@@ -17,6 +17,10 @@ from api.anamoly_detector import AnomalyDetector
 from mitigation.gap_mitigation import GapMitigation, GapMitigationConfig
 from mitigation.missing_speed_mitigation import MissingSpeedMitigation, SpeedStatus
 from mitigation.missing_speed_mitigation.optimized_model import missing_speed_snapshot
+from mitigation.missing_course_mitigation import CourseStatus, MissingCourseMitigation
+from mitigation.missing_course_mitigation.optimized_model import missing_course_snapshot
+from mitigation.missing_vessel_class_mitigation import MissingVesselClassMitigation
+from mitigation.missing_vessel_class_mitigation.optimized_model import CLASS_FEATURES, vessel_class_snapshot
 
 from attacks import (BaseAttack, MissingCourseAttack, MissingCourseConfig,
                      MissingSpeedAttack, MissingSpeedConfig, MissingVesselClassAttack, MissingVesselClassConfig,
@@ -159,10 +163,22 @@ class DemoService:
 
     def snapshot(self, decision_id: str, scenario_name: str, *, reveal: bool, verify: bool,
                  inspect: bool = False, attack: BaseAttack | None = None,
-                 mitigate_missing_speed: bool = False) -> dict[str, object]:
+                 mitigate_missing_speed: bool = False,
+                 mitigate_missing_course: bool = False,
+                 mitigate_missing_vessel_class: bool = False) -> dict[str, object]:
+        if mitigate_missing_speed and mitigate_missing_course:
+            raise ValueError("Enable one navigation mitigation at a time until their combination is evaluated.")
+        if mitigate_missing_vessel_class and (mitigate_missing_speed or mitigate_missing_course):
+            raise ValueError("Enable one mitigation at a time until their combination is evaluated.")
         if mitigate_missing_speed and (scenario_name != "nominal" or verify
                                        or (attack is not None and not isinstance(attack, MissingSpeedAttack))):
             raise ValueError("Missing-speed mitigation currently supports unattended nominal/missing-speed replay only.")
+        if mitigate_missing_course and (scenario_name != "nominal" or verify
+                                        or (attack is not None and not isinstance(attack, MissingCourseAttack))):
+            raise ValueError("Missing-course mitigation currently supports unattended nominal/missing-course replay only.")
+        if mitigate_missing_vessel_class and (scenario_name != "nominal" or verify
+                or (attack is not None and not isinstance(attack, MissingVesselClassAttack))):
+            raise ValueError("Vessel-class mitigation currently supports unattended nominal/missing-vessel-class replay only.")
         jumps = position_jump_presets(self.config.evaluation_seeds[0])
         if scenario_name in jumps:
             if verify or attack is not None:
@@ -212,6 +228,22 @@ class DemoService:
             if not speed_mitigation.mitigated_features.empty:
                 # Only guarded C inputs change. Poly and ordinary XGBoost use raw_*.
                 row.update(speed_mitigation.mitigated_features.iloc[0].to_dict())
+        course_mitigation = None
+        if mitigate_missing_course:
+            course_mitigation = missing_course_snapshot(
+                available, decision["decision_time"], self.extractor,
+                MissingCourseMitigation(self.config.baseline.gate))
+            if not course_mitigation.mitigated_features.empty:
+                row.update(course_mitigation.mitigated_features.iloc[0].to_dict())
+        class_mitigation = None
+        class_features_changed = False
+        if mitigate_missing_vessel_class:
+            class_mitigation = vessel_class_snapshot(
+                available, decision["decision_time"], self.extractor, MissingVesselClassMitigation())
+            if not class_mitigation.mitigated_features.empty:
+                class_features_changed = not class_mitigation.original_features[list(CLASS_FEATURES)].equals(
+                    class_mitigation.mitigated_features[list(CLASS_FEATURES)])
+                row.update(class_mitigation.mitigated_features.iloc[0].to_dict())
         row.update({"scenario": scenario_name, "condition": choices[scenario_name].condition.value, "seed": seed})
         if attack is not None:
             row.update({"scenario": attack.name, "condition": attack.condition.value})
@@ -238,6 +270,13 @@ class DemoService:
             if (prediction["system"] == "C" and speed_mitigation is not None
                     and any(item.status == SpeedStatus.ESTIMATED for item in speed_mitigation.repair.audit)):
                 card.update(review_reason="missing_speed_mitigation_not_calibrated", accepted=False,
+                            interval_half_width_minutes=None, calibration_approaches=None)
+            if (prediction["system"] == "C" and course_mitigation is not None
+                    and any(item.status == CourseStatus.ESTIMATED for item in course_mitigation.repair.audit)):
+                card.update(review_reason="missing_course_mitigation_not_calibrated", accepted=False,
+                            interval_half_width_minutes=None, calibration_approaches=None)
+            if prediction["system"] == "C" and class_features_changed:
+                card.update(review_reason="vessel_class_mitigation_not_calibrated", accepted=False,
                             interval_half_width_minutes=None, calibration_approaches=None)
             if reveal:
                 card["error_minutes"] = prediction["error_minutes"]
@@ -268,6 +307,19 @@ class DemoService:
                 "estimated_reports": sum(item.status == SpeedStatus.ESTIMATED for item in speed_mitigation.repair.audit),
                 "unsupported_reports": sum(item.status == SpeedStatus.UNSUPPORTED for item in speed_mitigation.repair.audit),
                 "audit": [item.to_dict() for item in speed_mitigation.repair.audit],
+            }
+        if course_mitigation is not None:
+            result["missing_course_mitigation"] = {
+                "enabled": True, "model_retrained": False,
+                "anomaly_detected": bool(course_mitigation.repair.audit),
+                "estimated_reports": sum(item.status == CourseStatus.ESTIMATED for item in course_mitigation.repair.audit),
+                "unsupported_reports": sum(item.status == CourseStatus.UNSUPPORTED for item in course_mitigation.repair.audit),
+                "audit": [item.to_dict() for item in course_mitigation.repair.audit],
+            }
+        if class_mitigation is not None:
+            result["missing_vessel_class_mitigation"] = {
+                "enabled": True, "model_retrained": False, "features_changed": class_features_changed,
+                "audit": class_mitigation.mitigation.to_dict(),
             }
         if attack is not None:
             # Audit truth is added only after inference, never to the feature frame.
@@ -348,20 +400,26 @@ class DemoService:
 
     def missing_course_snapshot(
         self, decision_id: str, config: MissingCourseConfig, *, reveal: bool = False, inspect: bool = False,
+        mitigate_missing_course: bool = False,
     ) -> dict[str, object]:
         """Same-clock course masking using current imputation, not a northward default."""
-        original = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False)
+        original = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False,
+                                 mitigate_missing_course=mitigate_missing_course)
         attacked = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False,
-                                 inspect=inspect, attack=MissingCourseAttack(config))
+                                 inspect=inspect, attack=MissingCourseAttack(config),
+                                 mitigate_missing_course=mitigate_missing_course)
         return {"original": original, "attacked": attacked}
 
     def missing_vessel_class_snapshot(
         self, decision_id: str, config: MissingVesselClassConfig, *, reveal: bool = False, inspect: bool = False,
+        mitigate_missing_vessel_class: bool = False,
     ) -> dict[str, object]:
         """Same-clock class masking while retaining every position/speed report."""
-        original = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False)
+        original = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False,
+                                 mitigate_missing_vessel_class=mitigate_missing_vessel_class)
         attacked = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False,
-                                 inspect=inspect, attack=MissingVesselClassAttack(config))
+                                 inspect=inspect, attack=MissingVesselClassAttack(config),
+                                 mitigate_missing_vessel_class=mitigate_missing_vessel_class)
         return {"original": original, "attacked": attacked}
 
     def record_verification(self, decision_id: str, scenario_name: str, review_seconds: float) -> None:
@@ -482,6 +540,9 @@ def serve(config: OptimizedConfig, port: int) -> None:
                         inspect=query.get("inspect", ["false"])[0] == "true"))
                 elif request.path == "/api/attacks/missing-vessel-class":
                     query = parse_qs(request.query)
+                    mitigation_flag = query.get("mitigate_missing_vessel_class", ["false"])[0]
+                    if mitigation_flag not in ("true", "false"):
+                        raise ValueError("mitigate_missing_vessel_class must be true or false.")
                     config = MissingVesselClassConfig(
                         affected_fraction=float(query.get("affected_fraction", ["0.25"])[0]),
                         seed=int(query.get("seed", ["42"])[0]),
@@ -492,9 +553,13 @@ def serve(config: OptimizedConfig, port: int) -> None:
                         query.get("decision", [""])[0], config,
                         reveal=query.get("reveal", ["false"])[0] == "true",
                         inspect=query.get("inspect", ["false"])[0] == "true",
+                        mitigate_missing_vessel_class=mitigation_flag == "true",
                     ))
                 elif request.path == "/api/attacks/missing-course":
                     query = parse_qs(request.query)
+                    mitigation_flag = query.get("mitigate_missing_course", ["false"])[0]
+                    if mitigation_flag not in ("true", "false"):
+                        raise ValueError("mitigate_missing_course must be true or false.")
                     config = MissingCourseConfig(
                         affected_fraction=float(query.get("affected_fraction", ["0.25"])[0]),
                         seed=int(query.get("seed", ["42"])[0]),
@@ -504,6 +569,7 @@ def serve(config: OptimizedConfig, port: int) -> None:
                         query.get("decision", [""])[0], config,
                         reveal=query.get("reveal", ["false"])[0] == "true",
                         inspect=query.get("inspect", ["false"])[0] == "true",
+                        mitigate_missing_course=mitigation_flag == "true",
                     ))
                 elif request.path == "/api/attacks/missing-speed":
                     query = parse_qs(request.query)

@@ -1,0 +1,11 @@
+{
+  "command": "python -m pytest -q",
+  "passed": 393,
+  "actual_saved_model_api_smoke": {
+    "mmsi": "255803201",
+    "A_B_cards_unchanged": true,
+    "received_history_unchanged": true,
+    "class_recovered": "cargo",
+    "evidence_count": 6
+  }
+}

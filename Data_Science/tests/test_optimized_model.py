@@ -28,6 +28,149 @@ from attacks import SensorDeteriorationConfig
 from attacks import PositionJumpAttack, PositionJumpConfig
 
 
+def test_vessel_class_mitigation_only_changes_antidote_flags(demo_service, monkeypatch):
+    from attacks import MissingVesselClassConfig
+    from Optimized_Model import service
+
+    history = demo_service.dataset.histories["voyage"]
+    history.loc[history.time.ge(pd.Timestamp("2024-03-05 12:10")), "vessel_type"] = np.nan
+    config = MissingVesselClassConfig(affected_fraction=0.)
+    original_predict = service.predict_systems
+    captured = []
+
+    def capture(frame, systems):
+        captured.append(frame.copy(deep=True))
+        return original_predict(frame, systems)
+
+    monkeypatch.setattr(service, "predict_systems", capture)
+    ordinary = demo_service.missing_vessel_class_snapshot("decision", config)
+    mitigated = demo_service.missing_vessel_class_snapshot("decision", config, mitigate_missing_vessel_class=True)
+    assert captured[1].vessel_class_unknown.iloc[0] == 1
+    assert captured[3].is_cargo.iloc[0] == 1 and captured[3].vessel_class_unknown.iloc[0] == 0
+    for column in captured[1]:
+        if column.startswith("raw_"):
+            pd.testing.assert_series_equal(captured[1][column], captured[3][column])
+    for arm in ("original", "attacked"):
+        assert ordinary[arm]["received_history"] == mitigated[arm]["received_history"]
+        for name in ("A", "B"):
+            assert next(c for c in ordinary[arm]["cards"] if c["system"] == name) == next(
+                c for c in mitigated[arm]["cards"] if c["system"] == name)
+    assert mitigated["attacked"]["missing_vessel_class_mitigation"]["audit"]["status"] == "recovered"
+    with pytest.raises(ValueError, match="one mitigation"):
+        demo_service.snapshot("decision", "nominal", reveal=False, verify=False,
+                              mitigate_missing_speed=True, mitigate_missing_vessel_class=True)
+
+
+def test_vessel_class_mitigation_http_option_and_cold_cache(demo_service, monkeypatch):
+    from http.server import HTTPServer
+    from queue import Queue
+    from threading import Thread
+    from urllib.error import HTTPError
+    from urllib.request import urlopen
+    from Optimized_Model import service
+
+    ready = Queue()
+
+    def create_server(address, handler):
+        server = HTTPServer((address[0], 0), handler)
+        ready.put(server)
+        return server
+
+    monkeypatch.setattr(service, "HTTPServer", create_server)
+    monkeypatch.setattr(DemoService, "load", classmethod(lambda cls, config: demo_service))
+    thread = Thread(target=service.serve, args=(demo_service.config, 8765), daemon=True)
+    thread.start()
+    server = ready.get(timeout=5)
+    root = f"http://127.0.0.1:{server.server_port}"
+    path = "/api/attacks/missing-vessel-class?decision=decision&affected_fraction=1"
+    try:
+        with urlopen(root + path + "&mitigate_missing_vessel_class=true", timeout=5) as response:
+            result = json.load(response)["attacked"]["missing_vessel_class_mitigation"]
+        assert result["enabled"] and not result["features_changed"]
+        assert result["audit"]["status"] == "unknown"
+        with pytest.raises(HTTPError) as error:
+            urlopen(root + path + "&mitigate_missing_vessel_class=bad", timeout=5)
+        assert error.value.code == 400
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+
+
+def test_missing_course_mitigation_changes_only_antidote_course_inputs(demo_service, monkeypatch):
+    from attacks import MissingCourseConfig
+    from Optimized_Model import service
+
+    config = MissingCourseConfig(affected_fraction=1.)
+    original_predict = service.predict_systems
+    captured = []
+
+    def capture(frame, systems):
+        captured.append(frame.copy(deep=True))
+        return original_predict(frame, systems)
+
+    monkeypatch.setattr(service, "predict_systems", capture)
+    ordinary = demo_service.missing_course_snapshot("decision", config)
+    mitigated = demo_service.missing_course_snapshot("decision", config, mitigate_missing_course=True)
+    original_frame, repaired_frame = captured[1], captured[3]
+    assert original_frame.course_sin.isna().all()
+    assert repaired_frame.course_sin.notna().all()
+    assert repaired_frame.missing_course_fraction.iloc[0] == 1
+    for column in original_frame:
+        if column.startswith("raw_") or "speed" in column:
+            pd.testing.assert_series_equal(original_frame[column], repaired_frame[column])
+    assert mitigated["attacked"]["missing_course_mitigation"]["estimated_reports"] > 0
+    for arm in ("original", "attacked"):
+        assert ordinary[arm]["received_history"] == mitigated[arm]["received_history"]
+        for name in ("A", "B"):
+            assert next(c for c in ordinary[arm]["cards"] if c["system"] == name) == next(
+                c for c in mitigated[arm]["cards"] if c["system"] == name)
+    card = next(c for c in mitigated["attacked"]["cards"] if c["system"] == "C")
+    assert card["review_reason"] == "missing_course_mitigation_not_calibrated"
+    assert not card["accepted"] and card["interval_half_width_minutes"] is None
+    with pytest.raises(ValueError, match="one navigation mitigation"):
+        demo_service.snapshot("decision", "nominal", reveal=False, verify=False,
+                              mitigate_missing_speed=True, mitigate_missing_course=True)
+    with pytest.raises(ValueError, match="nominal/missing-course"):
+        demo_service.snapshot("decision", "delayed_15_minutes", reveal=False, verify=False,
+                              mitigate_missing_course=True)
+
+
+def test_missing_course_mitigation_http_option(demo_service, monkeypatch):
+    from http.server import HTTPServer
+    from queue import Queue
+    from threading import Thread
+    from urllib.error import HTTPError
+    from urllib.request import urlopen
+    from Optimized_Model import service
+
+    ready = Queue()
+
+    def create_server(address, handler):
+        server = HTTPServer((address[0], 0), handler)
+        ready.put(server)
+        return server
+
+    monkeypatch.setattr(service, "HTTPServer", create_server)
+    monkeypatch.setattr(DemoService, "load", classmethod(lambda cls, config: demo_service))
+    thread = Thread(target=service.serve, args=(demo_service.config, 8765), daemon=True)
+    thread.start()
+    server = ready.get(timeout=5)
+    root = f"http://127.0.0.1:{server.server_port}"
+    path = "/api/attacks/missing-course?decision=decision&affected_fraction=1"
+    try:
+        with urlopen(root + path + "&mitigate_missing_course=true", timeout=5) as response:
+            payload = json.load(response)
+        assert payload["attacked"]["missing_course_mitigation"]["estimated_reports"] > 0
+        with urlopen(root + path, timeout=5) as response:
+            assert "missing_course_mitigation" not in json.load(response)["attacked"]
+        with pytest.raises(HTTPError) as error:
+            urlopen(root + path + "&mitigate_missing_course=bad", timeout=5)
+        assert error.value.code == 400
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+
+
 def test_missing_speed_mitigation_updates_only_antidote_inputs(demo_service, monkeypatch):
     from Optimized_Model import service
 

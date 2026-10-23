@@ -35,3 +35,15 @@ outputs have been removed.
 positions without retraining C. Its frozen-model adapter is opt-in. See
 [the module README](missing_speed_mitigation/README.md) and
 [the paired experiment report](../experiments/missing_speed_mitigation/results/REPORT.md).
+
+`MissingCourseMitigation` uses the same shared motion fit but derives circular
+direction, with extra checks for sufficient movement and directional consistency.
+Stationary vessels retain unknown course. See [its README](missing_course_mitigation/README.md).
+
+Shared position fitting and checks live in `trusted_motion.py`; selected feature
+recomputation lives in `navigation_features.py`. These helpers do not change the
+saved predictors or model feature schema.
+
+`MissingVesselClassMitigation` carries forward recent consistent broad class
+metadata for the same MMSI. It updates only C's three class flags and keeps all
+reports; no history means unknown. See [its README](missing_vessel_class_mitigation/README.md).

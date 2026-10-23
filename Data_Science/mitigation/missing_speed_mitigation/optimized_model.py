@@ -2,12 +2,11 @@
 
 from dataclasses import dataclass
 
-import numpy as np
 import pandas as pd
 
 from Optimized_Model.features import OptimizedFeatures
 from Optimized_Model.quality import GuardResult
-from eta_baselines.motion import KNOTS_TO_METERS_PER_SECOND
+from ..navigation_features import repaired_navigation_features
 from .missing_speed_mitigation import MissingSpeedMitigation, SpeedRepair, SpeedStatus
 
 SPEED_FEATURES = (
@@ -42,15 +41,5 @@ def missing_speed_snapshot(reports: pd.DataFrame, decision_time: pd.Timestamp | 
     features = original.copy(deep=True)
     if original.empty or not any(row.status == SpeedStatus.ESTIMATED for row in repair.audit):
         return MissingSpeedSnapshot(original, features, guard, repair)
-    effective = repair.reports
-    values = extractor.base_builder.summarize(effective)
-    values.update(extractor._motion(effective, effective.sog.dropna()))
-    east = original.history_east_velocity_mps.iloc[0]
-    north = original.history_north_velocity_mps.iloc[0]
-    last = effective.iloc[-1]
-    direction = np.deg2rad(last.cog)
-    reported = last.sog * KNOTS_TO_METERS_PER_SECOND * np.array([np.sin(direction), np.cos(direction)])
-    values["velocity_disagreement_mps"] = float(np.linalg.norm(np.array([east, north]) - reported))
-    for name in SPEED_FEATURES:
-        features[name] = values[name]
+    features = repaired_navigation_features(original, repair.reports, extractor, SPEED_FEATURES)
     return MissingSpeedSnapshot(original, features, guard, repair)

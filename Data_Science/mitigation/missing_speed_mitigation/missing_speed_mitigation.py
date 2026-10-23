@@ -2,17 +2,14 @@
 
 from dataclasses import asdict, dataclass, replace
 from enum import Enum
-import math
 from typing import ClassVar
 
 import numpy as np
 import pandas as pd
 
 from eta_baselines.configuration import GateConfig
-from eta_baselines.motion import KNOTS_TO_METERS_PER_SECOND, history_velocity, local_positions
 from ..base_mitigation import BaseMitigation, MitigationParameters, MitigationResult
-
-MAXIMUM_AIS_SPEED_KNOTS = 102.2
+from ..trusted_motion import MAXIMUM_AIS_SPEED_KNOTS, MotionFitConfig, fit_recent_motion
 
 
 class SpeedStatus(str, Enum):
@@ -23,29 +20,8 @@ class SpeedStatus(str, Enum):
 
 
 @dataclass(frozen=True)
-class MissingSpeedConfig:
+class MissingSpeedConfig(MotionFitConfig):
     """Fixed research defaults; not tuned on the evaluation outcomes."""
-
-    history_minutes: float = 5.0
-    minimum_reports: int = 3
-    minimum_span_seconds: float = 60.0
-    maximum_gap_seconds: float = 120.0
-    maximum_speed_knots: float = 60.0
-    maximum_fit_residual_meters: float = 50.0
-    maximum_velocity_deviation_knots: float = 2.0
-
-    def __post_init__(self) -> None:
-        for name, value in asdict(self).items():
-            if name == "minimum_reports":
-                if type(value) is not int or value < 3:
-                    raise ValueError("minimum_reports must be an integer of at least three.")
-            elif (isinstance(value, bool) or not isinstance(value, (int, float))
-                  or not math.isfinite(value) or value <= 0):
-                raise ValueError(f"{name} must be finite and positive.")
-        if self.minimum_span_seconds > self.history_minutes * 60:
-            raise ValueError("Minimum span cannot exceed history window.")
-        if self.maximum_speed_knots > MAXIMUM_AIS_SPEED_KNOTS:
-            raise ValueError("Maximum supported speed exceeds the valid AIS range.")
 
 
 @dataclass(frozen=True)
@@ -137,37 +113,9 @@ class MissingSpeedMitigation(BaseMitigation):
             original_sog=raw if np.isfinite(raw) else None)
         if np.isfinite(raw) and 0 <= raw <= MAXIMUM_AIS_SPEED_KNOTS:
             return replace(base, status=SpeedStatus.OBSERVED)
-        history = received.loc[received.time.between(
-            target.time - pd.Timedelta(minutes=self.config.history_minutes), target.time)]
-        points = history[["latitude", "longitude"]].to_numpy(dtype=float)
-        if not (np.isfinite(points).all() and (abs(points[:, 0]) <= 90).all()
-                and (abs(points[:, 1]) <= 180).all()):
-            return replace(base, reasons=("invalid_positions",))
-        history = history.drop_duplicates(["time", "latitude", "longitude"])
-        span = (history.time.iloc[-1] - history.time.iloc[0]).total_seconds()
-        base = replace(base, used_reports=len(history), history_span_seconds=span)
-        if len(history) < self.config.minimum_reports or span < self.config.minimum_span_seconds:
-            return replace(base, reasons=("insufficient_motion_history",))
-        gaps = history.time.diff().dt.total_seconds().dropna().to_numpy()
-        if (gaps <= 0).any() or (gaps > self.config.maximum_gap_seconds).any():
-            return replace(base, reasons=("discontinuous_or_conflicting_positions",))
-        east, north, residual = history_velocity(history, self.gate)
-        pair_velocity = np.diff(local_positions(history, self.gate), axis=0) / gaps[:, None]
-        deviation = float(np.linalg.norm(pair_velocity - np.array([east, north]), axis=1).max()
-                          / KNOTS_TO_METERS_PER_SECOND)
-        speed = float(np.hypot(east, north) / KNOTS_TO_METERS_PER_SECOND)
-        pair_speed = np.linalg.norm(pair_velocity, axis=1) / KNOTS_TO_METERS_PER_SECOND
-        if not np.isfinite([east, north, residual, speed, deviation]).all():
-            return replace(base, reasons=("invalid_motion_fit",))
-        base = replace(base, east_velocity_mps=east, north_velocity_mps=north,
-                       fit_residual_meters=residual, maximum_velocity_deviation_knots=deviation)
-        reasons = []
-        if speed > self.config.maximum_speed_knots or (pair_speed > self.config.maximum_speed_knots).any():
-            reasons.append("implausible_position_speed")
-        if residual > self.config.maximum_fit_residual_meters:
-            reasons.append("inconsistent_motion_fit")
-        if deviation > self.config.maximum_velocity_deviation_knots:
-            reasons.append("inconsistent_recent_velocity")
-        if reasons:
-            return replace(base, reasons=tuple(reasons))
-        return replace(base, status=SpeedStatus.ESTIMATED, estimated_sog=speed)
+        fit = fit_recent_motion(received, target.time, self.gate, self.config)
+        base = replace(base, used_reports=fit.used_reports, history_span_seconds=fit.history_span_seconds,
+            east_velocity_mps=fit.east_velocity_mps, north_velocity_mps=fit.north_velocity_mps,
+            fit_residual_meters=fit.fit_residual_meters,
+            maximum_velocity_deviation_knots=fit.maximum_velocity_deviation_knots, reasons=fit.reasons)
+        return replace(base, status=SpeedStatus.ESTIMATED, estimated_sog=fit.speed_knots) if fit.supported else base

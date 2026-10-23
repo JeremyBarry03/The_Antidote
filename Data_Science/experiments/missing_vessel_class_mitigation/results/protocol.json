@@ -1,0 +1,46 @@
+{
+  "model": "C / frozen optimized XGBoost",
+  "mitigation": {
+    "minimum_reports": 3,
+    "history_minutes": 60.0
+  },
+  "fractions": [
+    0.1,
+    0.25,
+    0.5,
+    1.0
+  ],
+  "seeds": [
+    4201,
+    4202,
+    4203
+  ],
+  "cold_modes": [
+    "report",
+    "vessel"
+  ],
+  "warm_dropout_onset_minutes_after_first_observation": 10,
+  "full_mask": "Seed-independent; once",
+  "training": "None",
+  "policy_selection": "Fixed before March/April evaluation; no threshold search",
+  "cache": "Scenario-local received history only; never initialized from clean hidden labels",
+  "scoring": "Same scoring/MAE/MdAE/P95 and paired vessel bootstrap helpers as Missing Speed",
+  "protected_hashes_before": {
+    "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\data\\hampton_roads_march_2024.csv": "de8946c04c3fa2dfd45c88f7c501d751c49091c30045a173020887c6cd69de71",
+    "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\data\\hampton_roads_april_2024.csv": "0bd05942c85247f2c5aadaca31df9945c2805f787b0d425fabeea5f2748a4fbd",
+    "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\Data_Science\\artifacts\\optimized\\march_gate_vessel_class_v2\\replay_dataset.joblib": "e316b7c96f6c579762344f172bc7e6a6586a370b5618d0a32f2232d366775176",
+    "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\Data_Science\\artifacts\\optimized\\march_gate_vessel_class_v2\\models\\augmented_motion.joblib": "840cc41f0d89863e95067f77c9a563246080fd919869e4ed59a47a40617e8dcb",
+    "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\Data_Science\\artifacts\\optimized\\march_gate_vessel_class_v2\\models\\B_rich_nominal.joblib": "b360de22caf8fb0e4759ff8efc5c3827d55072d151d671901769994bc3427add",
+    "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\Data_Science\\artifacts\\optimized\\march_gate_vessel_class_v2\\models\\C.joblib": "c76a86ed1dd907369c0f2dd3b25c8979ae922801adad873bf12b857333276b40",
+    "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\Data_Science\\artifacts\\optimized\\march_gate_vessel_class_v2\\models\\C_nominal.joblib": "792b142bd22e4cf4237b647822d905be94a079190744358ef64d22c5a8d088d3",
+    "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\Data_Science\\artifacts\\optimized\\march_gate_vessel_class_v2\\frozen_baselines\\quadratic\\model.joblib": "cb4e2f171405f45b6f03fbcf351eec2bf8f2e43f534de07199c3b5db15c24e10",
+    "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\Data_Science\\artifacts\\optimized\\march_gate_vessel_class_v2\\frozen_baselines\\xgboost\\model.joblib": "7affc0937d42d337d2fec712fe767b4ef7a4544e3592c8e2015f0ceafb253c16",
+    "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\Data_Science\\Optimized_Model\\features.py": "873c5252d1b28418c1abc2192f5f208deecd9dd1e35e0a2c3609c4b0de518b21",
+    "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\Data_Science\\Optimized_Model\\quality.py": "7097ca8f643720fe6f0bc78f4b55b046ebd3e0e9e05d42faf498fe2cbed7f695",
+    "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\Data_Science\\Optimized_Model\\model.py": "1201efef668b7023eb968491d0a412311288339e9df878314695b1e7dd26780c",
+    "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\Data_Science\\eta_baselines\\prediction.py": "66c92331ca318f2fe45e4f813b10f5d90bad804fbc6e6a4fad5a05d9904d811d",
+    "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\Data_Science\\experiments\\missing_speed_mitigation\\results\\predictions.csv": "a76a796ebf858d1453215598864062f4d1348f08b03a6cdb92943c2d9e994e55",
+    "C:\\Users\\jerem\\Downloads\\the_antidote\\2026_WM_Hackathon\\Data_Science\\experiments\\missing_course_mitigation\\results\\predictions.csv": "f504c5457ce23c27a84dca9ea54c0a3a1291f4d934436da39ad63f7609444f37"
+  },
+  "limitations": "Simulated corruption; previously inspected April follow-up; analytical crossing, not docking."
+}
