@@ -5,6 +5,7 @@
 <link rel="stylesheet" href="/map-assets/mapbox-gl.css"><link rel="stylesheet" href="./style.css"><link rel="stylesheet" href="./arc-components.css"><link rel="stylesheet" href="./arc-date-time.css"><link rel="stylesheet" href="./arc-feedback.css">
 <script src="/map-assets/mapbox-gl.js" defer></script><script src="./coastal.js" defer></script><script src="./app.mjs?v=nominal-2023-march-2024" type="module"></script>
 </head><body>
+<nav class="project-nav" aria-label="Primary navigation"><a class="project-name" href="/tracking/">The Antidote</a><div><a href="/tracking/" aria-current="page">Replay</a><a href="/overview/" target="_blank" rel="noopener">Overview<span class="sr-only"> (opens in a new tab)</span></a></div></nav>
 <main class="console">
  <section class="tracking-column">
   <section id="map-console" class="map-console" aria-label="Historical ship replay">
@@ -39,6 +40,7 @@
   </section><section id="live-feed" class="live-feed"><header class="section-bar feed-bar"><h2 id="feed-title"><button id="feed-toggle" type="button" aria-expanded="true" aria-controls="feed-content">Live data feed<svg class="dropdown-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></button></h2><span id="feed-status" class="sr-only" role="status">Connecting</span></header><div id="feed-content" class="feed-table-wrap"><table><thead><tr><th title="Measurement time in UTC">Time</th><th title="Speed over ground, knots" aria-label="Speed in knots">Speed</th><th>Longitude</th><th>Latitude</th><th title="Direction of travel over ground, degrees" aria-label="Angle in degrees">Angle</th><th title="Reported AIS vessel type" aria-label="Reported AIS vessel type">Type</th></tr></thead><tbody id="feed-body"></tbody></table><div id="feed-empty" class="feed-empty">Loading received ship reports…</div></div><p class="sr-only" id="feed-note">Historical AIS · only reports received by the replay clock.</p></section></aside>
  <div id="error" class="error" role="alert" hidden><span></span><button id="retry">Retry</button></div>
 </main>
+<footer class="project-footer"><span>Historical AIS · Research prototype</span><nav aria-label="Footer navigation"><a href="/tracking/" aria-current="page">Replay</a><a href="/overview/" target="_blank" rel="noopener">Overview<span class="sr-only"> (opens in a new tab)</span></a></nav></footer>
 <div id="map-backdrop" hidden aria-hidden="true"></div>
 <dialog id="method-dialog" aria-labelledby="method-title" aria-describedby="method-description"><div class="dialog-title"><h2 id="method-title"></h2><button id="close-dialog" aria-label="Close explanation">×</button></div><p id="method-description"></p><p class="dialog-note">Controls transform replay inputs before inference. Source data, model artifacts and actual crossing times are preserved.</p></dialog>
 <span id="announcement" class="sr-only" role="status"></span>

@@ -4,6 +4,10 @@ The dashboard at `tracking/index.html` is connected to the Python service in
 `Data_Science/Optimized_Model`. There is no frontend build step or second web
 server. The older single-vessel replay remains at `/eta_replay.html`.
 
+The project overview is at `/overview/`, linked from the replay's top and bottom
+navigation. Its web page and downloadable PDF are generated from one standalone
+LaTeX source. See [overview editing](research/README.md).
+
 ## Run locally
 
 From the repository root, install the pinned browser dependencies once:
