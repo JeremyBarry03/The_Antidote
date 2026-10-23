@@ -1064,6 +1064,21 @@ def test_noise_mitigation_cannot_be_applied_to_other_attacks(demo_service):
                                   attack=attack, sensor_noise_mitigation=mitigation)
 
 
+@pytest.mark.parametrize("other_mitigation", [
+    "mitigate_missing_speed", "mitigate_missing_course", "mitigate_missing_vessel_class",
+])
+def test_sensor_noise_mitigation_cannot_silently_combine_missing_field_repairs(demo_service, other_mitigation):
+    from attacks import SensorDeteriorationAttack
+
+    with pytest.raises(ValueError, match="one mitigation at a time"):
+        demo_service.snapshot(
+            "decision", "nominal", reveal=False, verify=False,
+            attack=SensorDeteriorationAttack(SensorDeteriorationConfig()),
+            sensor_noise_mitigation=SensorNoiseMitigation(demo_service.config.baseline.gate),
+            **{other_mitigation: True},
+        )
+
+
 def test_reconstructed_motion_reaches_c_predictor_without_changing_a_b(demo_service):
     from sklearn.linear_model import LinearRegression
 
