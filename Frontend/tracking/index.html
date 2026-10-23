@@ -3,34 +3,12 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#090a0c">
 <title>Antidote · Historical Replay</title><link rel="preload" href="./assets/geist-mono-variable.ttf" as="font" type="font/ttf" crossorigin><link rel="icon" href="data:,">
 <link rel="stylesheet" href="/map-assets/mapbox-gl.css"><link rel="stylesheet" href="./style.css"><link rel="stylesheet" href="./arc-components.css"><link rel="stylesheet" href="./arc-date-time.css"><link rel="stylesheet" href="./arc-feedback.css">
-<link rel="stylesheet" href="./introduction.css"><link rel="stylesheet" href="./monthly-chart.css"><link rel="stylesheet" href="./insights.css">
+<link rel="stylesheet" href="./monthly-chart.css"><link rel="stylesheet" href="./insights.css">
 <script src="/map-assets/mapbox-gl.js" defer></script><script src="./coastal.js" defer></script><script src="./app.mjs" type="module"></script>
 </head><body>
-<header class="site-intro" id="top">
- <nav class="intro-nav" aria-label="Project navigation"><a class="intro-brand" href="#top">Antidote <span>Arrival reliability prototype</span></a><div><a href="#replay-workspace">Replay</a><a href="#monthly-eta">Model analysis</a></div></nav>
- <section class="intro-hero" aria-labelledby="project-title">
-  <div class="intro-message"><h1 id="project-title">Vessel arrival reliability</h1><p>Test whether an inbound vessel’s arrival estimate remains useful when tracking reports become stale, incomplete or inconsistent.</p></div>
-  <a class="intro-cta" href="#replay-workspace">Open replay <span aria-hidden="true">↓</span></a>
-  <dl class="intro-facts">
-   <div><dt>Planner’s decision</dt><dd>Maintain or revise an arrival window before preparing staff, equipment and berth resources.</dd></div>
-   <div><dt>Controlled comparison</dt><dd>Run Poly, XGBoost and Antidote at the same replay time. Sliders change only the disrupted-data run.</dd></div>
-   <div><dt>Arrival reference</dt><dd>A recorded Hampton Roads reference-line crossing, not docking, berth availability or destination.</dd></div>
-  </dl>
- </section>
- <details class="project-brief"><summary>Project brief &amp; evaluation <span>Method, evidence &amp; next steps <span aria-hidden="true">⌄</span></span></summary>
-  <div class="brief-grid">
-   <section><h2>Decision &amp; consequences</h2><p>The proposed port operations planner decides whether to maintain or revise an inbound cargo or tanker’s expected arrival window. An inaccurate or unstable estimate can trigger early preparation, idle staff and equipment, or late coordination. This user framing still needs validation with planners.</p></section>
-   <section><h2>Models &amp; safeguards</h2><p>Poly is the mathematical baseline; standard XGBoost learns arrival patterns; Antidote also uses report age, missingness and motion consistency. Its guard limits duplicate-report influence and screens implausible position jumps. Reporting gaps leave older observations available to the models; missing speed, angle or class and corrupted positions change the evidence they receive.</p><p>Compare all three at the same clock against the original crossing labels. Antidote can still fail when plausible biased reports dominate, and cannot recover an unseen vessel during a complete outage.</p></section>
-   <section><h2>Fair evaluation &amp; success</h2><p>Measure average and tail arrival-time error, prediction coverage, forecast revisions, repairs and withheld predictions. Use matched approaches, checkpoints and seeds; report valid forecasts out of attempted forecasts. Test stale-only, quality-only and combined conditions, then vary fault prevalence, repeated reports and unequal source volume.</p><p>March charts are exploratory and include training/development data, not protected evaluation. The backend’s acceptance targets are at least 10% degraded-error improvement and at most 5% original-data cost; achievement is not established here. Agree a coverage target, then test a new condition on protected data against the same baselines.</p></section>
-   <section><h2>Human review &amp; correction</h2><p>The planner reviews report timestamps, original and disrupted forecasts, and Antidote’s anomaly warnings before allocating resources. Missing or conflicting evidence calls for verification or deferral. Experimental repairs are opt-in; retain the original evidence and disclose what changed. Evaluation must record correction effort, review time and whether warnings improve understanding.</p></section>
-   <section><h2>Data &amp; operational limits</h2><p>Historical AIS reports provide the reference evidence. Injected faults are “Simulated disruption”; original records and crossing labels remain unchanged. Arrival means crossing longitude −76.30° within latitude 36.95–37.05°, not reaching a terminal.</p><p>The source includes model versions, seeds and source/configuration hashes. Before operational use, confirm permitted use and privacy needs, test geographic and vessel-class bias, and name an accountable owner.</p></section>
-   <section><h2>Next step &amp; handoff</h2><p>Iterate before a controlled pilot. The project team must name an evaluation owner, lock acceptance targets and protected data, and review failure cases and original-data tradeoffs. A pilot needs a port partner, planner review time, suitable compute and data/operational approvals.</p><p>Use the repository’s setup instructions, versioned model artifacts and evaluation methods to repeat the comparison. Report negative results, unavailable forecasts and limitations alongside accuracy.</p></section>
-  </div>
- </details>
-</header>
-<main class="console" id="replay-workspace" aria-label="Antidote replay and model analysis">
-<nav class="project-nav" aria-label="Primary navigation"><a class="project-name" href="/tracking/">The Antidote</a><div><a href="/tracking/" aria-current="page">Replay</a><a href="/overview/" target="_blank" rel="noopener">Overview<span class="sr-only"> (opens in a new tab)</span></a></div></nav>
-<main class="console">
+<div id="replay-workspace">
+<nav class="project-nav" aria-label="Primary navigation"><div><a href="/overview/" target="_blank" rel="noopener">Overview<span class="sr-only"> (opens in a new tab)</span></a></div></nav>
+<main class="console" aria-label="Antidote replay and model analysis">
  <section class="tracking-column">
   <section id="map-console" class="map-console" aria-label="Historical ship replay">
    <header class="section-bar map-toolbar"><h2 class="map-title">Historical replay</h2><div class="map-actions">
@@ -126,6 +104,7 @@
  </section>
  <div id="error" class="error" role="alert" hidden><span></span><button id="retry">Retry</button></div>
 </main>
+</div>
 <footer class="project-footer"><span>Historical AIS · Research prototype</span><nav aria-label="Footer navigation"><a href="/tracking/" aria-current="page">Replay</a><a href="/overview/" target="_blank" rel="noopener">Overview<span class="sr-only"> (opens in a new tab)</span></a></nav></footer>
 <div id="map-backdrop" hidden aria-hidden="true"></div>
 <dialog id="method-dialog" aria-labelledby="method-title" aria-describedby="method-description"><div class="dialog-title"><h2 id="method-title"></h2><button id="close-dialog" aria-label="Close explanation">×</button></div><p id="method-description"></p><p class="dialog-note">Controls transform replay inputs before inference. Source data, model artifacts and actual crossing times are preserved.</p></dialog>
