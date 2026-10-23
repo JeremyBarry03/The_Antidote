@@ -29,6 +29,8 @@
  </details>
 </header>
 <main class="console" id="replay-workspace" aria-label="Antidote replay and model analysis">
+<nav class="project-nav" aria-label="Primary navigation"><a class="project-name" href="/tracking/">The Antidote</a><div><a href="/tracking/" aria-current="page">Replay</a><a href="/overview/" target="_blank" rel="noopener">Overview<span class="sr-only"> (opens in a new tab)</span></a></div></nav>
+<main class="console">
  <section class="tracking-column">
   <section id="map-console" class="map-console" aria-label="Historical ship replay">
    <header class="section-bar map-toolbar"><h2 class="map-title">Historical replay</h2><div class="map-actions">
@@ -124,6 +126,7 @@
  </section>
  <div id="error" class="error" role="alert" hidden><span></span><button id="retry">Retry</button></div>
 </main>
+<footer class="project-footer"><span>Historical AIS · Research prototype</span><nav aria-label="Footer navigation"><a href="/tracking/" aria-current="page">Replay</a><a href="/overview/" target="_blank" rel="noopener">Overview<span class="sr-only"> (opens in a new tab)</span></a></nav></footer>
 <div id="map-backdrop" hidden aria-hidden="true"></div>
 <dialog id="method-dialog" aria-labelledby="method-title" aria-describedby="method-description"><div class="dialog-title"><h2 id="method-title"></h2><button id="close-dialog" aria-label="Close explanation">×</button></div><p id="method-description"></p><p class="dialog-note">Controls transform replay inputs before inference. Source data, model artifacts and actual crossing times are preserved.</p></dialog>
 <span id="announcement" class="sr-only" role="status"></span>

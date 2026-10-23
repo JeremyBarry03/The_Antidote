@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#090a0c">
+<meta name="description" content="An overview of The Antidote: its arrival-prediction models, data faults, mitigations, results, and limitations.">
+<title>The Antidote · Overview</title>
+<link rel="icon" href="data:,">
+<link rel="preload" href="/tracking/assets/geist-mono-variable.ttf" as="font" type="font/ttf" crossorigin>
+<link rel="stylesheet" href="./style.css">
+<script src="./research.mjs" type="module"></script>
+</head>
+<body id="top">
+<a class="skip-link" href="#overview">Skip to overview</a>
+<header class="site-header"><nav aria-label="Primary navigation"><a class="wordmark" href="/tracking/">The Antidote</a><div><a href="/tracking/">Replay</a><a href="/overview/" aria-current="page">Overview</a><button id="invert" type="button" aria-label="Switch to light view" aria-pressed="false">Invert</button></div></nav></header>
+<div class="paper-heading">
+<h1>Project overview</h1>
+<p class="subtitle">How The Antidote predicts arrivals when incoming data deteriorates.</p>
+<nav class="document-actions" aria-label="Explore the project"><a href="/tracking/">Explore the replay <svg class="link-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11m-4-4 4 4-4 4"/></svg></a><a href="#what-the-results-show">See the results</a></nav>
+</div>
+<div class="reading-layout">
+<aside class="paper-sidebar"><details id="paper-contents"><summary>On this page</summary><nav aria-label="Overview contents"><ul>
+<li><a href="#what-we-predict" id="toc-what-we-predict">What we predict</a></li>
+<li><a href="#the-data-behind-the-predictions" id="toc-the-data-behind-the-predictions">The data behind the predictions</a></li>
+<li><a href="#how-the-models-differ" id="toc-how-the-models-differ">How the models differ</a></li>
+<li><a href="#how-we-stress-the-data" id="toc-how-we-stress-the-data">How we stress the data</a></li>
+<li><a href="#how-antidote-responds" id="toc-how-antidote-responds">How Antidote responds</a></li>
+<li><a href="#what-the-results-show" id="toc-what-the-results-show">What the results show</a></li>
+<li><a href="#when-a-person-should-step-in" id="toc-when-a-person-should-step-in">When a person should step in</a></li>
+<li><a href="#responsible-use-and-limits" id="toc-responsible-use-and-limits">Responsible use and limits</a></li>
+<li><a href="#what-comes-next" id="toc-what-comes-next">What comes next</a></li>
+<li><a href="#sources-and-reproducibility" id="toc-sources-and-reproducibility">Sources and reproducibility</a></li>
+</ul></nav></details><p>The models, the data,<br>and what happens next.</p></aside>
+<main id="overview" class="paper" tabindex="-1">
+<section class="abstract" aria-labelledby="intro-title"><h2 id="intro-title">At a glance</h2><p>The Antidote estimates when a ship will cross a harbor gate in Hampton Roads. We compare quadratic regression, ordinary XGBoost, and Antidote: a degradation-aware XGBoost model with conditional data repairs. The replay shows how their forecasts change as incoming AIS reports become stale, incomplete, noisy, or biased.</p>
+<p>Our evaluation protocol trains on all of 2023 and tests on March 2024. The saved benchmarks available here come from an earlier March-training/April-evaluation setup and are labeled preliminary. They show useful recovery for several missing-field and noise conditions, alongside large-error failures and little extra recovery when all eight faults are stacked. The sections below explain the inputs, model choices, fault mechanisms, repairs, and limits behind those results.</p></section>
+<section id="what-we-predict" class="level2">
+<h2>What we predict</h2>
+<p>The intended user is a port logistics coordinator deciding whether to keep an arrival-dependent plan or verify it before committing resources. A late or unstable estimate can cause avoidable waiting, premature staffing, or repeated replanning. The prototype supplies an estimate and evidence for that decision; it does not allocate a berth, issue navigation instructions, or control a vessel. The <a href="/tracking/">historical replay</a> supplies the interactive view of ships, incoming reports, data changes, and forecasts. Here, we explain the inputs and decisions behind those forecasts.</p>
+<p>Our outcome is an <em>analytical harbor-gate crossing</em>, not docking, cargo delivery, or an official port-arrival timestamp. A qualifying east-to-west crossing intersects longitude <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>λ</mi><mi>g</mi></msub><mo>=</mo><mi>−</mi><msup><mn>76.3</mn><mo>∘</mo></msup></mrow><annotation encoding="application/x-tex">\lambda_g=-76.3^\circ</annotation></semantics></math> between latitudes <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mn>36.95</mn><mo>∘</mo></msup><annotation encoding="application/x-tex">36.95^\circ</annotation></semantics></math> and <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mn>37.05</mn><mo>∘</mo></msup><annotation encoding="application/x-tex">37.05^\circ</annotation></semantics></math>. Consecutive original observations must bracket it within 120 seconds. If the two longitudes are <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>λ</mi><mn>0</mn></msub><mo>,</mo><msub><mi>λ</mi><mn>1</mn></msub></mrow><annotation encoding="application/x-tex">\lambda_0,\lambda_1</annotation></semantics></math>, the reference is interpolated as <span class="math display" tabindex="0" role="region" aria-label="Equation; scroll horizontally if needed"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>α</mi><mo>=</mo><mfrac><mrow><msub><mi>λ</mi><mi>g</mi></msub><mo>−</mo><msub><mi>λ</mi><mn>0</mn></msub></mrow><mrow><msub><mi>λ</mi><mn>1</mn></msub><mo>−</mo><msub><mi>λ</mi><mn>0</mn></msub></mrow></mfrac><mo>,</mo><mspace width="2.0em"></mspace><msup><mi>T</mi><mo>*</mo></msup><mo>=</mo><msub><mi>t</mi><mn>0</mn></msub><mo>+</mo><mi>α</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>t</mi><mn>1</mn></msub><mo>−</mo><msub><mi>t</mi><mn>0</mn></msub><mo stretchy="false" form="postfix">)</mo><mi>.</mi></mrow><annotation encoding="application/x-tex">\alpha=\frac{\lambda_g-\lambda_0}{\lambda_1-\lambda_0},\qquad
+ T^*=t_0+\alpha(t_1-t_0).</annotation></semantics></math></span> Interpolation assumes approximately linear motion inside the bracket. Sampling, position error, and uncertain destination intent remain limitations of the reference. The original bracket is fixed before introducing faults and never becomes a repair input. Cohort membership requires an observed qualifying crossing, so results cannot establish performance for unresolved approaches or vessels that never arrive.</p>
+<p>The project’s initial accuracy targets are at least a 10% reduction in degraded-condition MAE relative to ordinary XGBoost, with no more than a 5% nominal MAE penalty. These are research decision thresholds, not safety tolerances. Output availability, large-error behavior, uncertainty, and review effort must also be examined; an average improvement alone is insufficient.</p>
+</section>
+<section id="the-data-behind-the-predictions" class="level2">
+<h2>The data behind the predictions</h2>
+<section id="where-the-reports-come-from" class="level3">
+<h3>Where the reports come from</h3>
+<p>The study uses Hampton Roads AIS reports from the complete 2023 calendar year for training and March 2024 for testing. The 2023 source files, acquisition manifest, and fitted model artifacts are not present in the repository material reviewed for this overview. Their source URLs, retrieval dates, geographic filters, checksums, and retained approach counts must accompany the final run; a full-year date range alone does not establish complete receiver coverage.</p>
+<p>The available preliminary artifacts instead use local March and April 2024 subsets. The April acquisition manifest identifies NOAA’s cleaned broadcast-point GeoParquet product, records daily source URLs and checksums, and dates retrieval to 20 October 2026. Its selected rectangle is <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">[</mo><mi>−</mi><mn>76.6</mn><mo>,</mo><mi>−</mi><mn>75.8</mn><msup><mo stretchy="false" form="postfix">]</mo><mo>∘</mo></msup></mrow><annotation encoding="application/x-tex">[-76.6,-75.8]^\circ</annotation></semantics></math> longitude by <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">[</mo><mn>36.7</mn><mo>,</mo><mn>37.2</mn><msup><mo stretchy="false" form="postfix">]</mo><mo>∘</mo></msup></mrow><annotation encoding="application/x-tex">[36.7,37.2]^\circ</annotation></semantics></math> latitude. The merged April subset contains 3,229,675 records over 1–21 April. The March input is identified by its local filename and checksum; an equivalent March acquisition timestamp is not present in the reviewed source manifest. These records document the earlier experiments, not a completed 2023 acquisition.</p>
+<p>Shared preprocessing selects cargo and tanker reports before simulated masking, parses UTC times, treats invalid navigation values as missing, and removes exact duplicate measurements consistently across models. The prepared-source audit records 600,738 March and 393,613 April cargo/tanker rows before exact-duplicate removal. MMSI identifies repeated vessel observations; it is not an independent observation count. Source archives already involve processing and incomplete receiver coverage, so “original” means unchanged by our simulator, not error-free ground truth. NOAA’s metadata describes collection and processing limits.<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
+</section>
+<section id="training-on-2023-testing-on-march-2024" class="level3">
+<h3>Training on 2023, testing on March 2024</h3>
+<p>The temporal separation is the study’s central data contract. All three final models fit on 2023 data; March 2024 is the common test period. It is not an 80/10/10 random row split. Model selection and any threshold or calibration fitting must use only time-ordered partitions within 2023, with complete approaches kept together. After settings are fixed, the final estimators can be refitted on all eligible 2023 approaches. The March test labels must not choose features, repair thresholds, hyperparameters, or an attack setting that looks favourable.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable data table"><table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col />
+<col />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: left;">Partition</th>
+<th style="text-align: left;">Dates</th>
+<th style="text-align: right;">Approaches</th>
+<th style="text-align: right;">Clocks</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Final training</td>
+<td style="text-align: left;">1 Jan–31 Dec 2023</td>
+<td style="text-align: right;">Pending</td>
+<td style="text-align: right;">Pending</td>
+</tr>
+<tr>
+<td style="text-align: left;">Test</td>
+<td style="text-align: left;">1–31 March 2024</td>
+<td style="text-align: right;">Pending</td>
+<td style="text-align: right;">Pending</td>
+</tr>
+</tbody>
+</table></div>
+<p>Counts are deliberately unfilled until the final source and run manifests are available. An approach split does not guarantee vessel independence across years; recurring vessels can appear in both training and testing. Report the overlap and results for previously seen and unseen vessels. Since March 2024 has already been explored in earlier development, chronological separation alone cannot make it an untouched confirmatory test. Freeze the protocol before the final March run and disclose that prior exposure; use an additional untouched period for confirmation of later choices.</p>
+<p>The saved preliminary pipeline trained on 1–19 March 2024, developed on 20–24 March, explored 25–31 March, calibrated on 1–7 April, and evaluated 8–21 April. Its April cohort contains 112 approaches, 110 distinct vessels, and 2,402 scheduled clocks. These older artifacts remain useful for examining mechanisms and failures, but their metrics cannot be presented as results from training on 2023 and testing on March 2024.</p>
+<p>For report <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>r</mi><mi>i</mi></msub><annotation encoding="application/x-tex">r_i</annotation></semantics></math>, let <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>t</mi><mi>i</mi></msub><annotation encoding="application/x-tex">t_i</annotation></semantics></math> be its measurement time and <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>d</mi><mi>i</mi></msub><annotation encoding="application/x-tex">d_i</annotation></semantics></math> its simulated delivery time. At decision clock <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>t</mi><annotation encoding="application/x-tex">t</annotation></semantics></math>, inference receives only <span class="math display" tabindex="0" role="region" aria-label="Equation; scroll horizontally if needed"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="script">𝒟</mi><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mo stretchy="false" form="prefix">{</mo><msub><mi>r</mi><mi>i</mi></msub><mo>:</mo><msub><mi>t</mi><mi>i</mi></msub><mo>≤</mo><mi>t</mi><mo>,</mo><mspace width="0.222em"></mspace><msub><mi>d</mi><mi>i</mi></msub><mo>≤</mo><mi>t</mi><mo stretchy="false" form="postfix">}</mo><mo>,</mo><mspace width="2.0em"></mspace><mi>a</mi><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mi>t</mi><mo>−</mo><munder><mi mathvariant="normal">max</mi><mrow><msub><mi>r</mi><mi>i</mi></msub><mo>∈</mo><mi mathvariant="script">𝒟</mi><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo></mrow></munder><msub><mi>t</mi><mi>i</mi></msub><mi>.</mi></mrow><annotation encoding="application/x-tex">\mathcal D(t)=\{r_i:t_i\leq t,\ d_i\leq t\},\qquad
+ a(t)=t-\max_{r_i\in\mathcal D(t)}t_i.</annotation></semantics></math></span> The second quantity is the age of the latest measurement. Nominal delivery is instantaneous by assumption; it is not a measurement of actual receiver latency. Forecasts are scheduled every five minutes after at least ten minutes of an approach. Features summarize the ten minutes ending at the latest available observation, while age continues to increase at the decision clock. This preserves what an operator could know as time advances.</p>
+</section>
+</section>
+<section id="how-the-models-differ" class="level2">
+<h2>How the models differ</h2>
+<section id="quadratic-regression-a-structured-comparator" class="level3">
+<h3>Quadratic regression: a structured comparator</h3>
+<p>Model A expands the base features with degree-two polynomial terms and fits ridge regression. With feature expansion <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ϕ</mi><mo stretchy="false" form="prefix">(</mo><mi>x</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\phi(x)</annotation></semantics></math>, it minimizes <span class="math display" tabindex="0" role="region" aria-label="Equation; scroll horizontally if needed"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><munder><mo>∑</mo><mi>i</mi></munder><msub><mi>w</mi><mi>i</mi></msub><mo minsize="120%" maxsize="120%" stretchy="true" form="prefix">(</mo><msub><mi>y</mi><mi>i</mi></msub><mo>−</mo><msup><mi>β</mi><mi mathvariant="sans-serif">𝖳</mi></msup><mi>ϕ</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>x</mi><mi>i</mi></msub><mo stretchy="false" form="postfix">)</mo><msup><mo minsize="120%" maxsize="120%" stretchy="true" form="postfix">)</mo><mn>2</mn></msup><mo>+</mo><mi>λ</mi><msubsup><mrow><mo stretchy="true" form="prefix">‖</mo><mi>β</mi><mo stretchy="true" form="postfix">‖</mo></mrow><mn>2</mn><mn>2</mn></msubsup><mi>.</mi></mrow><annotation encoding="application/x-tex">\sum_i w_i\bigl(y_i-\beta^\mathsf T\phi(x_i)\bigr)^2
+ +\lambda\lVert\beta\rVert_2^2.</annotation></semantics></math></span> The base representation includes local east/north position, current speed, sine and cosine of course, recent mean speed and position, speed trend, history support, and explicit cargo/tanker/unknown-class flags. Circular course encoding avoids treating <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mn>359</mn><mo>∘</mo></msup><annotation encoding="application/x-tex">359^\circ</annotation></semantics></math> and <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mn>1</mn><mo>∘</mo></msup><annotation encoding="application/x-tex">1^\circ</annotation></semantics></math> as nearly a full rotation apart. Polynomial interactions provide a compact nonlinear comparator; regularization limits coefficient growth. This model is inspectable, but it can extrapolate poorly during waiting, turning, or unfamiliar approach patterns.</p>
+</section>
+<section id="ordinary-xgboost-a-nonlinear-comparator" class="level3">
+<h3>Ordinary XGBoost: a nonlinear comparator</h3>
+<p>Model B uses gradient-boosted regression trees on the same base feature contract and nominal training inputs. Predictions combine sequential tree contributions, <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>f</mi><mo stretchy="false" form="prefix">(</mo><mi>x</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><msubsup><mo>∑</mo><mrow><mi>m</mi><mo>=</mo><mn>1</mn></mrow><mi>M</mi></msubsup><msub><mi>h</mi><mi>m</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>x</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">f(x)=\sum_{m=1}^{M}h_m(x)</annotation></semantics></math>. XGBoost supplies the nonlinear learner; it is the AI capability under evaluation, rather than merely a tool used to author the website.<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a> Missing numeric features pass through an imputer fitted on training data. Unknown vessel class has its own flags and is not silently turned into cargo.</p>
+<p>Both A and B predict remaining duration from the latest observation. Their absolute arrival prediction is <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>T</mi><mo accent="true">̂</mo></mover><mrow><mi>A</mi><mo>,</mo><mi>B</mi></mrow></msub><mo>=</mo><msub><mi>t</mi><mrow><mi mathvariant="normal">o</mi><mi mathvariant="normal">b</mi><mi mathvariant="normal">s</mi></mrow></msub><mo>+</mo><msub><mi>f</mi><mrow><mi>A</mi><mo>,</mo><mi>B</mi></mrow></msub><mo stretchy="false" form="prefix">(</mo><mi>x</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\widehat T_{A,B}=t_{\mathrm{obs}}+f_{A,B}(x)</annotation></semantics></math>. Subtracting the current decision clock yields the remaining time now. An older observation can retain the same absolute forecast while its remaining duration shrinks; changing a display clock does not refresh the underlying evidence.</p>
+</section>
+<section id="antidote-degradation-aware-learning-and-conditional-repairs" class="level3">
+<h3>Antidote: degradation-aware learning and conditional repairs</h3>
+<p>Model C is also XGBoost. It adds robust motion summaries and observable freshness/quality signals: speed quantiles and variability, turn and course dispersion, a position-history velocity fit, report age, gap length, missing-field fractions, occupied minute bins, and disagreement between reported and position-derived motion. It predicts from the decision clock, <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>T</mi><mo accent="true">̂</mo></mover><mi>C</mi></msub><mo>=</mo><mi>t</mi><mo>+</mo><mi>g</mi><mo stretchy="false" form="prefix">(</mo><mi>z</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\widehat T_C=t+g(z)</annotation></semantics></math>. The saved preliminary model was trained with nominal, delayed, position-offset, and combined examples. The 2023 refit should preserve this declared training recipe or record any changes before the March run. The saved model is not trained on every new eight-control combination or on every reconstructed-input pattern.</p>
+<p>The trained guard limits report influence by forming one representative per UTC minute using medians and a circular course summary. It screens invalid coordinates and motion exceeding 60 knots across short gaps of at most 300 seconds. Minute binning limits the contribution of a prolific feed to history summaries; it does not make a biased majority within a minute trustworthy. Exact deduplication is shared with the ordinary comparators, so it cannot be credited exclusively to Antidote.</p>
+<p>The current dashboard adds conditional repair strategies to this frozen C model. These are separate from its learned guard. The code keeps raw A/B inputs, original quality signals, support, labels, and clocks intact while changing only permitted derived C inputs. Training uses squared-error regression; depth and learning rate are selected using approach-balanced development MAE. The configured search spans depths 2, 4, and 6, learning rates 0.03 and 0.1, up to 500 boosting rounds, and early stopping after 30 rounds. Choosing a model by MAE does not ensure its MSE or worst errors improve.</p>
+</section>
+</section>
+<section id="how-we-stress-the-data" class="level2">
+<h2>How we stress the data</h2>
+<p>The case studies accidental deterioration at <em>inference time</em>: frozen models receive worse reports. No live AIS broadcasts are altered and no online model retraining occurs. Although controls are called attacks in code, injected changes stand in for outages, unavailable telemetry, miscalibration, and navigation faults; they are not evidence of malicious activity in NOAA records.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable data table"><table>
+<colgroup>
+<col style="width: 22%" />
+<col style="width: 34%" />
+<col style="width: 36%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: left;">Fault</th>
+<th style="text-align: left;">Controlled change</th>
+<th style="text-align: left;">Mechanism affecting the forecast</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Reporting gap</td>
+<td style="text-align: left;">Withhold all reports in a fixed interval beginning ten minutes into an approach.</td>
+<td style="text-align: left;">Old position and motion remain the latest evidence; data age increases while the ship continues moving.</td>
+</tr>
+<tr>
+<td style="text-align: left;">Missing speed</td>
+<td style="text-align: left;">Mask selected SOG values.</td>
+<td style="text-align: left;">Current speed, recent summaries, and missingness evidence change. Zero speed remains a legitimate observation.</td>
+</tr>
+<tr>
+<td style="text-align: left;">Missing course</td>
+<td style="text-align: left;">Mask selected COG values.</td>
+<td style="text-align: left;">Direction and turning features lose support; numerical imputation may follow a different tree path.</td>
+</tr>
+<tr>
+<td style="text-align: left;">Missing vessel class</td>
+<td style="text-align: left;">Mask selected type reports.</td>
+<td style="text-align: left;">The model loses cargo/tanker context; unknown remains a distinct state.</td>
+</tr>
+<tr>
+<td style="text-align: left;">Speed drift</td>
+<td style="text-align: left;">Add a slowly varying bounded speed bias.</td>
+<td style="text-align: left;">A persistent underestimate can resemble slower progress and shift predicted duration.</td>
+</tr>
+<tr>
+<td style="text-align: left;">Location drift</td>
+<td style="text-align: left;">Accumulate a bounded coordinate displacement.</td>
+<td style="text-align: left;">Distance to the gate and position-derived motion become biased together.</td>
+</tr>
+<tr>
+<td style="text-align: left;">Sensor deterioration</td>
+<td style="text-align: left;">Add zero-mean Gaussian noise to SOG and COG.</td>
+<td style="text-align: left;">Instantaneous errors propagate into direction, speed variability, and nonlinear tree decisions.</td>
+</tr>
+<tr>
+<td style="text-align: left;">Position jump</td>
+<td style="text-align: left;">Displace selected reports along a seeded direction.</td>
+<td style="text-align: left;">Apparent progress or implausible motion changes position and quality features.</td>
+</tr>
+</tbody>
+</table></div>
+<p>For illustration, the navigation perturbations can be written as <span class="math display" tabindex="0" role="region" aria-label="Equation; scroll horizontally if needed"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>v</mi><mo accent="true">̃</mo></mover><mi>i</mi></msub><mo>=</mo><mrow><mi mathvariant="normal">max</mi><mo>&#8289;</mo></mrow><mo stretchy="false" form="prefix">{</mo><mn>0</mn><mo>,</mo><msub><mi>v</mi><mi>i</mi></msub><mo>+</mo><msub><mi>b</mi><mi>v</mi></msub><mo stretchy="false" form="prefix">(</mo><msub><mi>t</mi><mi>i</mi></msub><mo stretchy="false" form="postfix">)</mo><mo>+</mo><msub><mi>ϵ</mi><mi>i</mi></msub><mo stretchy="false" form="postfix">}</mo><mo>,</mo><mspace width="2.0em"></mspace><msub><mover><mi mathvariant="bold-italic">𝒑</mi><mo accent="true">̃</mo></mover><mi>i</mi></msub><mo>=</mo><msub><mi mathvariant="bold-italic">𝒑</mi><mi>i</mi></msub><mo>+</mo><msub><mi mathvariant="bold-italic">𝒃</mi><mi>p</mi></msub><mo stretchy="false" form="prefix">(</mo><msub><mi>t</mi><mi>i</mi></msub><mo stretchy="false" form="postfix">)</mo><mo>+</mo><msub><mi>J</mi><mi>i</mi></msub><msub><mi mathvariant="bold-italic">𝒖</mi><mi>i</mi></msub><mi>.</mi></mrow><annotation encoding="application/x-tex">\widetilde v_i=\max\{0,v_i+b_v(t_i)+\epsilon_i\},\qquad
+ \widetilde{\mathbf p}_i=\mathbf p_i+\mathbf b_p(t_i)+J_i\mathbf u_i.</annotation></semantics></math></span> Here <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>b</mi><mi>v</mi></msub><annotation encoding="application/x-tex">b_v</annotation></semantics></math> is persistent speed bias, <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>ϵ</mi><mi>i</mi></msub><annotation encoding="application/x-tex">\epsilon_i</annotation></semantics></math> is random speed noise, <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi mathvariant="bold-italic">𝒃</mi><mi>p</mi></msub><annotation encoding="application/x-tex">\mathbf b_p</annotation></semantics></math> is coordinate drift, and <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>J</mi><mi>i</mi></msub><msub><mi mathvariant="bold-italic">𝒖</mi><mi>i</mi></msub></mrow><annotation encoding="application/x-tex">J_i\mathbf u_i</annotation></semantics></math> is a position jump. The simulator also wraps noisy course into <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">[</mo><mn>0</mn><mo>,</mo><mn>360</mn><msup><mo stretchy="false" form="postfix">)</mo><mo>∘</mo></msup></mrow><annotation encoding="application/x-tex">[0,360)^\circ</annotation></semantics></math>. Drift and noise differ: averaging can reduce zero-mean jitter under appropriate assumptions, while a persistent bias generally survives averaging.</p>
+<p>The representative pair screen uses 50% non-gap sliders and a 15-minute gap. At that setting, speed drift has a nominal rate of <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>−</mi><mn>0.05</mn></mrow><annotation encoding="application/x-tex">-0.05</annotation></semantics></math> knots/minute, capped at 1.5 knots; location drift has a nominal rate of 10 metres/minute, capped at 926 metres. Drift rates include the configured seeded variation. Noise standard deviations are 1 knot and <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mn>5</mn><mo>∘</mo></msup><annotation encoding="application/x-tex">5^\circ</annotation></semantics></math>. Position jumps select half the reports and use a 2,000-metre mean magnitude with 200-metre standard deviation. The severe stack uses 100% sliders and a 30-minute gap.</p>
+<p>Faults compose in a fixed order: gap, speed drift, location drift, noise, position jumps, and missing fields. Missing-field and position-jump selectors share a deterministic report hash and seed. Equal-severity selections therefore overlap subject to field eligibility; they are not independent dropout masks. Modification logs are constructed separately. Audit labels, original altered values, and future crossing outcomes are exposed to the audience only after inference.</p>
+</section>
+<section id="how-antidote-responds" class="level2">
+<h2>How Antidote responds</h2>
+<section id="reconstructing-missing-motion-and-noisy-sensors" class="level3">
+<h3>Reconstructing missing motion and noisy sensors</h3>
+<p>When positions are sufficiently consistent, a short local track can estimate motion. For local east/north position <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi mathvariant="bold-italic">𝒑</mi><mi>i</mi></msub><annotation encoding="application/x-tex">\mathbf p_i</annotation></semantics></math> and times centred around <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>t</mi><mo accent="true">‾</mo></mover><annotation encoding="application/x-tex">\bar t</annotation></semantics></math>, the least-squares velocity is <span class="math display" tabindex="0" role="region" aria-label="Equation; scroll horizontally if needed"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi mathvariant="bold-italic">𝒗</mi><mo accent="true">̂</mo></mover><mo>=</mo><mfrac><mrow><munder><mo>∑</mo><mi>i</mi></munder><mo stretchy="false" form="prefix">(</mo><msub><mi>t</mi><mi>i</mi></msub><mo>−</mo><mover><mi>t</mi><mo accent="true">‾</mo></mover><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="prefix">(</mo><msub><mi mathvariant="bold-italic">𝒑</mi><mi>i</mi></msub><mo>−</mo><mover><mi mathvariant="bold-italic">𝒑</mi><mo accent="true">‾</mo></mover><mo stretchy="false" form="postfix">)</mo></mrow><mrow><munder><mo>∑</mo><mi>i</mi></munder><mo stretchy="false" form="prefix">(</mo><msub><mi>t</mi><mi>i</mi></msub><mo>−</mo><mover><mi>t</mi><mo accent="true">‾</mo></mover><msup><mo stretchy="false" form="postfix">)</mo><mn>2</mn></msup></mrow></mfrac><mo>,</mo><mspace width="2.0em"></mspace><mover><mi>s</mi><mo accent="true">̂</mo></mover><mo>=</mo><mfrac><mrow><mo stretchy="true" form="prefix">‖</mo><mover><mi mathvariant="bold-italic">𝒗</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">‖</mo></mrow><mn>0.514444</mn></mfrac><mo>,</mo><mspace width="2.0em"></mspace><mover><mi>θ</mi><mo accent="true">̂</mo></mover><mo>=</mo><mrow><mi mathvariant="normal">atan2</mi><mo>&#8289;</mo></mrow><mo stretchy="false" form="prefix">(</mo><msub><mover><mi>v</mi><mo accent="true">̂</mo></mover><mi>E</mi></msub><mo>,</mo><msub><mover><mi>v</mi><mo accent="true">̂</mo></mover><mi>N</mi></msub><mo stretchy="false" form="postfix">)</mo><mi>.</mi></mrow><annotation encoding="application/x-tex">\widehat{\mathbf v}=
+ \frac{\sum_i(t_i-\bar t)(\mathbf p_i-\bar{\mathbf p})}
+      {\sum_i(t_i-\bar t)^2},\qquad
+ \widehat s=\frac{\lVert\widehat{\mathbf v}\rVert}{0.514444},\qquad
+ \widehat\theta=\operatorname{atan2}(\widehat v_E,\widehat v_N).</annotation></semantics></math></span> Positions are in metres and time is in seconds; <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>s</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\widehat s</annotation></semantics></math> is therefore in knots. Course is converted to degrees and wrapped around the circle. A stable trajectory can support estimates for missing speed and course independently. Both use original received positions; one reconstructed sensor does not become evidence for the other. Each historical correction uses only information available when that particular report arrived, preventing later reports from backfilling an earlier estimate.</p>
+<p>The Gaussian-noise strategy checks a five-minute track with at least three distinct reports, at least 60 seconds of span, no gap above 180 seconds, and fit residual at most 50 metres. Additional speed, turn, and plausibility checks reject unsuitable references. It replaces a supported reading when its speed differs by more than 2 knots or its moving-course difference exceeds <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mn>15</mn><mo>∘</mo></msup><annotation encoding="application/x-tex">15^\circ</annotation></semantics></math>. This is <em>guarded replacement</em>, not a fitted blend of the reported and estimated readings. A smoother track is still only a conditional reference, not independent ground truth.</p>
+</section>
+<section id="detecting-persistent-bias" class="level3">
+<h3>Detecting persistent bias</h3>
+<p>Speed drift is checked against position-supported speed. For disagreement <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>r</mi><mi>k</mi></msub><mo>=</mo><msub><mi>v</mi><mi>k</mi></msub><mo>−</mo><msub><mover><mi>s</mi><mo accent="true">̂</mo></mover><mi>k</mi></msub></mrow><annotation encoding="application/x-tex">r_k=v_k-\widehat s_k</annotation></semantics></math>, the detector forms a time-aware exponentially weighted estimate, <span class="math display" tabindex="0" role="region" aria-label="Equation; scroll horizontally if needed"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>e</mi><mi>k</mi></msub><mo>=</mo><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>−</mo><msub><mi>ρ</mi><mi>k</mi></msub><mo stretchy="false" form="postfix">)</mo><msub><mi>e</mi><mrow><mi>k</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>+</mo><msub><mi>ρ</mi><mi>k</mi></msub><msub><mi>r</mi><mi>k</mi></msub><mo>,</mo><mspace width="2.0em"></mspace><msub><mi>ρ</mi><mi>k</mi></msub><mo>=</mo><mn>1</mn><mo>−</mo><mrow><mi mathvariant="normal">exp</mi><mo>&#8289;</mo></mrow><mo stretchy="false" form="prefix">(</mo><mi>−</mi><mi mathvariant="normal">Δ</mi><msub><mi>t</mi><mi>k</mi></msub><mi>/</mi><mi>τ</mi><mo stretchy="false" form="postfix">)</mo><mo>,</mo><mspace width="2.0em"></mspace><mi>τ</mi><mo>=</mo><mn>2</mn><mrow><mspace width="0.333em"></mspace><mtext mathvariant="normal"> minutes</mtext></mrow><mi>.</mi></mrow><annotation encoding="application/x-tex">e_k=(1-\rho_k)e_{k-1}+\rho_k r_k,\qquad
+ \rho_k=1-\exp(-\Delta t_k/\tau),\qquad \tau=2\text{ minutes}.</annotation></semantics></math></span> The provisional rule requires same-direction disagreement across at least three reports and two minutes, with <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">|</mo><msub><mi>e</mi><mi>k</mi></msub><mo stretchy="false" form="prefix">|</mo><mo>&gt;</mo><mn>0.5</mn></mrow><annotation encoding="application/x-tex">|e_k|&gt;0.5</annotation></semantics></math> knots. Reference acceleration, track fit, and turning checks can prevent reconstruction. These conditions reduce impulsive replacements but also reject legitimate manoeuvres; the screen finds limited repair availability for speed drift.</p>
+<p>Location drift compares observed displacement with motion implied by received SOG/COG. Persistent displacement disagreement can justify verification, but it cannot identify the true coordinates by itself. The dashboard therefore warns rather than correcting location. A separate experimental mode projects from explicit, time-available position anchors for at most five minutes and requires trusted navigation. Those anchors are simulated from original AIS in the experiment, so they are an oracle-reference study, not an independent operational feed. Coherent corruption of both position and motion may evade these consistency checks.</p>
+</section>
+<section id="fallbacks-metadata-and-combined-faults" class="level3">
+<h3>Fallbacks, metadata, and combined faults</h3>
+<p>The reporting-gap strategy detects silence from observed cadence and does not fabricate reports. Position-jump detection supplies navigation-consistency warnings and does not repair coordinates. Missing class can be carried forward only from consistent recent received metadata for the same MMSI; conflicts remain unknown and require review.</p>
+<p>Position faults pause position-based navigation repairs. Noise plus speed drift pauses their overlapping sensor corrections; class recovery can continue independently. The current fleet policy selects permitted reference assumptions from the simulated fault families enabled in the controls. It is not blind automatic fault isolation. Pausing avoids asserting an unsupported correction, but it is not evidence that the forecast has recovered. A production system would need independently justified reference trust and an evaluated fallback policy.</p>
+</section>
+</section>
+<section id="what-the-results-show" class="level2">
+<h2>What the results show</h2>
+<section id="keeping-comparisons-fair" class="level3">
+<h3>Keeping comparisons fair</h3>
+<p>For the 2023-trained study, evaluate every qualifying March approach on its original scheduled clocks. Compare A, B, C with additional repairs disabled, and full Antidote using the same fixed reference outcomes, received-report progression, fault realization, and scheduled-case denominator. Report the final approach, vessel, and clock counts from that run rather than carrying forward counts from April. No completed result for this training/test protocol is recorded in the reviewed artifacts.</p>
+<p>The available preliminary screen uses <code>vessel_class_v2</code>, fault seed 4201, and four original scheduled clocks per April approach: first, first at or after 20 minutes from approach start, middle, and last. Clock selection does not use forecast error. The 448 clocks cover 112 approaches and 110 vessels. Original records, eight single faults, all 28 pairs, and two all-eight stacks produce 39 settings, 17,472 paired replay cases, and 69,888 forecasts across A, B, C with extra repairs disabled, and full Antidote. This is a representative screen, not the full 2,402-clock schedule.</p>
+<p>Within a comparison, models receive reports available at the same clock and are scored against the same original crossing. The C-only comparison isolates the incremental repair effect while retaining the identical trained C model and guard. Ordinary B and quadratic A use the same attacked raw reports. The four-condition structure of original, stale-only, quality-only, and combined inputs is retained; the interactive timeline supplies the corresponding ordered report progression. Gap withholding in this screen differs from the delivery-delay mechanism in earlier primary experiments.</p>
+<p>For approach <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>j</mi><annotation encoding="application/x-tex">j</annotation></semantics></math> with <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>n</mi><mi>j</mi></msub><annotation encoding="application/x-tex">n_j</annotation></semantics></math> available forecasts and signed error <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>e</mi><mrow><mi>j</mi><mi>k</mi></mrow></msub><mo>=</mo><msub><mover><mi>T</mi><mo accent="true">̂</mo></mover><mrow><mi>j</mi><mi>k</mi></mrow></msub><mo>−</mo><msubsup><mi>T</mi><mi>j</mi><mo>*</mo></msubsup></mrow><annotation encoding="application/x-tex">e_{jk}=\widehat T_{jk}-T_j^*</annotation></semantics></math> in minutes, we report <span class="math display" tabindex="0" role="region" aria-label="Equation; scroll horizontally if needed"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">MAE</mi><mo>&#8289;</mo></mrow><mo>=</mo><mfrac><mn>1</mn><mi>J</mi></mfrac><munderover><mo>∑</mo><mrow><mi>j</mi><mo>=</mo><mn>1</mn></mrow><mi>J</mi></munderover><mfrac><mn>1</mn><msub><mi>n</mi><mi>j</mi></msub></mfrac><munder><mo>∑</mo><mi>k</mi></munder><mo stretchy="false" form="prefix">|</mo><msub><mi>e</mi><mrow><mi>j</mi><mi>k</mi></mrow></msub><mo stretchy="false" form="prefix">|</mo><mo>,</mo><mspace width="2.0em"></mspace><mrow><mi mathvariant="normal">MSE</mi><mo>&#8289;</mo></mrow><mo>=</mo><mfrac><mn>1</mn><mi>J</mi></mfrac><munderover><mo>∑</mo><mrow><mi>j</mi><mo>=</mo><mn>1</mn></mrow><mi>J</mi></munderover><mfrac><mn>1</mn><msub><mi>n</mi><mi>j</mi></msub></mfrac><munder><mo>∑</mo><mi>k</mi></munder><msubsup><mi>e</mi><mrow><mi>j</mi><mi>k</mi></mrow><mn>2</mn></msubsup><mi>.</mi></mrow><annotation encoding="application/x-tex">\operatorname{MAE}=\frac1J\sum_{j=1}^J\frac1{n_j}\sum_k|e_{jk}|,
+ \qquad
+ \operatorname{MSE}=\frac1J\sum_{j=1}^J\frac1{n_j}\sum_k e_{jk}^2.</annotation></semantics></math></span> RMSE is the square root of that approach-weighted MSE; MSE has units of minutes squared. Coverage retains all scheduled cases in its denominator, including unavailable forecasts. Every arm has 100% coverage in this representative screen. Accuracy metrics use available outputs and must always be read with coverage. Large-error percentiles pool clocks. Paired intervals resample vessels 1,000 times while retaining repeated approaches within each vessel; intervals are exploratory and unadjusted for 39 comparisons.</p>
+</section>
+<section id="early-results-from-the-previous-setup" class="level3">
+<h3>Early results from the previous setup</h3>
+<p>The following table is the saved April screen from the earlier March-trained pipeline. It is not the result of training on 2023 and testing on March 2024. All entries are approach-weighted MAE in minutes. “C base” retains the learned guard but disables additional dashboard repairs.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable data table"><table>
+<colgroup>
+<col style="width: 38%" />
+<col />
+<col />
+<col />
+<col />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: left;">Setting</th>
+<th style="text-align: right;">A</th>
+<th style="text-align: right;">B</th>
+<th style="text-align: right;">C base</th>
+<th style="text-align: right;">Antidote</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Original records</td>
+<td style="text-align: right;">9.46</td>
+<td style="text-align: right;">7.91</td>
+<td style="text-align: right;">7.26</td>
+<td style="text-align: right;">7.26</td>
+</tr>
+<tr>
+<td style="text-align: left;">15-minute reporting gap</td>
+<td style="text-align: right;">10.51</td>
+<td style="text-align: right;">9.22</td>
+<td style="text-align: right;">7.24</td>
+<td style="text-align: right;">7.24</td>
+</tr>
+<tr>
+<td style="text-align: left;">Missing speed</td>
+<td style="text-align: right;">14.57</td>
+<td style="text-align: right;">8.90</td>
+<td style="text-align: right;">7.81</td>
+<td style="text-align: right;">7.34</td>
+</tr>
+<tr>
+<td style="text-align: left;">Missing course</td>
+<td style="text-align: right;">12.17</td>
+<td style="text-align: right;">8.37</td>
+<td style="text-align: right;">8.63</td>
+<td style="text-align: right;">7.42</td>
+</tr>
+<tr>
+<td style="text-align: left;">Sensor noise</td>
+<td style="text-align: right;">11.65</td>
+<td style="text-align: right;">12.47</td>
+<td style="text-align: right;">9.10</td>
+<td style="text-align: right;">7.90</td>
+</tr>
+<tr>
+<td style="text-align: left;">Speed drift</td>
+<td style="text-align: right;">10.97</td>
+<td style="text-align: right;">9.71</td>
+<td style="text-align: right;">8.66</td>
+<td style="text-align: right;">8.54</td>
+</tr>
+<tr>
+<td style="text-align: left;">Location drift</td>
+<td style="text-align: right;">9.70</td>
+<td style="text-align: right;">8.39</td>
+<td style="text-align: right;">7.44</td>
+<td style="text-align: right;">7.44</td>
+</tr>
+<tr>
+<td style="text-align: left;">Position jumps</td>
+<td style="text-align: right;">19.65</td>
+<td style="text-align: right;">10.39</td>
+<td style="text-align: right;">9.75</td>
+<td style="text-align: right;">9.75</td>
+</tr>
+<tr>
+<td style="text-align: left;">Gap + missing course</td>
+<td style="text-align: right;">15.97</td>
+<td style="text-align: right;">12.68</td>
+<td style="text-align: right;">10.48</td>
+<td style="text-align: right;">7.39</td>
+</tr>
+<tr>
+<td style="text-align: left;">Missing speed + course</td>
+<td style="text-align: right;">15.86</td>
+<td style="text-align: right;">8.81</td>
+<td style="text-align: right;">9.75</td>
+<td style="text-align: right;">7.53</td>
+</tr>
+<tr>
+<td style="text-align: left;">All eight, moderate</td>
+<td style="text-align: right;">30.73</td>
+<td style="text-align: right;">16.25</td>
+<td style="text-align: right;">14.27</td>
+<td style="text-align: right;">14.26</td>
+</tr>
+<tr>
+<td style="text-align: left;">All eight, severe</td>
+<td style="text-align: right;">18.62</td>
+<td style="text-align: right;">16.85</td>
+<td style="text-align: right;">15.63</td>
+<td style="text-align: right;">15.63</td>
+</tr>
+</tbody>
+</table></div>
+<p>Additional repairs reduce noise-only MAE by 13.1%, missing-speed-plus-course MAE by 22.8%, and gap-plus-missing-course MAE by 29.5% relative to C base. Their paired changes are respectively <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>−</mi><mn>1.20</mn></mrow><annotation encoding="application/x-tex">-1.20</annotation></semantics></math> minutes (95% interval <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">[</mo><mi>−</mi><mn>2.24</mn><mo>,</mo><mi>−</mi><mn>0.42</mn><mo stretchy="false" form="postfix">]</mo></mrow><annotation encoding="application/x-tex">[-2.24,-0.42]</annotation></semantics></math>), <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>−</mi><mn>2.22</mn></mrow><annotation encoding="application/x-tex">-2.22</annotation></semantics></math> (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">[</mo><mi>−</mi><mn>3.14</mn><mo>,</mo><mi>−</mi><mn>1.21</mn><mo stretchy="false" form="postfix">]</mo></mrow><annotation encoding="application/x-tex">[-3.14,-1.21]</annotation></semantics></math>), and <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>−</mi><mn>3.09</mn></mrow><annotation encoding="application/x-tex">-3.09</annotation></semantics></math> (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">[</mo><mi>−</mi><mn>4.28</mn><mo>,</mo><mi>−</mi><mn>1.97</mn><mo stretchy="false" form="postfix">]</mo></mrow><annotation encoding="application/x-tex">[-4.28,-1.97]</annotation></semantics></math>). Speed drift alone improves by only 1.4%, with an interval crossing zero. Sixteen pairs lower average MAE and twelve are unchanged; thirteen pair intervals exclude zero. These estimates concern this selected cohort and simulated setting, not guaranteed improvements for every ship.</p>
+<p>The moderate stack gains only 0.09% from additional repairs, with an interval crossing zero. Only class recovery applies; navigation repairs pause. The severe stack has no extra repair effect. Stacked errors remain far above the original-record MAE. Warning status does not withhold an ETA and cannot itself count as an accuracy gain.</p>
+</section>
+<section id="how-repeated-reports-affect-results" class="level3">
+<h3>How repeated reports affect results</h3>
+<p>An earlier <code>march_gate_v1</code> experiment evaluated all 16 declared volume settings over the full 112-approach April cohort with five paired seeds. It separated affected share at fixed volume, exact/nonidentical biased repetition, total volume at fixed quality share, and reference-only repetition. In that earlier model version, B’s MAE rose from approximately 6.41 to 6.83 minutes as affected share increased from 10% to 50%; C changed from 5.90 to 6.04. Fivefold nonidentical biased repetition changed B only from about 6.58 to 6.60 minutes. The measured repetition effect was small, not a dramatic failure.</p>
+<p>The guard’s bounded minute contributions explain a plausible resistance mechanism, but medians remain vulnerable when biased observations dominate a bin. Historical volume results do not establish robustness for the 2023-trained study: they are reported separately, excluded from the preliminary table above, and should be repeated with the final feature schema and repairs. The archived report and versioned configuration provide the audit trail.</p>
+</section>
+<section id="where-the-approach-still-fails" class="level3">
+<h3>Where the approach still fails</h3>
+<p>Missing-course repair lowers MAE while increasing MSE from 173.80 to 195.56 minutes squared, a 12.5% increase. One retained approach illustrates why: at 12:10 UTC on 11 April, C’s error on original records is <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>+</mi><mn>141.97</mn></mrow><annotation encoding="application/x-tex">+141.97</annotation></semantics></math> minutes. Masking course gives <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>+</mi><mn>42.03</mn></mrow><annotation encoding="application/x-tex">+42.03</annotation></semantics></math> without additional repairs, while reconstructing course gives <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>+</mi><mn>143.28</mn></mrow><annotation encoding="application/x-tex">+143.28</annotation></semantics></math>. With course masking and noise together, the repair increases absolute error by 104.72 minutes. Restoring a plausible course can restore an existing model weakness. Removing this difficult approach from the official metric would conceal that risk.</p>
+<p>The historical five-minute calibrated-envelope policy is also a negative result: it accepted zero C forecasts in the earlier model-version evaluation because its uncertainty bands were too broad. Those bands are not transferred to the current repair policy. Likewise, the current screen is one seed at selected severities; it does not validate all 256 on/off subsets, all slider values, opposite drift directions, or coordinated spoofing. Better fitted sensor values are not sufficient evidence of a better ETA.</p>
+</section>
+</section>
+<section id="when-a-person-should-step-in" class="level2">
+<h2>When a person should step in</h2>
+<p>An operator should inspect the received timestamp, altered-field evidence, active warning, and available estimates before accepting an unreliable arrival-dependent plan. Simulator audit highlighting is for understanding the experiment and is not a deployable fault detector. A position inconsistency calls for checking an independent navigation or port source. The prototype exposes conditional estimates without overwriting the displayed received measurements; correction of a source report belongs to the accountable data provider or a separately verified input workflow. The interface does not implement a completed manual verification service or authorize the operator to edit ground truth.</p>
+<p>The latest status policy separates an unavailable optional noise/drift reconstruction from an actionable review request. Turning or accelerating can invalidate a simple track fit without proving a fault. Such a case shows “Estimate unavailable” while preserving the input evidence. Detected inconsistencies, blocked corrections, missing required support, and other existing review warnings remain. This follows the general principle that alerts should prompt a useful human action.<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a></p>
+<p>Under the earlier status mapping, 400 of 448 original-record clocks requested review; 397 involved the speed-drift strategy, and 336 rejected a manoeuvring motion reference. A retrospective policy calculation retaining the other warnings reduces review labels to 74 of 448, or 16.5%, with identical ETAs. This is evidence about label burden, not validated alert precision, measured operator time, or increased trust. The original forecasts can still be inaccurate without an alert. No representative operator study has been completed. A useful next walkthrough should separately record review, verification, correction, and escalation time, plus missed unreliable forecasts and unnecessary interruptions.</p>
+</section>
+<section id="responsible-use-and-limits" class="level2">
+<h2>Responsible use and limits</h2>
+<p>The reviewed NOAA product is publicly accessible; its metadata lists coastal and ocean planning as the use constraint. Public access alone is not blanket authorization for redistribution or operational navigation. Retain attribution, preserve the selected product’s metadata, and verify applicable terms before publishing raw subsets or acquiring a live feed. The repository keeps source CSVs, trained artifacts, and credentials outside version control; the site presents derived research evidence. Completing the 2023 provenance record and the March acquisition date remains a data-steward action.</p>
+<p>MMSIs and precise historical tracks identify vessels and can expose operational patterns. We use identity only for grouping and display, without attempting to identify crew, enrich operator profiles, or join unrelated personal information. A live pilot would need explicit access, retention, logging, and sharing rules. Geography, receiving coverage, cargo/tanker selection, repeat vessels, and exclusion of unresolved approaches all constrain representation. Accuracy should be audited by vessel class, forecast horizon, data support, and previously seen vessels before broader claims.</p>
+<p>For a proposed pilot, the data steward would own provenance and permitted use; the model lead would own versioned validation, drift monitoring, and rollback; an operations reviewer would own verification and escalation. The submitting team remains accountable for claims and source review. AI assistance was used for implementation and drafting. The evaluated predictor is the fitted regression/boosting pipeline; a language model is not part of the ETA inference path. This overview describes a research prototype, not a certified navigation aid, deployment approval, or a formal human-readiness rating.</p>
+</section>
+<section id="what-comes-next" class="level2">
+<h2>What comes next</h2>
+<p>The present decision is <strong>iterate</strong>. There is evidence for selected noise and missing-field repairs, but combination recovery, large errors, and oversight are not ready for an operational pilot.</p>
+<ol>
+<li><p><strong>Model lead:</strong> fit the final models on all eligible 2023 data, with time-ordered model selection and calibration confined to that year. Freeze the models and repair policy before the March 2024 test; evaluate its complete original clock schedule, multiple fault seeds, and source-volume controls. Investigate course-related failures using training-year development data and record any reconstructed-input augmentation. Preserve a further untouched period for confirming subsequent changes.</p></li>
+<li><p><strong>Data steward:</strong> supply and audit the full-year 2023 source manifest and final split counts, complete the March retrieval record, retain source/model hashes, verify redistribution terms, and obtain an independent position reference before making coordinate-recovery claims. The existing local four-thread CPU workflow supports another bounded offline study; no vehicle or live AIS access is required for that stage.</p></li>
+<li><p><strong>Demo and operations reviewers:</strong> run a short, explicitly exploratory oversight walkthrough, recording human effort separately from model latency. Follow the institution’s required approval process before any participant study; a peer walkthrough alone cannot establish operator readiness.</p></li>
+</ol>
+<p>The checkpoint is a versioned report showing nominal/degraded accuracy, MSE and large-error behavior, output coverage, alert misses, review burden, and resource use on the new period. Revisit a controlled pilot only if the nominal-cost and degraded-gain goals hold without an unacceptable tail-error or workload tradeoff, and a port partner has approved data access, responsible roles, and non-actuating operating boundaries. Stop or narrow the scope if those conditions fail.</p>
+</section>
+<section id="sources-and-reproducibility" class="level2">
+<h2>Sources and reproducibility</h2>
+<p>Our evaluation uses the 2023-training/March-2024-test protocol, but no fitted 2023 artifact or matching result manifest was found in the reviewed checkout. The numerical findings retained here are explicitly preliminary. They come from the saved <a href="https://github.com/JeremyBarry03/2026_WM_Hackathon/blob/main/Data_Science/experiments/fleet_combinations/results/representative_seed_4201/FINDINGS.md">fleet combination findings</a>, summary, protocol, executed runner snapshot, and scalar prediction checks. Source/model checksums, seeds, software versions, case counts, and clock-selection rules are recorded there. The source CSV SHA-256 prefixes are <code>de8946c04c3f</code> (March) and <code>0bd05942c852</code> (April); C’s recorded artifact prefix is <code>58885d2692c9</code>. We distinguish those frozen forecast results from the subsequent status-only change.</p>
+<p>Versions recorded for those earlier artifacts are Python 3.12, XGBoost 3.1.1, NumPy 2.4.4, pandas 2.3.3, scikit-learn 1.6.1, and joblib 1.5.3. A fresh clone needs the permitted source subsets and compatible ignored trained artifacts before serving; the website does not train on startup. Full setup and preparation commands are in the repository’s <a href="https://github.com/JeremyBarry03/2026_WM_Hackathon/blob/main/Frontend/README.md">frontend guide</a> and <a href="https://github.com/JeremyBarry03/2026_WM_Hackathon/blob/main/Data_Science/Optimized_Model/README.md">model guide</a>. From <code>Data_Science</code>, the normal service command is:</p>
+<pre><code>python -m Optimized_Model serve --port 8765</code></pre>
+<p>Run the fixed combination study with <code>python experiments/fleet_combinations/run.py</code>; <code>--clocks all</code> expands the schedule and <code>--seed N</code> changes the fault realization. Later implementations intentionally fail historical source-hash validation; reproducing a frozen result requires its recorded source snapshot and compatible artifacts. Forecast spot checks support consistency with the serving path, not operational correctness. A recorded fallback presentation is a separate submission artifact, not supplied by this overview.</p>
+<ol>
+<li><p><a href="https://www.fisheries.noaa.gov/inport/item/73064">NOAA Office for Coastal Management. Nationwide Automatic Identification System 2024.</a> Data lineage, fields, constraints, and receiver-coverage limits.</p></li>
+<li><p><a href="https://www.navcen.uscg.gov/how-ais-works">U.S. Coast Guard Navigation Center. How AIS Works.</a> Reported position, motion, and vessel-information context.</p></li>
+<li><p><a href="https://arxiv.org/abs/1603.02754">Chen, T., and Guestrin, C. (2016). XGBoost: A Scalable Tree Boosting System.</a> Nonlinear learner used in B and C.</p></li>
+<li><p><a href="https://sre.google/sre-book/monitoring-distributed-systems/">Google SRE. Monitoring Distributed Systems.</a> Actionable alerting and excessive-interruption risks.</p></li>
+<li><p><a href="https://github.com/JeremyBarry03/2026_WM_Hackathon/blob/main/Data_Science/Optimized_Model/RESULTS.md">The Antidote project. Archived model C results.</a> Earlier <code>march_gate_v1</code> source-volume and calibration evidence; excluded from current-version headline comparisons.</p></li>
+<li><p><a href="https://github.com/JeremyBarry03/2026_WM_Hackathon/tree/main/Data_Science/experiments/fleet_combinations">The Antidote project. Preliminary fleet-combination experiment.</a> Saved current-version protocol, numerical summaries, failures, and reproduction path.</p></li>
+</ol>
+</section>
+<section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes">
+<hr />
+<ol>
+<li id="fn1"><p><a href="https://www.fisheries.noaa.gov/inport/item/73064">NOAA, Nationwide Automatic Identification System 2024.</a><a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p><a href="https://arxiv.org/abs/1603.02754">Chen and Guestrin, XGBoost: A Scalable Tree Boosting System, 2016.</a><a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn3"><p><a href="https://sre.google/sre-book/monitoring-distributed-systems/">Google SRE, Monitoring Distributed Systems.</a><a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section>
+<div class="paper-end"><p>See the approach in motion.</p><a href="/tracking/">Explore the historical replay <svg class="link-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11m-4-4 4 4-4 4"/></svg></a></div>
+<details class="supporting-files"><summary>Downloads</summary><nav aria-label="Overview downloads"><a href="/overview/overview.pdf" download="Antidote-overview.pdf">Download overview <span>(PDF)</span></a><a href="/overview/overview.tex" download="Antidote-overview.tex">LaTeX source</a></nav></details>
+</main>
+</div>
+<footer class="site-footer"><span>The Antidote <span aria-hidden="true">·</span> Research prototype</span><nav aria-label="Footer navigation"><a href="/tracking/">Replay</a><a href="/overview/" aria-current="page">Overview</a><a href="#top">Back to top</a></nav></footer>
+</body>
+</html>
