@@ -3,15 +3,38 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#090a0c">
 <title>Antidote · Historical Replay</title><link rel="preload" href="./assets/geist-mono-variable.ttf" as="font" type="font/ttf" crossorigin><link rel="icon" href="data:,">
 <link rel="stylesheet" href="/map-assets/mapbox-gl.css"><link rel="stylesheet" href="./style.css"><link rel="stylesheet" href="./arc-components.css"><link rel="stylesheet" href="./arc-date-time.css"><link rel="stylesheet" href="./arc-feedback.css">
-<script src="/map-assets/mapbox-gl.js" defer></script><script src="./coastal.js" defer></script><script src="./app.mjs?v=nominal-2023-march-2024" type="module"></script>
+<link rel="stylesheet" href="./introduction.css"><link rel="stylesheet" href="./monthly-chart.css"><link rel="stylesheet" href="./insights.css">
+<script src="/map-assets/mapbox-gl.js" defer></script><script src="./coastal.js" defer></script><script src="./app.mjs" type="module"></script>
 </head><body>
+<header class="site-intro" id="top">
+ <nav class="intro-nav" aria-label="Project navigation"><a class="intro-brand" href="#top">Antidote <span>Arrival reliability prototype</span></a><div><a href="#replay-workspace">Replay</a><a href="#monthly-eta">Model analysis</a></div></nav>
+ <section class="intro-hero" aria-labelledby="project-title">
+  <div class="intro-message"><h1 id="project-title">Vessel arrival reliability</h1><p>Test whether an inbound vessel’s arrival estimate remains useful when tracking reports become stale, incomplete or inconsistent.</p></div>
+  <a class="intro-cta" href="#replay-workspace">Open replay <span aria-hidden="true">↓</span></a>
+  <dl class="intro-facts">
+   <div><dt>Planner’s decision</dt><dd>Maintain or revise an arrival window before preparing staff, equipment and berth resources.</dd></div>
+   <div><dt>Controlled comparison</dt><dd>Run Poly, XGBoost and Antidote at the same replay time. Sliders change only the disrupted-data run.</dd></div>
+   <div><dt>Arrival reference</dt><dd>A recorded Hampton Roads reference-line crossing, not docking, berth availability or destination.</dd></div>
+  </dl>
+ </section>
+ <details class="project-brief"><summary>Project brief &amp; evaluation <span>Method, evidence &amp; next steps <span aria-hidden="true">⌄</span></span></summary>
+  <div class="brief-grid">
+   <section><h2>Decision &amp; consequences</h2><p>The proposed port operations planner decides whether to maintain or revise an inbound cargo or tanker’s expected arrival window. An inaccurate or unstable estimate can trigger early preparation, idle staff and equipment, or late coordination. This user framing still needs validation with planners.</p></section>
+   <section><h2>Models &amp; safeguards</h2><p>Poly is the mathematical baseline; standard XGBoost learns arrival patterns; Antidote also uses report age, missingness and motion consistency. Its guard limits duplicate-report influence and screens implausible position jumps. Reporting gaps leave older observations available to the models; missing speed, angle or class and corrupted positions change the evidence they receive.</p><p>Compare all three at the same clock against the original crossing labels. Antidote can still fail when plausible biased reports dominate, and cannot recover an unseen vessel during a complete outage.</p></section>
+   <section><h2>Fair evaluation &amp; success</h2><p>Measure average and tail arrival-time error, prediction coverage, forecast revisions, repairs and withheld predictions. Use matched approaches, checkpoints and seeds; report valid forecasts out of attempted forecasts. Test stale-only, quality-only and combined conditions, then vary fault prevalence, repeated reports and unequal source volume.</p><p>March charts are exploratory and include training/development data, not protected evaluation. The backend’s acceptance targets are at least 10% degraded-error improvement and at most 5% original-data cost; achievement is not established here. Agree a coverage target, then test a new condition on protected data against the same baselines.</p></section>
+   <section><h2>Human review &amp; correction</h2><p>The planner reviews report timestamps, original and disrupted forecasts, and Antidote’s anomaly warnings before allocating resources. Missing or conflicting evidence calls for verification or deferral. Experimental repairs are opt-in; retain the original evidence and disclose what changed. Evaluation must record correction effort, review time and whether warnings improve understanding.</p></section>
+   <section><h2>Data &amp; operational limits</h2><p>Historical AIS reports provide the reference evidence. Injected faults are “Simulated disruption”; original records and crossing labels remain unchanged. Arrival means crossing longitude −76.30° within latitude 36.95–37.05°, not reaching a terminal.</p><p>The source includes model versions, seeds and source/configuration hashes. Before operational use, confirm permitted use and privacy needs, test geographic and vessel-class bias, and name an accountable owner.</p></section>
+   <section><h2>Next step &amp; handoff</h2><p>Iterate before a controlled pilot. The project team must name an evaluation owner, lock acceptance targets and protected data, and review failure cases and original-data tradeoffs. A pilot needs a port partner, planner review time, suitable compute and data/operational approvals.</p><p>Use the repository’s setup instructions, versioned model artifacts and evaluation methods to repeat the comparison. Report negative results, unavailable forecasts and limitations alongside accuracy.</p></section>
+  </div>
+ </details>
+</header>
+<main class="console" id="replay-workspace" aria-label="Antidote replay and model analysis">
 <nav class="project-nav" aria-label="Primary navigation"><a class="project-name" href="/tracking/">The Antidote</a><div><a href="/tracking/" aria-current="page">Replay</a><a href="/overview/" target="_blank" rel="noopener">Overview<span class="sr-only"> (opens in a new tab)</span></a></div></nav>
 <main class="console">
  <section class="tracking-column">
   <section id="map-console" class="map-console" aria-label="Historical ship replay">
-   <header class="section-bar map-toolbar"><h1>Historical replay <small id="replay-period" hidden></small></h1><div class="map-actions">
-    <div class="model-select"><button id="model" type="button" aria-label="Model: Antidote" aria-haspopup="listbox" aria-expanded="false" aria-controls="model-menu"><span id="model-name" aria-hidden="true">Antidote</span><svg class="dropdown-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></button><div id="model-menu" class="model-menu" role="listbox" aria-label="Prediction model" hidden><button role="option" aria-selected="false" tabindex="-1" data-model="A">Poly</button><button role="option" aria-selected="false" tabindex="-1" data-model="B">XGBoost</button><button role="option" aria-selected="true" tabindex="-1" data-model="C">Antidote</button></div></div>
-    <button id="recenter" aria-label="Recenter">Recenter</button><button id="invert" type="button" aria-pressed="false" aria-label="Switch to light view">Invert</button><button id="fullscreen" class="icon-button" aria-expanded="false" aria-label="Expand map" title="Expand map"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 3H3v4m10-4h4v4M3 13v4h4m10-4v4h-4"/></svg></button>
+   <header class="section-bar map-toolbar"><h2 class="map-title">Historical replay</h2><div class="map-actions">
+    <button id="recenter" aria-label="Recenter">Recenter</button><button id="fullscreen" class="icon-button" aria-expanded="false" aria-label="Expand map" title="Expand map"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 3H3v4m10-4h4v4M3 13v4h4m10-4v4h-4"/></svg></button>
    </div></header>
    <div class="map-stage">
     <div id="coastal-map" aria-label="Hampton Roads dotted coastal map"></div>
@@ -19,25 +42,88 @@
     <p id="map-status" role="status">Loading coastal geography…</p>
     <svg id="ship-callouts" class="ship-callout" aria-hidden="true"></svg>
     <div id="ship-popups"></div>
-    <aside id="antidote-alert" class="anomaly-notice" role="status" aria-live="polite" aria-label="Antidote input warning" hidden></aside>
+    <div class="map-notices"><aside id="antidote-eta" class="antidote-eta" aria-label="Antidote ETAs for vessels on the map" hidden><div class="antidote-eta-heading"><span>Antidote ETAs</span><span class="antidote-eta-count"></span></div><div class="antidote-eta-list"></div></aside>
+    <aside id="antidote-alert" class="anomaly-notice" role="status" aria-live="polite" aria-label="Antidote input warning" hidden></aside></div>
     <template id="ship-popup-template"><section class="ship-popup"><button class="ship-name-tag" data-part="ship-name" type="button"></button></section></template>
     <div class="navigation" aria-label="Map controls"><button id="zoom-in" aria-label="Zoom in" title="Zoom in"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg></button><button id="zoom-out" aria-label="Zoom out" title="Zoom out"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10"/></svg></button></div>
     <div class="map-footer"><span id="map-scale"></span></div>
    </div>
    <div class="replay-clock" role="group" aria-label="Replay playback"><div class="replay-transport" aria-label="Replay controls"><button id="play" aria-label="Pause replay" disabled>Ⅱ</button><button id="speed-slow" aria-label="Halve playback speed" title="Halve playback speed">½×</button><span id="replay-speed" class="speed">10×</span><button id="speed-boost" aria-label="Double playback speed" title="Double playback speed">2×</button></div><time id="clock">—</time></div>
   </section>
-  <section class="timeline" aria-label="Replay time range"><div class="timeline-endpoint"><input id="start-time" type="datetime-local" aria-label="Start date and time in UTC" step="60" disabled></div><div class="scrubber"><input id="scrub" type="range" aria-label="Replay time" min="0" max="100" value="0" disabled><span class="timeline-thumb" aria-hidden="true"></span><div id="activity-track" class="activity-track" aria-label="Vessel activity periods"></div></div><div class="timeline-endpoint"><input id="end-time" type="datetime-local" aria-label="End date and time in UTC" step="60" disabled></div><div class="activity-navigation" role="group" aria-label="Jump between periods with ships"><button id="previous-ships" type="button" aria-label="Previous period with ships" title="Previous period with ships" disabled>←</button><span id="activity-label">Ships</span><button id="next-ships" type="button" aria-label="Next period with ships" title="Next period with ships" disabled>→</button></div></section>
+  <section class="timeline" aria-label="Replay time range"><div class="timeline-endpoint"><input id="start-time" type="datetime-local" aria-label="Start date and time in UTC" step="60" disabled></div><div class="scrubber"><input id="scrub" type="range" aria-label="Replay time" title="Ships only: empty periods are omitted. The clock retains actual UTC dates." min="0" max="100" value="0" disabled><span class="timeline-thumb" aria-hidden="true"></span><div id="activity-track" class="activity-track" aria-label="Vessel activity periods"></div></div><div class="timeline-endpoint"><input id="end-time" type="datetime-local" aria-label="End date and time in UTC" step="60" disabled></div><div class="activity-navigation" role="group" aria-label="Jump between periods with ships"><button id="previous-ships" type="button" aria-label="Previous period with ships" title="Previous period with ships" disabled>←</button><span id="activity-label">Ships only</span><button id="next-ships" type="button" aria-label="Next period with ships" title="Next period with ships" disabled>→</button></div></section>
 
  </section>
  <aside class="feed-column" aria-label="Replay controls and vessel data">
-  <details class="poison-panel" id="poison-panel" open><summary class="section-bar">Simulated disruption<svg class="chevron dropdown-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></summary>
-   <div id="poison-controls" class="poison-controls"></div><p class="sr-only">Live replay controls. Attack labels are attached after inference for display only.</p></details>
+  <details class="poison-panel" id="poison-panel" open><summary class="section-bar">Data poisoning<svg class="chevron dropdown-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></summary><div id="poison-controls" class="poison-controls"></div><p class="sr-only">Live replay controls. Attack labels are attached after inference for display only.</p></details>
   <section id="eta-comparison" class="comparison-panel" aria-labelledby="comparison-title"><header class="section-bar feed-bar"><h2 id="comparison-title"><button id="comparison-toggle" type="button" aria-expanded="true" aria-controls="comparison-content">ETA comparison<svg class="dropdown-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></button></h2><span id="comparison-stamp">Loading</span></header>
    <div id="comparison-content" class="comparison-content"><div class="comparison-vessel"><select id="comparison-vessel" aria-label="Vessel for ETA comparison" aria-describedby="comparison-note" disabled><option>Loading vessels…</option></select><svg class="dropdown-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></div>
-   <details id="mitigation-details" class="mitigation-details"><summary><span id="mitigation-status" role="status">Antidote · connecting</span></summary><ul id="mitigation-results"></ul></details>
-   <div class="comparison-scroll arc-feed-scroll" tabindex="0" role="region" aria-label="Normal and poisoned ETA comparison"><table aria-describedby="comparison-note"><thead><tr><th>Model</th><th>Normal</th><th>Poisoned</th><th>Actual</th></tr></thead><tbody id="comparison-body"></tbody></table><p id="comparison-empty" hidden>No vessels at this replay time. Use the timeline’s Ships arrows to find an active period.</p></div>
+   <div class="comparison-context" id="comparison-context" aria-label="Replay clock and time to the selected vessel’s recorded crossing" hidden><div><span>Replay</span><time id="comparison-clock">—</time></div><div><span>To crossing</span><strong id="comparison-remaining">—</strong></div></div>
+   <div class="comparison-scroll arc-feed-scroll" tabindex="0" role="region" aria-label="Normal and poisoned ETA comparison"><table aria-describedby="comparison-note"><thead><tr><th>Model</th><th>Normal</th><th>Poisoned</th><th>Actual</th></tr></thead><tbody id="comparison-body"></tbody></table><p id="comparison-empty" hidden>No vessel activity in this date range. Choose another range to continue the replay.</p></div>
    <p class="comparison-note sr-only" id="comparison-note">Errors below ETAs are minutes vs actual arrival.</p></div>
   </section><section id="live-feed" class="live-feed"><header class="section-bar feed-bar"><h2 id="feed-title"><button id="feed-toggle" type="button" aria-expanded="true" aria-controls="feed-content">Live data feed<svg class="dropdown-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></button></h2><span id="feed-status" class="sr-only" role="status">Connecting</span></header><div id="feed-content" class="feed-table-wrap"><table><thead><tr><th title="Measurement time in UTC">Time</th><th title="Speed over ground, knots" aria-label="Speed in knots">Speed</th><th>Longitude</th><th>Latitude</th><th title="Direction of travel over ground, degrees" aria-label="Angle in degrees">Angle</th><th title="Reported AIS vessel type" aria-label="Reported AIS vessel type">Type</th></tr></thead><tbody id="feed-body"></tbody></table><div id="feed-empty" class="feed-empty">Loading received ship reports…</div></div><p class="sr-only" id="feed-note">Historical AIS · only reports received by the replay clock.</p></section></aside>
+ <section class="analytics-grid" aria-label="Monthly model analysis">
+  <section id="monthly-eta" class="graph-panel" aria-labelledby="monthly-title">
+   <header class="section-bar feed-bar"><h2 id="monthly-title">Monthly ETA error</h2><span class="graph-period">Mar 2024 · UTC</span></header>
+   <div class="monthly-body">
+    <div class="monthly-tools"><span>ETA − actual (min)</span><div class="monthly-legend" role="group" aria-label="Visible model lines"></div></div>
+    <div class="monthly-plot" tabindex="0" role="group" aria-label="Daily ETA error chart. Use left and right arrows to inspect days." aria-describedby="monthly-help monthly-details"><svg class="monthly-svg" role="img" aria-label="Monthly ETA prediction errors"></svg><div class="monthly-inspector" id="monthly-details" hidden></div><div class="monthly-loading" role="status" aria-label="Waiting for March data…"><span aria-hidden="true">0%</span><button type="button" class="monthly-retry" hidden>Retry</button></div></div>
+    <p id="monthly-help" class="sr-only">Use arrow keys, Home and End to inspect each day. Model buttons show or hide lines. Error is predicted ETA minus actual arrival: negative is early, positive is late.</p>
+    <div class="monthly-scenario" aria-live="polite">Uses the data poisoning sliders above · begins March 15</div>
+    <details class="monthly-method"><summary>Method &amp; coverage <span class="monthly-coverage"></span></summary><p class="monthly-method-copy">Preparing all supported March checkpoints. Daily means give each vessel approach equal weight; hover or focus the chart for absolute error and coverage.</p></details>
+   </div>
+  </section>
+  <section id="eta-window" class="graph-panel" aria-labelledby="eta-window-title">
+   <header class="section-bar feed-bar"><h2 id="eta-window-title">Average ETA change</h2><span class="graph-period">All March · 0–30 min</span></header>
+   <div class="monthly-body">
+    <div class="monthly-tools"><span class="window-measure">Change in predicted ETA (min)</span><div class="monthly-legend" role="group" aria-label="Visible average ETA lines"></div></div>
+    <div class="monthly-plot" tabindex="0" role="group" aria-label="Average ETA revision over 30 minutes. Use arrow keys to inspect each minute." aria-describedby="eta-window-help eta-window-details"><svg class="monthly-svg" role="img" aria-label="Average ETA revision by model over 30 minutes"></svg><div class="monthly-inspector" id="eta-window-details" hidden></div><div class="monthly-loading" role="status" aria-label="Waiting for prediction data…"><span aria-hidden="true">0%</span><button type="button" class="monthly-retry" hidden>Retry</button></div></div>
+    <p id="eta-window-help" class="sr-only">Use arrow keys, Home and End to inspect each minute. Model buttons show or hide lines. Missing predictions remain gaps.</p>
+    <div class="monthly-scenario window-description" aria-live="polite">0 = unchanged ETA · + later / − earlier</div>
+    <details class="monthly-method"><summary>Method &amp; coverage <span class="monthly-coverage"></span></summary><p class="monthly-method-copy">Each point averages forecasts for the same vessel instances across all three models. Unavailable predictions are excluded and disclosed.</p></details>
+   </div>
+  </section>
+  <section id="arrival-convergence" class="graph-panel" aria-labelledby="convergence-title">
+   <header class="section-bar feed-bar"><h2 id="convergence-title">Arrival convergence</h2><span class="graph-period">Mar 2024 · final 60 min</span></header>
+   <div class="monthly-body">
+    <div class="monthly-tools"><span>Absolute ETA error (min)</span><div class="monthly-legend" role="group" aria-label="Visible arrival convergence lines"></div></div>
+    <div class="monthly-plot" tabindex="0" role="group" aria-label="Arrival convergence. Use arrow keys to inspect five-minute bins." aria-describedby="convergence-help convergence-details"><svg class="monthly-svg" role="img" aria-label="Average absolute ETA error before arrival"></svg><div class="monthly-inspector" id="convergence-details" hidden></div><div class="monthly-loading" role="status" aria-label="Waiting for March predictions…"><span aria-hidden="true">0%</span><button type="button" class="monthly-retry" hidden>Retry</button></div></div>
+    <p id="convergence-help" class="sr-only">Use arrow keys, Home and End to inspect bins from 60 minutes before the recorded crossing to arrival. Model buttons show or hide lines. Lower error is better; missing forecasts remain gaps.</p>
+    <div class="monthly-scenario" aria-live="polite">Lower is better · aligned to the recorded crossing · uses poisoning sliders</div>
+    <details class="monthly-method"><summary>Method &amp; coverage <span class="monthly-coverage"></span></summary><p class="monthly-method-copy">Preparing matched March predictions in five-minute bins before the recorded analytical gate crossing.</p></details>
+   </div>
+  </section>
+  <section id="poisoning-stress" class="graph-panel" aria-labelledby="stress-title">
+   <header class="section-bar feed-bar"><h2 id="stress-title">Poisoning stress curve</h2><span class="graph-period">Mar 2024 · delay only</span></header>
+   <div class="monthly-body">
+    <div class="monthly-tools"><span>Absolute ETA error (min)</span><div class="monthly-legend" role="group" aria-label="Visible poisoning stress lines"></div></div>
+    <div class="monthly-plot" tabindex="0" role="group" aria-label="Poisoning stress curve. Use arrow keys to inspect report delays." aria-describedby="stress-help stress-details"><svg class="monthly-svg" role="img" aria-label="Average absolute ETA error by reporting delay"></svg><div class="monthly-inspector" id="stress-details" hidden></div><div class="monthly-loading" role="status" aria-label="Preparing the reporting-delay experiment…"><span aria-hidden="true">0%</span><button type="button" class="monthly-retry" hidden>Retry</button></div></div>
+    <p id="stress-help" class="sr-only">Use arrow keys, Home and End to inspect 0, 2, 5, 10 and 15 minute report delays. All points use identical supported checkpoints across all models and delays. Lower error is better.</p>
+    <div class="monthly-scenario" aria-live="polite">Lower is better · delay-only sweep · independent of replay sliders</div>
+    <details class="monthly-method"><summary>Method &amp; coverage <span class="monthly-coverage"></span></summary><p class="monthly-method-copy">Preparing saved-model forecasts with increasing report delivery delay. Source measurements and actual crossing times are preserved.</p></details>
+   </div>
+  </section>
+  <section id="paired-impact" class="graph-panel insight-panel" aria-labelledby="paired-impact-title">
+   <header class="section-bar feed-bar"><h2 id="paired-impact-title">Poisoning impact</h2><span class="graph-period">Matched clean / selected</span></header>
+   <div class="insight-body">
+    <div class="insight-toolbar"><div class="insight-tabs" role="group" aria-label="Accuracy measure"><button type="button" data-metric="error" aria-pressed="true">Absolute error</button><button type="button" data-metric="impact" aria-pressed="false">Added error</button></div><div class="insight-key"><span class="key-clean">Clean</span><span class="key-selected">Selected</span></div></div>
+    <div class="insight-context">One model per lane · shared scale · post-Mar 15 summary at right</div>
+    <div class="insight-plot impact-plot" tabindex="0" role="group" aria-label="Paired clean and poisoned accuracy by day. Use arrow keys to inspect days." aria-describedby="paired-impact-note"><svg role="img" aria-label="Daily absolute ETA error, clean versus selected scenario"></svg><div class="monthly-inspector" hidden></div><div class="monthly-loading" role="status" aria-label="Waiting for paired March forecasts…"><span aria-hidden="true">0%</span><button type="button" class="monthly-retry" hidden>Retry</button></div></div>
+    <p id="paired-impact-note" class="insight-note">Absolute error keeps early and late misses from cancelling. Added error isolates the effect of the selected poisoning on the same predictions.</p>
+    <details class="monthly-method"><summary>Method &amp; coverage <span class="monthly-coverage"></span></summary><p class="monthly-method-copy"></p></details>
+   </div>
+  </section>
+  <section id="forecast-stability" class="graph-panel insight-panel" aria-labelledby="forecast-stability-title">
+   <header class="section-bar feed-bar"><h2 id="forecast-stability-title">Forecast stability</h2><span class="graph-period">A fixed 30-minute cohort</span></header>
+   <div class="insight-body">
+    <div class="insight-toolbar"><div class="insight-tabs" role="group" aria-label="Forecast movement measure"><button type="button" data-metric="movement" aria-pressed="true">From first ETA</button><button type="button" data-metric="updates" aria-pressed="false">Each update</button></div><span class="insight-units">Minutes · lower is steadier</span></div>
+    <div class="insight-models" role="group" aria-label="Focus model to inspect its spread"></div>
+    <div class="insight-context insight-cohort">Same approaches at every checkpoint</div>
+    <div class="insight-plot stability-plot" tabindex="0" role="group" aria-label="Average absolute ETA movement over 30 minutes. Focus a model to see its spread. Use arrow keys to inspect checkpoints." aria-describedby="forecast-stability-note"><svg role="img" aria-label="Average forecast movement and observed vessel spread"></svg><div class="monthly-inspector" hidden></div><div class="monthly-loading" role="status" aria-label="Matching complete vessel sequences…"><span aria-hidden="true">0%</span><button type="button" class="monthly-retry" hidden>Retry</button></div></div>
+    <p id="forecast-stability-note" class="insight-note">Choose a model to reveal the middle 80% of vessel outcomes and its clean reference. A steady forecast can still be inaccurate.</p>
+    <details class="monthly-method"><summary>Method &amp; coverage <span class="monthly-coverage"></span></summary><p class="monthly-method-copy"></p></details>
+   </div>
+  </section>
+ </section>
  <div id="error" class="error" role="alert" hidden><span></span><button id="retry">Retry</button></div>
 </main>
 <footer class="project-footer"><span>Historical AIS · Research prototype</span><nav aria-label="Footer navigation"><a href="/tracking/" aria-current="page">Replay</a><a href="/overview/" target="_blank" rel="noopener">Overview<span class="sr-only"> (opens in a new tab)</span></a></nav></footer>
