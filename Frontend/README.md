@@ -1,13 +1,3 @@
-<<<<<<< Updated upstream
-# AIS reliability replay
-
-The existing vanilla JavaScript page uses focused ES modules with strict JSDoc
-contracts checked by TypeScript. It needs no frontend build or Node runtime to
-serve. Python continues to own scenario generation, feature extraction, and ETA
-inference. No models are trained or changed by this UI.
-
-## Start
-=======
 # Antidote dashboard
 
 The dashboard at `tracking/index.html` is connected to the Python service in
@@ -71,107 +61,93 @@ npm test
 # From Data_Science
 python -m pytest tests -q
 ```
->>>>>>> Stashed changes
 
-From `Data_Science`, with the existing trained artifacts present:
+## Connect your backend
 
-```powershell
-python -m Optimized_Model serve --port 8765
-```
+Serve `tracking/` as the static web root over HTTP, with API routes on the same
+origin. Opening the HTML directly as a `file://` page will not connect the API.
+There is no frontend build step. Use current Chrome, Edge, Firefox or Safari.
+The page will show connection feedback until a compatible API is available; it
+does not include mock predictions or a standalone demo backend.
 
-Open `http://127.0.0.1:8765`. Opening the HTML as a file cannot call the replay API.
-The local service exposes only the HTML and the replay JavaScript/CSS assets.
+The network helper is `api()` in `tracking/app.mjs`. Frame request construction
+is `frameURL()` in that file. Change those if your service uses another base URL
+or authentication. The coastal-map config request is in `tracking/coastal.js`.
 
-## Optional Mapbox basemap
+### Required routes
 
-The coordinate plot works without an account, token, or map-network connection.
-The server automatically reads `.env` from the repository root (beside
-`CODE_GUIDELINES.md`), regardless of the current working folder. Set a public
-token there using the template in `.env.example`:
+| Route | Response or asset |
+| --- | --- |
+| `GET /api/config` | `{ "mapbox_public_token": "pk.<public token>" }`; optional map config |
+| `GET /api/fleet/catalog` | Replay bounds, initial time, activity windows and attack-control definitions |
+| `GET /api/fleet/frame?time=<seconds>&poisoning=<URL-encoded JSON>` | Current causal vessel reports and model outputs for the chosen scenario |
+| `GET /map-assets/mapbox-gl.js` | Mapbox GL JS 3.32.0 SDK, served by the team's host |
+| `GET /map-assets/mapbox-gl.css` | Matching SDK stylesheet |
 
-<<<<<<< Updated upstream
-```dotenv
-MAPBOX_TOKEN=<your public token>
-```
-=======
 The Python service serves the SDK from `Frontend/node_modules/mapbox-gl/dist`
 after `npm ci`. Public map configuration and network access are required for
 the geographic basemap. Keep existing Mapbox/OpenStreetMap attribution. Without
 a geographic map the UI can render the coordinate fallback.
->>>>>>> Stashed changes
 
-The local `.env` is ignored by Git and is not served as a browser asset. Restart
-the server after editing it. `MAPBOX_PUBLIC_TOKEN` is also supported; explicit
-process environment variables override `.env` values. The existing start command
-needs no token assignment. `python-dotenv` is pinned in the Python requirements.
+### Catalog shape
 
-You can still enter a token in **Map settings** and choose **Use Mapbox** for a
-temporary page-only override. That field is cleared after submission, and its
-value is not saved to browser storage or the `.env` file.
+`start`, `end` and `initial_time` are UTC Unix seconds. `windows` is an array of
+`{ id, start, arrival }` records for timeline navigation. `attack_controls` is an
+array of `{ id, label, maximum, unit, description }`. The backend supplies those
+labels, bounds and explanations; the UI does not implement the attacks.
 
-Use your account's public token with URL restrictions covering the actual local
-origin. Never supply a secret `sk.` token. The optional SDK and CSS are pinned to
-Mapbox GL JS **3.32.0**, matching the development typing dependency. Network or
-authorization failures retain the coordinate plot. Mapbox account usage terms
-and map-load billing apply: https://docs.mapbox.com/mapbox-gl-js/guides/pricing/.
-The renderer draws received reports and the analytical crossing reference; it
-does not call a Directions API or generate a predicted vessel route. The
-inspector can additionally draw original positions of already delivered reports.
+Existing control IDs: `reporting_gap` (0–60 minutes), `missing_speed`,
+`missing_course`, `missing_vessel_class`, `sensor_drift`, `sensor_deterioration`,
+and `position_jump` (each 0–100). The client sends their numeric settings in the
+`poisoning` JSON query. Return the applied settings as `frame.poisoning`.
 
-## Demo walkthrough
+### Frame and vessel shape
 
-1. Start with **Normal reports**. Approaches are listed chronologically. The page
-   initially selects decision index 20 or the approach midpoint, whichever comes
-   first, without selecting a vessel by model success. Play restarts at the
-   beginning when it reaches the last decision.
-2. Choose **Incorrect positions** and enable **Show simulated changes**. Inspect
-   a red point or use the record selector to see its original/delivered position,
-   event/delivery times, and injected displacement. Known fault labels are
-   audience-only and do not enter any predictor.
-3. Expand the additional experiments. Compare 10%, 25%, and 50% prevalence at
-   fixed volume, then exact or slightly different repeated messages. The
-   counts cover the model's evidence window before shared deduplication; the
-   map and selector show at most 150 recent reports. Copies are not independent
-   trajectories. Guard consolidation is not a count of detected faults.
-4. Compare normal, delayed, incorrect-position, and combined conditions at the
-   same clock. A 15-minute delay continues delivering old reports; it is not a
-   permanent freeze. ETA shifts compare against the normal-input replay of the
-   same model and decision. All A/B/C condition forecasts use the same feed.
-5. Play or scrub, then reveal the recorded analytical crossing and errors.
-   Changing decision, approach, or scenario hides the outcome again. The chart
-   reads saved unattended evaluation forecasts using the same first configured
-   evaluation seed as live snapshots, and returns only past/current decisions.
-6. Use the full-cohort MAE/coverage tables, reserved drift condition, and explicit
-   failure buttons. Small repetition effects and the failed acceptance policy
-   remain visible. A selected failure is labeled as a failure example.
+The frame contains `{ time, ships, poisoning, poisoning_active }`.
+Each vessel needs:
 
-**Simulate verified update** supplies a historical report already measured at
-the decision time and records walkthrough duration in `human_verification.jsonl`.
-It is explicitly human assisted. Revealing truth preserves the verified
-forecasts; it does not replace them with unattended forecasts or rewrite the
-saved timeline. Time/condition changes reset the intervention. The inspector is
-fixed while the verified result is displayed.
+- `id`, `mmsi`, `name`, `arrival` (recorded crossing UTC seconds), `arrived`.
+- `crossing_position`: `[longitude, latitude]` once the recorded crossing is
+  reached; null before arrival. Retain terminal frames long enough for cleanup.
+- `reports`: records with stable `record_id`, `time`, `delivered`, `longitude`,
+  `latitude`, `speed`, `course` and `vessel_type`. Times are UTC seconds; speed is
+  knots and course is degrees. Only expose reports already delivered by the
+  frame clock. The client filters future timestamps too.
+- `predictions`: current-scenario outputs keyed `A`, `B`, `C` (Poly, XGBoost,
+  Antidote), each with `available`, `eta` and `error`. Missing outputs use null,
+  never zero. Error is predicted minus actual arrival in minutes.
+- `nominal_predictions`: independent clean-data outputs for the identical vessel,
+  model and decision time. `poisoned_predictions`: the attacked run's outputs,
+  or null if every attack is off. `prediction_time` is the shared decision clock.
+  Do not populate both columns from one prediction object.
 
-Arrival remains the original east-to-west analytical crossing at longitude
-−76.30, latitude 36.95–37.05, rather than verified docking. Delays and input
-corruptions are simulations. This is not evidence of poisoning in NOAA records
-or a validated deployment safety policy. C still fails on some approaches.
+For audited feed highlighting, reports may carry `poisoned_fields`,
+`attack_names`, `original_values`, `original_longitude` and `original_latitude`.
+Use frontend field names (`speed`, `course`, `longitude`, `latitude`,
+`vessel_type`). `audit_events` may describe already-due withheld reports with
+`withheld: true`, stable IDs/times and null measurements. Audit labels must be
+attached after inference; they are display evidence, not model inputs.
 
-## Development checks
+Antidote warnings read `age_minutes` and `diagnostics` with `state` and `reasons`.
+Recognized input reasons are `implausible_position_jump`,
+`conflicting_bin_positions`, `no_reports` and `reporting_gap`. Simulator poison labels alone do
+not trigger warnings. Warnings appear only while model C is selected.
 
-From `Frontend` (Node 22.22 or compatible):
+Optional `comparison_inputs` explains matching forecasts after an older gap:
+`normal_reports`, `poisoned_reports`, `withheld_reports`, `modified_reports`,
+`history_minutes`, `normal_recent_reports`, `poisoned_recent_reports`, and
+`recent_inputs_differ`. See `tracking/eta-comparison.mjs` for presentation.
+Return non-2xx failures as `{ "error": "Readable message" }`.
 
-```powershell
-npm ci
-npm run check
-npm test
-```
+## Files
 
-Vitest exercises UI behavior under jsdom, including hidden outcomes, request
-races, verification/reveal preservation, and map truth-layer separation. The
-existing Python suite covers causal delivery, model inputs, inspection, counts,
-and saved timeline boundaries: `python -m pytest tests -q` from `Data_Science`.
+`app.mjs` coordinates the page. `arc-*` files implement the native UI controls.
+`coastal.js` draws the original map. The other ES modules handle vessel motion,
+arrival presentation, name-tag layout, feed history, ETA comparison, anomaly
+notices and timeline navigation. `style.css` includes the arrival presentation
+rules that previously lived in a separate stylesheet. These browser presentation
+modules are required to preserve the current interface; they do no model training
+or backend inference.
 
-The API module owns network calls; `types.d.ts` documents additive backend
-contracts. Mapbox uses the same GeoJSON builder as the coordinate plot. No
-frontend ML feature calculation duplicates the Python pipeline.
+`tracking/THIRD_PARTY_NOTICES.md` records component and font sources.
+`tracking/assets/GeistMono-OFL.txt` and `LICENSE` retain the relevant licenses.

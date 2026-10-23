@@ -1,0 +1,32 @@
+/* UIArc Select, DropdownMenu, ButtonGroup, ExpandableCard, Dialog, Tooltip,
+   Button, FloatingButtonGroup, IconMorph and Slider. See THIRD_PARTY_NOTICES.md. */
+#model-name{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#model svg{transition:transform var(--arc-spring) var(--arc-ease)}
+#model[aria-expanded=true] svg{transform:rotate(180deg)}
+.model-select #model[data-state=open]{background:var(--button-hover);border-color:var(--border-strong);color:var(--ink)}
+.model-menu{position:fixed;top:auto;left:auto;right:auto;z-index:110;width:184px;max-width:calc(100vw - 24px);padding:5px;border:1px solid var(--border-strong);border-radius:10px;background:var(--raised);color:var(--ink);box-shadow:0 12px 36px #0006;overflow:auto;transform-origin:top right;animation:arc-select-in var(--arc-standard) var(--arc-ease) both;isolation:isolate}
+.model-menu[data-side=top]{transform-origin:bottom right}
+.model-menu [role=option]{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:34px;padding:0 10px;border:0;border-radius:8px;background:transparent;color:var(--ink);font-size:12px;font-weight:400;outline:none;text-align:left;cursor:pointer}
+.arc-option-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.arc-option-check{display:flex;width:14px;flex:none;opacity:0}.arc-option-check svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}[aria-selected=true]>.arc-option-check{opacity:1}
+.arc-menu-highlight{position:absolute;z-index:0;top:0;left:5px;right:5px;border-radius:8px;background:var(--hover);pointer-events:none;transition:transform 200ms var(--arc-ease),height 200ms var(--arc-ease),opacity 100ms}.model-menu[data-input=keyboard] .arc-menu-highlight{transition:none}
+@keyframes arc-select-in{from{opacity:0;transform:translateY(-4px) scale(.98)}to{opacity:1;transform:none}}
+.arc-button-group{position:relative;isolation:isolate;display:inline-flex;align-items:center;gap:1px;padding:3px;overflow:hidden;border:1px solid var(--border-strong);border-radius:10px;background:var(--raised)}
+.arc-button-group>button{position:relative;z-index:1;flex:none;background:transparent;outline-offset:-3px}
+.arc-group-highlight{position:absolute;z-index:0;top:0;left:0;opacity:0;pointer-events:none;transition:transform 220ms var(--arc-ease),width 220ms var(--arc-ease),height 220ms var(--arc-ease),opacity 100ms}
+.arc-group-highlight::before{content:'';position:absolute;inset:2px;border-radius:6px;background:var(--hover);transition:background-color var(--arc-fast)}
+.arc-button-group[data-pressed=true] .arc-group-highlight::before{background:var(--hover)}.arc-button-group[data-input=keyboard] .arc-group-highlight{transition:none}
+.navigation.arc-button-group{position:absolute;gap:2px;padding:1px;border:0;border-radius:2px;background:var(--surface)}.navigation.arc-button-group button:hover{color:var(--ink)}.navigation.arc-button-group button:active svg{transform:scale(.9)}.navigation.arc-button-group svg{transition:transform var(--arc-fast) var(--arc-ease)}
+.replay-transport.arc-button-group{display:flex;flex:none;padding:0 2px;border:0;border-radius:4px;background:transparent}
+.poison-panel summary{transition:background-color var(--arc-fast)}.poison-panel summary:hover{color:var(--ink);background:var(--raised)}.poison-panel .chevron{transition:transform var(--arc-spring) var(--arc-ease)}.poison-panel[data-expanded=true] .chevron{transform:rotate(180deg)}.poison-panel[data-expanded=false] .chevron{transform:rotate(0)}
+.arc-disclosure-panel{overflow:hidden;background:transparent}.method-name{border-radius:3px;transition:color var(--arc-fast)}.method-name:focus-visible{outline-offset:4px}
+#method-dialog{width:min(440px,calc(100vw - 32px));max-width:none;max-height:calc(100dvh - 32px);padding:0;overflow:auto;border:1px solid var(--border-strong);border-radius:8px;background:var(--raised);color:var(--ink);box-shadow:0 20px 64px #0008}
+#method-dialog[open]{animation:arc-dialog-in 220ms var(--arc-ease) both}#method-dialog::backdrop{background:#000a}#method-dialog .dialog-title{padding:22px 24px 0}
+#method-dialog #close-dialog{display:grid;place-items:center;flex:none;width:30px;height:30px;padding:0;border:0;border-radius:8px;background:transparent;color:var(--muted);font-size:23px;line-height:1;transition:background-color var(--arc-fast),transform var(--arc-fast)}#method-dialog #close-dialog:hover{background:var(--hover);color:var(--ink)}#method-dialog #close-dialog:active{transform:scale(.96)}
+#method-description{margin:0;padding:18px 24px 24px;font-size:14px;line-height:1.75;color:var(--ink)}#method-dialog .dialog-note{margin:0;padding:16px 24px;background:var(--surface);color:var(--muted);font-size:12px;line-height:1.6}
+@keyframes arc-dialog-in{from{opacity:0;transform:translateY(7px) scale(.98)}to{opacity:1;transform:none}}
+.arc-tooltip{position:fixed;z-index:120;max-width:min(240px,calc(100vw - 24px));padding:7px 10px;border:1px solid var(--border);border-radius:4px;background:var(--tooltip-bg);color:var(--tooltip-ink);box-shadow:0 5px 20px #0004;pointer-events:none;font:400 12px/1.4 var(--font-ui);letter-spacing:0;animation:arc-tooltip-in 120ms var(--arc-ease) both}
+@keyframes arc-tooltip-in{from{opacity:0;transform:translateY(3px) scale(.98)}to{opacity:1;transform:none}}
+.arc-slider{touch-action:pan-y}
+.arc-slider[data-dragging] input[type=range]{cursor:grabbing}.arc-slider input[type=range]{touch-action:pan-y}.arc-slider:focus-within .timeline-thumb,.arc-slider[data-dragging] .timeline-thumb{scale:1}
+.replay-clock #play svg{display:block;width:12px;height:12px;fill:currentColor;stroke:none}.arc-play-icon path{transition:d 220ms var(--arc-ease)}
+@media(prefers-reduced-motion:reduce){.model-menu,#method-dialog[open],.arc-tooltip{animation:none}.arc-slider:focus-within .timeline-thumb,.arc-slider[data-dragging] .timeline-thumb{scale:1}}
