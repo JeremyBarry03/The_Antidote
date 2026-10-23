@@ -53,8 +53,10 @@ selection and is not an untouched confirmation period.
 The eight-control graph bundle contains 256 precomputed on/off scenarios at a
 fixed 25% strength, beginning March 15, across six sampled March approaches.
 It is separate from the continuous live replay sliders and does not establish
-full-cohort mitigation performance. A paired, full-March comparison of C with
-and without conditional repairs remains to be completed. The 2023 source files are not part of the tracked
+full-cohort mitigation performance. Separate same-case April follow-up reports
+measure the missing-speed, missing-course, and missing-vessel-class repairs on
+112 approaches. They do not establish an all-eight or combined-repair gain, or
+a full-March repair comparison. The 2023 source files are not part of the tracked
 serving bundle; hashes are recorded, but exact retraining needs matching
 authorized sources. Human-reviewed error types are saved as feedback for
 versioned retraining; each candidate still needs evaluation before it can
@@ -77,7 +79,7 @@ The public overview uses subject headings, not judging labels. Internal mapping:
 | C1 | Receipt-time contract and report age; live gap control with fixed delayed-report stress comparison |
 | C2 | Specific faults; source-volume effects remain to be measured against the current model version |
 | C3 | Eight-control ordered replay and fixed-strength saved scenario progression |
-| C4 | Current conditional repairs and review behavior; full-March same-model repair ablation remains to be run |
+| C4 | Same-case April follow-up ablations for missing speed/course/class with uncertainty and scope limits; full-March, all-eight, and combined-repair evaluation remains open |
 
 ## Direction contract
 
