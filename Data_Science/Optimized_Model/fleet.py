@@ -1,6 +1,8 @@
 """Fleet dashboard adapter over frozen models and causal historical reports."""
 
 from functools import lru_cache
+import json
+from pathlib import Path
 import math
 
 import numpy as np
@@ -80,6 +82,7 @@ class FleetService:
     def __init__(self, config: OptimizedConfig, dataset: ReplayDataset,
                  systems: list[PredictionSystem], extractor: OptimizedFeatures, *, evaluation_only: bool = False) -> None:
         self.config, self.dataset, self.extractor = config, dataset, extractor
+        self.vessel_names = json.loads(Path(__file__).with_name("vessel_names.json").read_text(encoding="utf-8"))
         self.systems = [system for system in systems if system.name in ("A", "B", "C")]
         if {system.name for system in self.systems} != {"A", "B", "C"}:
             raise ValueError("The fleet dashboard requires frozen models A, B and C.")
@@ -301,7 +304,7 @@ class FleetService:
             attacked_recent = received.loc[received.time.ge(latest - pd.Timedelta(minutes=history_minutes))]
             arrived = clock >= template.arrival_time
             crossings = self._crossing_positions() if arrived else {}
-            ships.append({"id": identity, "mmsi": str(template.mmsi), "name": f"MMSI {template.mmsi}",
+            ships.append({"id": identity, "mmsi": str(template.mmsi), "name": self.vessel_names.get(str(template.mmsi), f"MMSI {template.mmsi}"),
                           "arrival": unix_seconds(template.arrival_time), "arrived": arrived,
                           "crossing_position": crossings.get(identity), "reports": records, "audit_events": audit,
                           "predictions": predictions, "nominal_predictions": clean_predictions,
