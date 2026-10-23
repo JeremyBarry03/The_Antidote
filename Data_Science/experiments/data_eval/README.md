@@ -84,6 +84,17 @@ sleep be suspended only while the job is active; the display may turn off.
 Keep the computer powered and connected to the internet until `job_status.json`
 reports `complete` or `failed`. Closing a laptop lid may still suspend it.
 
+For live stage and feature-preparation progress, double-click `status.cmd` in
+this folder, or open another PowerShell window:
+
+```powershell
+& "$env:SystemRoot/System32/WindowsPowerShell/v1.0/powershell.exe" -NoProfile -ExecutionPolicy Bypass -File experiments/data_eval/status.ps1
+```
+
+Add `-Once` for one snapshot. Ctrl+C stops only the monitor. Counts update every
+25 approaches and percentages refer to the current preparation step, not the
+entire job. The monitor only reads status files and logs.
+
 Acquisition resumes verified daily subsets. Transient download errors receive
 bounded retries. Unexpected schemas, empty days and invalid dates fail clearly.
 Do not run two acquisitions against the same output directory simultaneously.
