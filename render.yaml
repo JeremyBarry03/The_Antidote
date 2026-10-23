@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: antidote-api
+    runtime: python
+    rootDir: Data_Science
+    branch: main
+    plan: 1c-2g
+    numInstances: 1
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT --workers 1
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.14
+      - key: ANTIDOTE_CONFIG
+        value: Optimized_Model/config_data_eval.json
+      - key: MAPBOX_PUBLIC_TOKEN
+        sync: false
+      - key: OMP_NUM_THREADS
+        value: '1'
+      - key: OPENBLAS_NUM_THREADS
+        value: '1'

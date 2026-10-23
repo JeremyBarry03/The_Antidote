@@ -1,5 +1,10 @@
 # Antidote UI only
 
+Deployment integration now lives in [the repository deployment guide](../README.md).
+The notes below describe the original UI handoff contract. The repository now
+also includes the FastAPI adapter, chart jobs, and Netlify/Render configurations.
+Production Mapbox assets use the pinned official CDN rather than `/map-assets`.
+
 This folder contains 34 files: the approved dashboard's browser code, styles,
 font/license assets, this guide and the application license. No backend, models,
 datasets, tests, npm installation, lockfile, build tooling or component reference

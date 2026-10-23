@@ -1,0 +1,23 @@
+[build]
+  base = "Frontend"
+  publish = "tracking"
+  command = ""
+
+[build.environment]
+  NODE_VERSION = "22"
+  # The static site and local plugin need no npm dependencies.
+  NPM_FLAGS = "--ignore-scripts --omit=dev"
+
+[[plugins]]
+  package = "./netlify/backend-proxy"
+
+[[redirects]]
+  from = "/tracking/*"
+  to = "/:splat"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"

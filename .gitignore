@@ -19,3 +19,7 @@ Frontend/node_modules/
 
 # Local design-review screenshots.
 /.impeccable/review/
+
+# Local hosting state and generated static overview copy.
+.netlify/
+/Frontend/tracking/overview/
