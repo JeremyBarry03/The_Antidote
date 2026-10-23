@@ -55,7 +55,7 @@ class ExperimentConfig:
     training: TrainingConfig
 
     @classmethod
-    def load(cls, path: Path) -> "ExperimentConfig":
+    def load(cls, path: Path, *, require_input: bool = True) -> "ExperimentConfig":
         contents = json.loads(path.read_text(encoding="utf-8"))
         base = path.resolve().parent
         config = cls(
@@ -66,11 +66,11 @@ class ExperimentConfig:
             splits=SplitConfig(**contents["splits"]),
             training=TrainingConfig(**contents["training"]),
         )
-        config.validate()
+        config.validate(require_input=require_input)
         return config
 
-    def validate(self) -> None:
-        if not self.input_csv.is_file():
+    def validate(self, *, require_input: bool = True) -> None:
+        if require_input and not self.input_csv.is_file():
             raise FileNotFoundError(f"AIS CSV not found: {self.input_csv}")
         gate = self.gate
         if not (-180 <= gate.longitude < gate.approach_east_longitude <= 180):

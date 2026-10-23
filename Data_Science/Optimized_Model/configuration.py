@@ -70,7 +70,10 @@ class OptimizedConfig:
 
     @property
     def baseline(self) -> ExperimentConfig:
-        return ExperimentConfig.load(self.baseline_config)
+        return ExperimentConfig.load(
+            self.baseline_config,
+            require_input=not (self.output_directory / "serving_bundle.json").is_file(),
+        )
 
     def snapshot(self) -> dict[str, object]:
         return json.loads(json.dumps(asdict(self), default=str))

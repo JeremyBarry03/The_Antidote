@@ -1,3 +1,30 @@
+## Run the shared dashboard after pulling
+
+From the repository root:
+
+```powershell
+git pull origin main
+python -m pip install -r Data_Science/requirements.txt
+cd Frontend
+npm ci
+cd ../Data_Science
+python -m Optimized_Model serve --port 8765
+```
+
+Open http://127.0.0.1:8765/tracking/ . Stop any older server on that port first.
+The committed serving bundle contains original March 2024 replay histories
+(243 approaches, 5,382 scheduled decisions), terminal crossing positions,
+model hashes and original provenance. It serves the 2023-trained A/B/nominal C
+without the multi-gigabyte training CSVs or auxiliary experiment models.
+It verifies model/data hashes, inference code (ignoring line endings), and
+scientific configuration. Nominal C does not use augmented-C calibration.
+Research training/evaluation still requires original source data and artifacts.
+
+`MAPBOX_PUBLIC_TOKEN` in the repository `.env` is optional for the geographic
+basemap; without a public token the coordinate fallback remains available.
+The frontend documents monthly/stress analysis routes that this backend does
+not yet implement; this bundle enables replay/inference, not those graph jobs.
+
 # Degradation-aware ETA model C
 
 This package builds on the existing `eta_baselines`, `Simple_baseline` and
@@ -7,7 +34,7 @@ longitude -76.30, latitude 36.95-37.05. It does not predict docking at VIG.
 The interactive demo is available with `python -m Optimized_Model serve` at
 `http://127.0.0.1:8765`. Serving defaults to `config_data_eval.json`: the new
 2023-trained A/B artifacts and nominal-only C (`C_nominal.joblib`), exposed under
-the stable A/B/C names. The UI covers only March 1–31, 2024, and all existing
+the stable A/B/C names. The UI covers only March 1â€“31, 2024, and all existing
 fleet mitigation hooks remain connected to C. The augmented C is retained for
 experiments; its calibration is not reused for the nominal-only model. See
 `../experiments/nominal_model_comparison/RESULTS.md` and `serving_verification.json`

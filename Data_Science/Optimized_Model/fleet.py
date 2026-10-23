@@ -193,6 +193,10 @@ class FleetService:
     def _crossing_positions(self) -> dict[str, list[float]]:
         """Recover the original reference bracket for terminal display only."""
         if self._crossings is None:
+            bundled = self.dataset.manifest.get("serving_crossing_positions")
+            if bundled is not None:
+                self._crossings = bundled
+                return self._crossings
             source = self.config.later_csv if self.split == "evaluation" else self.config.baseline.input_csv
             observations, _ = load_observations(source)
             fixes = observations.set_index(["mmsi", "time"]).sort_index()
