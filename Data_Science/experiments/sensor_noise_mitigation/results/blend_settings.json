@@ -1,0 +1,10 @@
+{
+  "alpha_speed": 0.9736760135273184,
+  "alpha_course": 0.8825237200860703,
+  "flagged_development_observations": {
+    "speed": 10613,
+    "course": 7146
+  },
+  "development_approaches": 36,
+  "interpretation": "Fraction of the difference moved toward the position estimate, fixed before April scoring"
+}

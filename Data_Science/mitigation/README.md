@@ -30,3 +30,8 @@ to the observed feed regardless of whether its gaps are natural or simulated.
 It detects per-vessel reporting silence; it does not reconstruct positions,
 modify features, or retrain models. The former projection adapter and experiment
 outputs have been removed.
+
+`SensorNoiseMitigation` implements detection and conditional SOG/COG
+reconstruction for the Gaussian `SensorDeteriorationAttack` experiment only.
+It follows the same base contract and keeps received readings separate from
+derived estimates. See [the strategy and initial policy](sensor_noise_mitigation/README.md).

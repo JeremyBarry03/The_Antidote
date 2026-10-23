@@ -15,6 +15,7 @@ from dotenv import dotenv_values
 
 from api.anamoly_detector import AnomalyDetector
 from mitigation.gap_mitigation import GapMitigation, GapMitigationConfig
+from mitigation.sensor_noise_mitigation import SensorNoiseMitigation
 
 from attacks import (BaseAttack, MissingCourseAttack, MissingCourseConfig,
                      MissingSpeedAttack, MissingSpeedConfig, MissingVesselClassAttack, MissingVesselClassConfig,
@@ -29,7 +30,7 @@ from .features import OPTIMIZED_COLUMNS, RICH_COLUMNS, OptimizedFeatures
 from .presentation import EvaluationEvidence, VISIBLE_REPORT_LIMIT, demo_scenarios, feed_counts, inspect_feed, scenario_options
 from .replay import create_stream
 from .scenarios import primary_scenarios
-from .sensor_deterioration import deterioration_options, deterioration_presets, inspect_deterioration
+from .sensor_deterioration import deterioration_options, deterioration_presets, inspect_deterioration, mitigated_noise_view
 from .position_jump import position_jump_options, position_jump_presets, inspect_position_jump
 from .views import view_row
 
@@ -119,7 +120,8 @@ class DemoService:
         presets = deterioration_presets(self.config.evaluation_seeds[0])
         if scenario_name in presets:
             return self._attack_timeline(decision, SensorDeteriorationAttack(presets[scenario_name]), scenario_name,
-                                         reveal, "Live historical replay with simulated Gaussian noise")
+                reveal, "Live historical replay with simulated Gaussian noise and guarded sensor reconstruction",
+                mitigation=SensorNoiseMitigation(self.config.baseline.gate))
         jumps = position_jump_presets(self.config.evaluation_seeds[0])
         if scenario_name in jumps:
             return self._attack_timeline(decision, PositionJumpAttack(jumps[scenario_name]), scenario_name,
@@ -130,7 +132,9 @@ class DemoService:
                                                               decision["decision_time"], reveal=reveal))
 
     def _attack_timeline(self, decision: pd.Series, attack: BaseAttack, scenario_name: str,
-                         reveal: bool, source: str) -> dict[str, object]:
+                         reveal: bool, source: str, *, mitigation: SensorNoiseMitigation | None = None) -> dict[str, object]:
+        if mitigation is not None and not isinstance(attack, SensorDeteriorationAttack):
+            raise ValueError("Sensor noise mitigation is supported only for SensorDeteriorationAttack.")
         stream = attack.apply(self.dataset.histories[decision.approach_id])
         past = self.dataset.decisions.loc[
             self.dataset.decisions.approach_id.eq(decision.approach_id)
@@ -138,7 +142,12 @@ class DemoService:
         rows = []
         for _, previous in past.iterrows():
             row = previous.to_dict()
-            row.update(view_row(stream.available(previous.decision_time), previous, self.extractor))
+            received = stream.available(previous.decision_time)
+            if mitigation is None:
+                row.update(view_row(received, previous, self.extractor))
+            else:
+                corrected, _ = mitigated_noise_view(received, previous, self.extractor, mitigation)
+                row.update(corrected)
             row.update(scenario=scenario_name, condition=attack.condition.value, seed=attack.parameters["seed"])
             rows.append(row)
         frame = pd.DataFrame(rows)
@@ -156,7 +165,10 @@ class DemoService:
                             "points": predictions[columns].to_dict(orient="records")})
 
     def snapshot(self, decision_id: str, scenario_name: str, *, reveal: bool, verify: bool,
-                 inspect: bool = False, attack: BaseAttack | None = None) -> dict[str, object]:
+                 inspect: bool = False, attack: BaseAttack | None = None,
+                 sensor_noise_mitigation: SensorNoiseMitigation | None = None) -> dict[str, object]:
+        if sensor_noise_mitigation is not None and not isinstance(attack, SensorDeteriorationAttack):
+            raise ValueError("Sensor noise mitigation is supported only for SensorDeteriorationAttack.")
         jumps = position_jump_presets(self.config.evaluation_seeds[0])
         if scenario_name in jumps:
             if verify or attack is not None:
@@ -170,7 +182,8 @@ class DemoService:
             if verify or attack is not None:
                 raise ValueError("Sensor deterioration presets require unattended replay without another attack.")
             result = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False, inspect=inspect,
-                                   attack=SensorDeteriorationAttack(presets[scenario_name]))
+                                   attack=SensorDeteriorationAttack(presets[scenario_name]),
+                                   sensor_noise_mitigation=SensorNoiseMitigation(self.config.baseline.gate))
             result["scenario"] = scenario_name
             return result
         decision = self._decision(decision_id)
@@ -197,7 +210,12 @@ class DemoService:
             verified["record_id"] = "simulated-verified-update"
             available = pd.concat([available, verified], ignore_index=True)
         row = decision.to_dict()
-        row.update(view_row(available, decision, self.extractor))
+        mitigation_metadata = None
+        if sensor_noise_mitigation is None:
+            row.update(view_row(available, decision, self.extractor))
+        else:
+            view, mitigation_metadata = mitigated_noise_view(available, decision, self.extractor, sensor_noise_mitigation)
+            row.update(view)
         row.update({"scenario": scenario_name, "condition": choices[scenario_name].condition.value, "seed": seed})
         if attack is not None:
             row.update({"scenario": attack.name, "condition": attack.condition.value})
@@ -243,6 +261,8 @@ class DemoService:
             "anomaly_detection": AnomalyDetector(GapMitigation(self.config.baseline.gate)).evaluate(
                 available, decision["decision_time"]),
         }
+        if mitigation_metadata is not None:
+            result["sensor_noise_mitigation"] = mitigation_metadata
         if attack is not None:
             # Audit truth is added only after inference, never to the feature frame.
             if isinstance(attack, SensorDeteriorationAttack) and inspect:
@@ -275,12 +295,20 @@ class DemoService:
 
     def sensor_deterioration_snapshot(
         self, decision_id: str, config: SensorDeteriorationConfig, *, reveal: bool = False, inspect: bool = False,
+        mitigate: bool = False,
     ) -> dict[str, object]:
         """Pair original and corrupted feeds at identical clocks and references."""
+        if type(mitigate) is not bool:
+            raise ValueError("mitigate must be boolean.")
         original = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False)
         attacked = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False,
                                  inspect=inspect, attack=SensorDeteriorationAttack(config))
-        return {"original": original, "attacked": attacked}
+        result = {"original": original, "attacked": attacked}
+        if mitigate:
+            result["mitigated"] = self.snapshot(decision_id, "nominal", reveal=reveal, verify=False,
+                inspect=inspect, attack=SensorDeteriorationAttack(config),
+                sensor_noise_mitigation=SensorNoiseMitigation(self.config.baseline.gate))
+        return result
 
     def anomaly_snapshot(
         self, decision_id: str, *, clock: str | None = None,
@@ -440,6 +468,9 @@ def serve(config: OptimizedConfig, port: int) -> None:
                         inspect=query.get("inspect", ["false"])[0] == "true"))
                 elif request.path == "/api/attacks/sensor-deterioration":
                     query = parse_qs(request.query)
+                    mitigate = query.get("mitigate", ["false"])[0]
+                    if mitigate not in ("true", "false"):
+                        raise ValueError("mitigate must be true or false.")
                     defaults = SensorDeteriorationConfig.from_severity(query.get("severity", ["medium"])[0])
                     config = SensorDeteriorationConfig(
                         sog_sigma_knots=float(query.get("sog_sigma_knots", [str(defaults.sog_sigma_knots)])[0]),
@@ -450,7 +481,7 @@ def serve(config: OptimizedConfig, port: int) -> None:
                     self._send(200, service.sensor_deterioration_snapshot(
                         query.get("decision", [""])[0], config,
                         reveal=query.get("reveal", ["false"])[0] == "true",
-                        inspect=query.get("inspect", ["false"])[0] == "true"))
+                        inspect=query.get("inspect", ["false"])[0] == "true", mitigate=mitigate == "true"))
                 elif request.path == "/api/attacks/missing-vessel-class":
                     query = parse_qs(request.query)
                     config = MissingVesselClassConfig(

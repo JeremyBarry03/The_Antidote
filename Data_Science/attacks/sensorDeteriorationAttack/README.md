@@ -59,10 +59,18 @@ columns never enter `stream.reports` or predictor feature lists.
 The shared `BaseAttack` / `ReportStream` boundary injects noise before feature
 generation. `DemoService.sensor_deterioration_snapshot` pairs original and attacked
 predictions for Models A/B/C at one clock and one unchanged reference crossing.
-Model C uses its existing guard; no mitigation, training or calibration is added.
+The baseline attacked arm uses C's existing guard. The optional `mitigate=true`
+comparison adds checked sensor-noise reconstruction for C; see
+[the mitigation policy](../../mitigation/sensor_noise_mitigation/README.md).
+No training or calibration is added.
 Attack forecasts are explicitly uncalibrated and not accepted by review policy.
 
 `GET /api/attacks/sensor-deterioration?decision=<decision_id>&severity=medium&affected_fraction=0.25&seed=4201`
+
+Add `mitigate=true` to return a third, `mitigated` snapshot with per-field
+warnings, estimate provenance and C's recomputed forecast. A/B inputs and
+the displayed received feed remain the same as the attacked arm. The parameter
+must be `true` or `false`; its default is `false`.
 
 Optional query parameters `sog_sigma_knots`, `cog_sigma_degrees`, `target_mmsi`,
 `reveal=true`, `inspect=true` follow the other paired attack endpoints. Sigma

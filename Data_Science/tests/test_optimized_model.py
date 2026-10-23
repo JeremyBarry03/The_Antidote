@@ -26,6 +26,8 @@ from Optimized_Model.views import ReplayTask, _replay_approach, view_row
 from attacks import MissingCourseConfig, MissingSpeedConfig, ReportingGapAttack, ReportingGapConfig
 from attacks import SensorDeteriorationConfig
 from attacks import PositionJumpAttack, PositionJumpConfig
+from mitigation import SensorNoiseMitigation
+from Optimized_Model.sensor_deterioration import mitigated_noise_view
 
 
 def test_gap_anomaly_notifications_are_causal_and_do_not_change_model_cards(demo_service, monkeypatch):
@@ -601,6 +603,14 @@ def test_deterioration_http_endpoint_and_existing_routes(demo_service: DemoServi
             pair = json.load(response)
         assert pair["attacked"]["attack"]["parameters"]["cog_sigma_degrees"] == 0
         assert pair["attacked"]["seed"] == 99
+        assert "mitigated" not in pair
+        with urlopen(root+path+"&mitigate=true", timeout=5) as response:
+            corrected = json.load(response)
+        assert "sensor_noise_mitigation" in corrected["mitigated"]
+        assert corrected["mitigated"]["received_history"] == corrected["attacked"]["received_history"]
+        with pytest.raises(HTTPError) as error:
+            urlopen(root+path+"&mitigate=invalid", timeout=5)
+        assert error.value.code == 400
         with pytest.raises(HTTPError) as error:
             urlopen(root+path+"&sog_sigma_knots=-1", timeout=5)
         assert error.value.code == 400
@@ -785,3 +795,84 @@ def test_missing_vessel_class_zero_mask_matches_nominal_and_audit_cannot_change_
     inspected = demo_service.missing_vessel_class_snapshot('decision', MissingVesselClassConfig(.5), reveal=True, inspect=True)['attacked']
     assert plain['cards'] == inspected['cards']
     assert inspected['attack']['injected_missing_vessel_class_reports_so_far'] > 0
+def test_sensor_noise_view_preserves_baselines_quality_evidence_and_timestamps(demo_service):
+    from Optimized_Model.features import QUALITY_COLUMNS, RICH_COLUMNS
+
+    decision = demo_service.dataset.decisions.iloc[0]
+    reports = demo_service.dataset.histories["voyage"].assign(sog=20., cog=180.)
+    original = view_row(reports, decision, demo_service.extractor)
+    corrected, metadata = mitigated_noise_view(reports, decision, demo_service.extractor,
+        SensorNoiseMitigation(demo_service.config.baseline.gate))
+    assert metadata["applied"] and metadata["reconstructed_report_count"] > 0
+    assert corrected["speed_knots"] < original["speed_knots"]
+    assert original["velocity_disagreement_mps"] > 0
+    for column in (*QUALITY_COLUMNS, *(f"raw_{name}" for name in RICH_COLUMNS),
+                   "observation_time", "raw_observation_time", "reasons", "guard_received_count", "guard_removed_count"):
+        left, right = original[column], corrected[column]
+        assert (pd.isna(left) and pd.isna(right)) or left == right
+
+
+def test_noise_api_has_separate_estimates_and_keeps_a_b_and_received_feed(demo_service):
+    source = demo_service.dataset.histories["voyage"].copy(deep=True)
+    config = SensorDeteriorationConfig(20., 45., seed=4201)
+    result = demo_service.sensor_deterioration_snapshot("decision", config, mitigate=True, reveal=True, inspect=True)
+    attacked, corrected = result["attacked"], result["mitigated"]
+    assert corrected["sensor_noise_mitigation"]["applied"]
+    assert corrected["sensor_noise_mitigation"]["eta_policy_calibrated"] is False
+    assert corrected["received_history"] == attacked["received_history"]
+    assert corrected["inspection"] == attacked["inspection"]
+    assert corrected["reference_arrival"] == attacked["reference_arrival"]
+    assert corrected["cards"][:2] == attacked["cards"][:2]
+    assert not corrected["cards"][2]["accepted"]
+    pd.testing.assert_frame_equal(source, demo_service.dataset.histories["voyage"])
+
+
+def test_zero_noise_mitigation_is_identity_and_unreliable_track_is_not_repaired(demo_service):
+    config = SensorDeteriorationConfig(0., 0.)
+    pair = demo_service.sensor_deterioration_snapshot("decision", config, mitigate=True, reveal=True)
+    assert not pair["mitigated"]["sensor_noise_mitigation"]["applied"]
+    assert pair["mitigated"]["cards"] == pair["attacked"]["cards"]
+    demo_service.dataset.histories["voyage"].loc[15, "longitude"] = -75.
+    pair = demo_service.sensor_deterioration_snapshot("decision", SensorDeteriorationConfig(20., 45.), mitigate=True)
+    metadata = pair["mitigated"]["sensor_noise_mitigation"]
+    assert metadata["requires_review"] and not metadata["applied"]
+    assert pair["mitigated"]["cards"] == pair["attacked"]["cards"]
+
+
+def test_noise_mitigation_cannot_be_applied_to_other_attacks(demo_service):
+    from attacks import MissingSpeedAttack, SensorDriftAttack
+
+    mitigation = SensorNoiseMitigation(demo_service.config.baseline.gate)
+    for attack in (None, MissingSpeedAttack(MissingSpeedConfig(1.)),
+                   PositionJumpAttack(PositionJumpConfig()), SensorDriftAttack()):
+        with pytest.raises(ValueError, match="only for SensorDeteriorationAttack"):
+            demo_service.snapshot("decision", "nominal", reveal=False, verify=False,
+                                  attack=attack, sensor_noise_mitigation=mitigation)
+
+
+def test_reconstructed_motion_reaches_c_predictor_without_changing_a_b(demo_service):
+    from sklearn.linear_model import LinearRegression
+
+    # A small speed-sensitive fixture checks wiring, not real ETA improvement.
+    columns = ("mean_speed_knots",)
+    imputer = fit_imputer(pd.DataFrame({"mean_speed_knots": [0., 30.]}), columns)
+    regressor = LinearRegression().fit([[0.], [30.]], [60., 30.])
+    demo_service.systems[2] = PredictionSystem("C", EtaPredictor("C", imputer, regressor, columns, "decision"), "guarded")
+    pair = demo_service.sensor_deterioration_snapshot("decision", SensorDeteriorationConfig(20., 45., seed=4201), mitigate=True)
+    assert pair["mitigated"]["cards"][:2] == pair["attacked"]["cards"][:2]
+    assert pair["mitigated"]["cards"][2]["predicted_arrival_time"] != pair["attacked"]["cards"][2]["predicted_arrival_time"]
+
+    # The normal noise replay and its past-only timeline use the same selected
+    # strategy automatically; other attack/comparison routes stay independent.
+    replay = demo_service.snapshot("decision", "sensor_deterioration_extreme", reveal=False, verify=False)
+    raw = demo_service.sensor_deterioration_snapshot("decision", SensorDeteriorationConfig.from_severity(
+        "extreme", seed=demo_service.config.evaluation_seeds[0]))["attacked"]
+    assert replay["sensor_noise_mitigation"]["applied"]
+    assert replay["received_history"] == raw["received_history"]
+    assert replay["cards"][:2] == raw["cards"][:2]
+    assert replay["cards"][2]["predicted_arrival_time"] != raw["cards"][2]["predicted_arrival_time"]
+    timeline = demo_service.timeline("decision", "sensor_deterioration_extreme", reveal=False)
+    assert {point["system"]: point["predicted_arrival_time"] for point in timeline["points"]} == {
+        card["system"]: card["predicted_arrival_time"] for card in replay["cards"]}
+    assert all("error_minutes" not in point and point["decision_time"] <= replay["decision_time"]
+               for point in timeline["points"])
