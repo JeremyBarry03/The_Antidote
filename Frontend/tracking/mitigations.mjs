@@ -14,8 +14,9 @@ export function renderMitigations(root,ship,{loading=false,error=false}={}){
  if(!state.enabled){summary.textContent='Additional mitigations off · trained guard active';return;}
  const applied=state.strategies.filter(strategy=>strategy.applied);
  const reviews=state.strategies.filter(strategy=>strategy.requires_review);
- summary.textContent=applied.length?`Antidote · estimates applied${reviews.length?' · review needed':''}`:reviews.length?'Antidote · review needed':'Antidote · monitoring inputs';
- summary.dataset.state=reviews.length?'review':applied.length?'estimated':'monitoring';
+ const unavailable=state.strategies.some(strategy=>strategy.status==='estimate_unavailable');
+ summary.textContent=applied.length?`Antidote · estimates applied${reviews.length?' · review needed':unavailable?' · some unavailable':''}`:reviews.length?'Antidote · review needed':unavailable?'Antidote · estimate unavailable':'Antidote · monitoring inputs';
+ summary.dataset.state=reviews.length?'review':applied.length?'estimated':unavailable?'unavailable':'monitoring';
  for(const strategy of state.strategies){
   const row=document.createElement('li'),label=document.createElement('strong'),detail=document.createElement('span');
   label.textContent=strategy.label;detail.textContent=strategy.message;row.append(label,detail);results.append(row);

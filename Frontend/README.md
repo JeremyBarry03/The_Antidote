@@ -56,8 +56,11 @@ can be reconstructed independently from checked original position history;
 class recovery uses consistent received MMSI metadata. Gaussian noise and speed
 drift use their existing conditional sensor reconstruction. Gap and navigation
 consistency detectors provide warnings; the position-jump detector never repairs
-coordinates. The per-vessel Antidote status lists applied estimates and review
-requirements. Underlined feed cells expose derived estimates in their tooltip;
+coordinates. The per-vessel Antidote status lists applied estimates, unavailable
+motion estimates, and review requirements. An optional noise/drift estimate without
+a usable reference does not itself request review; detected inconsistencies,
+blocked corrections, and unsupported forecasts retain their warnings.
+Underlined feed cells expose derived estimates in their tooltip;
 displayed measurements remain the actual received values. A/B, raw quality
 features, source files, clocks and trained models stay unchanged.
 

@@ -92,13 +92,19 @@ class FleetMitigations:
                    message: str | None = None, blocked: bool = False) -> None:
             data = result.to_dict()
             detected = bool(data.get("anomaly_detected", False))
-            review = blocked or bool(data.get("requires_review", False)) or (
+            # Optional reconstruction can lack a usable motion reference without
+            # detecting a fault. Keep that limitation visible without escalating it.
+            estimate_unavailable = (key in ("sensor_drift", "sensor_noise")
+                                    and not blocked and not detected and not result.can_predict)
+            review = blocked or (not estimate_unavailable and bool(data.get("requires_review", False))) or (
                 key in ("missing_speed", "missing_course", "missing_vessel_class") and not result.can_predict)
-            status = "requires_review" if blocked else "estimated" if count else data.get("status", "monitoring")
+            status = ("requires_review" if blocked else "estimated" if count else
+                      "estimate_unavailable" if estimate_unavailable else data.get("status", "monitoring"))
             strategies.append({"id": key, "label": label, "status": status,
                 "detected": detected, "applied": count > 0, "reconstructed_reports": count,
                 "requires_review": review or (detected and not count),
                 "message": message or (f"{count} readings estimated" if count else
+                    "Motion estimate unavailable; monitoring received reports" if estimate_unavailable else
                     "Measurements disagree; review needed" if detected else
                     "Insufficient reliable evidence; review needed" if review else "Monitoring received reports"),
                 "diagnostics": data})
