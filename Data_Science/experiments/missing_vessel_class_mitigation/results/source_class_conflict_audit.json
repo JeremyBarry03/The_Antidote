@@ -1,0 +1,8 @@
+{
+  "selected_approaches": 148,
+  "source_reports": 15266,
+  "same_timestamp_known_class_conflict_approaches": 0,
+  "findings": [],
+  "masking_cannot_introduce_new_known_class_labels": true,
+  "adapter_conflict_fix_changes_no_evaluated_case": true
+}

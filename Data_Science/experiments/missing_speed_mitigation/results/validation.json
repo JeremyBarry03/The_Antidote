@@ -1,0 +1,13 @@
+{
+  "model_and_source_hashes_unchanged": true,
+  "original_C_baseline_reproduced": true,
+  "same_support_and_decision_times": true,
+  "no_report_mutation": true,
+  "only_speed_related_features_changed": true,
+  "original_missingness_and_clocks_preserved": true,
+  "truth_and_audit_excluded_from_predictor_inputs": true,
+  "no_model_retraining_or_frontend_edits": true,
+  "evaluation_approaches": 112,
+  "evaluation_decisions": 2402,
+  "elapsed_seconds": 367.85239619997446
+}

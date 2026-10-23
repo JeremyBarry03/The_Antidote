@@ -1,0 +1,14 @@
+{
+  "final_sha256": {
+    "mitigation\\base_mitigation.py": "1c5e57f47af4ee4ca7d14902ff113d3b517a9650b9ad682db23f84c869f63e1e",
+    "mitigation\\missing_vessel_class_mitigation\\__init__.py": "7790da827f45ec187cf084def16722225f97611f27eae28ffc5f24ec3e3a7489",
+    "mitigation\\missing_vessel_class_mitigation\\missing_vessel_class_mitigation.py": "e710e40a55ddcd89cdd03ea4f31c1e8b237cab2aaa016c98751f612a9a39ec82",
+    "mitigation\\missing_vessel_class_mitigation\\optimized_model.py": "0f608836365a84007711e50fb8b9c10134977f6bab0e55ff53c2a3e9832cfece",
+    "Optimized_Model\\service.py": "e8db77c79e0e52dcdd041a779912b653407c3539b39e599cf7b5d966b0edee81",
+    "experiments\\missing_vessel_class_mitigation\\run.py": "ff17e489dea4601ff9ad1c54ab5d51d0533e5519caf56a60df19baa8abf6f081"
+  },
+  "frozen_sources_models_and_old_speed_course_results_rechecked_unchanged": true,
+  "score_invariant_adapter_edge_fix": "During evaluation the adapter was corrected to force unknown flags when known classes conflict at the current timestamp. The audit found no such conflicts in any selected source history; masking only removes labels, so this branch was unexercised in all scored scenarios. Inference was not rerun because scores are invariant to that fix.",
+  "conflict_audit": "source_class_conflict_audit.json",
+  "postprocessing_only": "Selection-count audit and report prose regenerated from saved prediction pairs; no new inference, thresholds, scenarios or scoring changes."
+}

@@ -1,0 +1,15 @@
+{
+  "protected_hashes_unchanged": true,
+  "original_C_baseline_reproduced": true,
+  "old_speed_and_course_results_unchanged": true,
+  "same_support_and_decision_times": true,
+  "no_source_report_mutation": true,
+  "only_class_features_changed": true,
+  "truth_and_audit_excluded_from_predictor_inputs": true,
+  "cold_whole_vessel_cache_never_recovers_unseen_labels": true,
+  "full_report_mask_never_recovers_unseen_labels": true,
+  "warm_cache_contains_only_received_pre_dropout_labels": true,
+  "evaluation_approaches": 112,
+  "evaluation_decisions": 2402,
+  "elapsed_seconds": 482.5356045999797
+}
