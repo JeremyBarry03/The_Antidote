@@ -7,6 +7,11 @@ and C (degradation-aware XGBoost) implementations. Output is isolated under
 The completed run and interpretation are in [RESULTS.md](RESULTS.md), with saved
 model hashes and final checks in [verification.json](verification.json).
 
+The requested comparison with **all three models trained nominally on 2023**
+and tested on **all of March 2024** is recorded in
+[the all-nominal report](../nominal_model_comparison/RESULTS.md).
+In that report, C explicitly refers to `C_nominal.joblib`.
+
 The `data_eval` branch is checked out at
 `C:\Users\jerem\Downloads\the_antidote_data_eval`. The original checkout is used
 by another session. This worktree's ignored `data/` directory is a junction to

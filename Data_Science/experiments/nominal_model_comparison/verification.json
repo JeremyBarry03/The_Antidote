@@ -1,0 +1,88 @@
+{
+  "training": {
+    "train": {
+      "start": "2023-01-01",
+      "end_exclusive": "2023-06-30",
+      "rows": 27263,
+      "approaches": 1319,
+      "condition": "nominal"
+    },
+    "validation": {
+      "start": "2023-06-30",
+      "end_exclusive": "2023-07-20",
+      "rows": 3108,
+      "approaches": 140,
+      "condition": "nominal"
+    }
+  },
+  "test_start": "2024-03-01",
+  "test_end_exclusive": "2024-04-01",
+  "evaluation_decisions_per_model": 5382,
+  "evaluation_approaches": 243,
+  "evaluation_vessels": 219,
+  "injected_faults": false,
+  "april_2024_records_evaluated": 0,
+  "models_retrained": false,
+  "C_artifact": "C_nominal.joblib",
+  "original_augmented_C_retained": true,
+  "models": {
+    "A": {
+      "path": "artifacts\\data_eval\\optimized\\frozen_baselines\\quadratic\\model.joblib",
+      "sha256": "89fe1db93983fd5ad46cc4899844fb338b2714a60244efe1d73a93feffc1fe51"
+    },
+    "B": {
+      "path": "artifacts\\data_eval\\optimized\\frozen_baselines\\xgboost\\model.joblib",
+      "sha256": "cc52fecb94992e94f267f6cb165d170c77c5ff8c6ad3ea8e684dd0800986d0a5"
+    },
+    "C": {
+      "path": "artifacts\\data_eval\\optimized\\models\\C_nominal.joblib",
+      "sha256": "f47d56f56352fce85cf77418a941883af48a268e9f872f7e883479b6ad460d99"
+    }
+  },
+  "summary": [
+    {
+      "cohort": "March_1_31_2024_all_nominal",
+      "model": "A",
+      "decisions": 5382,
+      "approaches": 243,
+      "coverage": 1.0,
+      "approach_weighted_mae_minutes": 7.019455012353475,
+      "forecast_mdae_minutes": 3.458791509641667,
+      "forecast_p95_minutes": 36.72510090606495
+    },
+    {
+      "cohort": "March_1_31_2024_all_nominal",
+      "model": "B",
+      "decisions": 5382,
+      "approaches": 243,
+      "coverage": 1.0,
+      "approach_weighted_mae_minutes": 6.64330091681648,
+      "forecast_mdae_minutes": 3.1639253172583333,
+      "forecast_p95_minutes": 37.3606364887583
+    },
+    {
+      "cohort": "March_1_31_2024_all_nominal",
+      "model": "C",
+      "decisions": 5382,
+      "approaches": 243,
+      "coverage": 1.0,
+      "approach_weighted_mae_minutes": 6.610407040568495,
+      "forecast_mdae_minutes": 3.097125876891667,
+      "forecast_p95_minutes": 37.097250677882485
+    }
+  ],
+  "paired_uncertainty": [
+    {
+      "scenario": "nominal",
+      "comparison": "nominal_C minus B",
+      "paired_cases": 5382,
+      "paired_approaches": 243,
+      "vessels": 219,
+      "mean_delta_minutes": -0.03289387624798507,
+      "median_approach_delta_minutes": -0.03628751038636353,
+      "paired_approach_win_share": 0.5473251028806584,
+      "lower95": -0.12466699166581062,
+      "upper95": 0.05022841160587312
+    }
+  ]
+}
