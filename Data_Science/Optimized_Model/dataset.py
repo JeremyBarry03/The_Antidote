@@ -1,6 +1,7 @@
 """Reuse nominal reference events; replay inputs never construct their own labels."""
 
 from dataclasses import asdict, dataclass
+from collections import Counter
 import json
 import logging
 from pathlib import Path
@@ -12,7 +13,7 @@ import pandas as pd
 from eta_baselines.approaches import ApproachBuilder
 from eta_baselines.dataset import file_digest
 from eta_baselines.features import FeatureBuilder
-from eta_baselines.observations import load_observations
+from eta_baselines.observations import iter_observation_vessels
 from eta_baselines.training import load_examples
 
 from .configuration import OptimizedConfig
@@ -77,11 +78,16 @@ def prepare_replay(config: OptimizedConfig) -> Path:
     decisions = examples[list(METADATA_COLUMNS)].copy()
     decisions.loc[decisions["split"] == "test", "split"] = "exploratory"
     decisions = decisions.loc[decisions["split"] != "purged"].copy()
-    observations, audit = load_observations(baseline.input_csv)
+    audit: Counter = Counter()
     histories: dict[str, pd.DataFrame] = {}
-    vessel_groups = {str(identity): group for identity, group in observations.groupby("mmsi", sort=False)}
-    for mmsi, events in decisions.groupby("mmsi"):
-        vessel = vessel_groups[str(mmsi)]
+    vessel_events = {str(identity): group for identity, group in decisions.groupby("mmsi")}
+    for vessel, counts in iter_observation_vessels(baseline.input_csv):
+        audit.update(counts)
+        if vessel.empty:
+            continue
+        events = vessel_events.get(str(vessel["mmsi"].iloc[0]))
+        if events is None:
+            continue
         for event in events.drop_duplicates("approach_id").itertuples():
             histories[event.approach_id] = vessel.loc[
                 vessel["time"].between(event.episode_start, event.crossing_before)
@@ -89,27 +95,31 @@ def prepare_replay(config: OptimizedConfig) -> Path:
     frames = [decisions]
     later_audit: dict[str, object] = {}
     if config.later_csv.exists():
-        later, later_audit = load_observations(config.later_csv)
-        approaches, episode_audit = ApproachBuilder(baseline.gate).build(later)
-        later_audit["episodes"] = episode_audit
+        later_counts: Counter = Counter()
+        episode_counts: Counter = Counter()
         builder = FeatureBuilder(baseline.gate, baseline.features)
-        for approach in approaches:
-            if approach.observations.empty:
-                continue
-            first = approach.observations["time"].iloc[0]
-            split = None
-            if pd.Timestamp(config.calibration_start) <= first and approach.crossing_after < pd.Timestamp(config.evaluation_start):
-                split = "calibration"
-            if pd.Timestamp(config.evaluation_start) <= first and approach.crossing_after < pd.Timestamp(config.evaluation_end):
-                split = "evaluation"
-            if split is None:
-                continue
-            frame = builder.examples(approach)
-            if frame.empty:
-                continue
-            frame["split"] = split
-            frames.append(frame[list(METADATA_COLUMNS)])
-            histories[approach.approach_id] = approach.observations
+        for vessel, counts in iter_observation_vessels(config.later_csv):
+            later_counts.update(counts)
+            approaches, counts = ApproachBuilder(baseline.gate).build(vessel)
+            episode_counts.update(counts)
+            for approach in approaches:
+                if approach.observations.empty:
+                    continue
+                first = approach.observations["time"].iloc[0]
+                split = None
+                if pd.Timestamp(config.calibration_start) <= first and approach.crossing_after < pd.Timestamp(config.evaluation_start):
+                    split = "calibration"
+                if pd.Timestamp(config.evaluation_start) <= first and approach.crossing_after < pd.Timestamp(config.evaluation_end):
+                    split = "evaluation"
+                if split is None:
+                    continue
+                frame = builder.examples(approach)
+                if frame.empty:
+                    continue
+                frame["split"] = split
+                frames.append(frame[list(METADATA_COLUMNS)])
+                histories[approach.approach_id] = approach.observations
+        later_audit = {**later_counts, "episodes": dict(episode_counts)}
     combined = pd.concat(frames, ignore_index=True)
     combined["decision_id"] = combined["approach_id"] + ":" + combined["decision_time"].astype(str)
     if combined["decision_id"].duplicated().any():
@@ -128,7 +138,7 @@ def prepare_replay(config: OptimizedConfig) -> Path:
                 "later_source_audit": later_audit,
                 "reference_labels": "Original nominal gate-crossing brackets, never corrupted.",
                 "geographic_review": "Analytical gate remains provisional; no official berth-arrival claim.",
-                "march_test_status": "Previously inspected; exploratory only."}
+                "baseline_test_status": "Inspected by baseline training; exploratory only."}
     joblib.dump(ReplayDataset(combined, histories, manifest), cache)
     combined.to_csv(config.output_directory / "decisions.csv", index=False)
     combined.drop_duplicates("approach_id").to_csv(config.output_directory / "reference_approaches.csv", index=False)

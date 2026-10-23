@@ -4,13 +4,14 @@ import hashlib
 import json
 import logging
 from pathlib import Path
+from collections import Counter
 
 import pandas as pd
 
 from .approaches import ApproachBuilder
 from .configuration import ExperimentConfig, SplitConfig
 from .features import FEATURE_COLUMNS, FEATURE_SCHEMA_VERSION, FeatureBuilder
-from .observations import load_observations
+from .observations import iter_observation_vessels
 
 logger = logging.getLogger(__name__)
 
@@ -36,10 +37,17 @@ def assign_splits(examples: pd.DataFrame, config: SplitConfig) -> pd.DataFrame:
 
 
 def prepare_dataset(config: ExperimentConfig) -> Path:
-    observations, audit = load_observations(config.input_csv)
-    approaches, approach_audit = ApproachBuilder(config.gate).build(observations)
     builder = FeatureBuilder(config.gate, config.features)
-    frames = [builder.examples(approach) for approach in approaches]
+    audit: Counter = Counter()
+    approach_audit: Counter = Counter()
+    frames = []
+    crossing_count = 0
+    for observations, counts in iter_observation_vessels(config.input_csv):
+        audit.update(counts)
+        approaches, counts = ApproachBuilder(config.gate).build(observations)
+        approach_audit.update(counts)
+        crossing_count += len(approaches)
+        frames.extend(builder.examples(approach) for approach in approaches)
     frames = [frame for frame in frames if not frame.empty]
     if not frames:
         raise ValueError("No eligible approaches produced examples. Review gate/cohort geometry.")
@@ -60,7 +68,7 @@ def prepare_dataset(config: ExperimentConfig) -> Path:
         "feature_schema_version": FEATURE_SCHEMA_VERSION, "feature_columns": list(FEATURE_COLUMNS),
         "input_csv": str(config.input_csv), "input_sha256": file_digest(config.input_csv),
         "audit": audit, "approach_audit": approach_audit,
-        "crossings_without_examples": len(approaches) - len(episodes),
+        "crossings_without_examples": crossing_count - len(episodes),
         "split_counts": summary.to_dict(orient="index"),
         "arrival_definition": "Interpolated east-to-west crossing of the configured analytical gate.",
         "limitations": [
