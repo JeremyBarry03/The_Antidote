@@ -18,7 +18,7 @@ export class FeedHistory {
       const key=report.record_id?JSON.stringify([ship.id,report.record_id]):JSON.stringify([ship.id,report.time,report.delivered,
         report.longitude,report.latitude,report.speed,report.course]);
       const audit=JSON.stringify([report.longitude,report.latitude,report.speed,report.course,report.vessel_type,report.withheld,
-        report.altered,report.poisoned_fields,report.attack_names,report.original_values,report.original_longitude,report.original_latitude]);
+        report.altered,report.poisoned_fields,report.attack_names,report.original_values,report.original_longitude,report.original_latitude,report.estimated_values]);
       const old=this.entries.get(key);
       if(old?.audit===audit)continue;
       this.entries.set(key,{key,audit,report:{...report},ship:{id:ship.id,name:ship.name,mmsi:ship.mmsi}});

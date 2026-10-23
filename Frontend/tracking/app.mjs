@@ -11,6 +11,7 @@ import {createPoisoningControls} from './poisoning-controls.mjs';
 import {createAnomalyNotice} from './anomalies.mjs';
 import {createEtaComparison} from './eta-comparison.mjs';
 import {setupActivityNavigation} from './activity.mjs';
+import {fleetFrameURL,renderMitigations} from './mitigations.mjs?v=fleet-mitigations-2';
 const $=id=>document.getElementById(id);
 const names={A:'Poly',B:'XGBoost',C:'Antidote'};
 const state={catalog:null,frame:null,time:0,start:0,end:0,model:'C',playing:false,speedMultiplier:1,expanded:false,selected:null,busy:false,version:0,mapReady:false,loadedMinute:null,failedMinute:null,feedSignature:'',error:null,poisoning:{},appliedPoisoningSignature:null,pendingPoisoning:false};
@@ -87,7 +88,12 @@ function positionPopups(){
   const fade=String(shipVisual(ship).opacity);popup.style.opacity=fade;shape.style.opacity=fade;
  }
 }
-function renderComparison(){comparison.update(state.frame?{...state.frame,ships:visibleShips()}:null,state.selected);}
+function renderComparison(){
+ const frame=state.frame?{...state.frame,ships:visibleShips()}:null;
+ comparison.update(frame,state.selected);
+ const selected=$('comparison-vessel').value;
+ renderMitigations(document,frame?.ships.find(ship=>ship.id===selected),{loading:state.pendingPoisoning,error:!!state.error});
+}
 function selectShip(id){state.selected=id;renderPopup();renderFeed();updateMarkers();renderComparison();}
 function feedRowHeight(){const cell=feedPanel.querySelector('tr[data-ship] td');return cell?.getBoundingClientRect().height||parseFloat(getComputedStyle(feedPanel).getPropertyValue('--feed-row-height'))||30;}
 function resetFeed(){feedHistory.clear();state.feedSignature='';feedPanel.scrollTop=0;feedRestoreScroll=null;renderFeed();}
@@ -121,7 +127,10 @@ function renderFeed(){
     const original=field==='longitude'?report.original_longitude:field==='latitude'?report.original_latitude:report.original_values?.[field];
     cell.className='poisoned';cell.title=report.withheld?'Report withheld · simulator audit; no measurement was delivered':`Poisoned ${field} · ${(report.attack_names??[]).join(', ')||'simulator audit'}${original!=null?` · original ${number(original,field==='longitude'||field==='latitude'?4:1)}`:''}`;
     cell.setAttribute('aria-label',report.withheld?`${field}: report withheld, simulator audit`:`${field} ${value}, poisoned data`);
-   }row.append(cell);
+   }
+   const estimate=report.estimated_values?.[field];
+   if(estimate!=null){cell.classList.add('has-estimate');cell.title+=(cell.title?' · ':'')+`Antidote estimate: ${number(estimate,field==='longitude'||field==='latitude'?4:1)}. Displayed value is the received reading.`;cell.setAttribute('aria-label',`${field}: received ${value}; Antidote estimate ${estimate}`);}
+   row.append(cell);
   }
   row.addEventListener('click',()=>selectShip(ship.id));row.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectShip(ship.id);}});fragment.append(row);
  }
@@ -135,7 +144,7 @@ async function loadFrame({snap=false}={}){
  if(state.busy&&!snap)return;const version=++state.version;state.busy=true;const requested=Math.floor(state.time/60)*60;
  syncFeedback();
  const settings={...state.poisoning},scenarioSignature=JSON.stringify(settings);
- const frameURL=time=>'/api/fleet/frame?'+new URLSearchParams({time:String(time),poisoning:JSON.stringify(settings)});
+ const frameURL=time=>fleetFrameURL(time,settings);
  try{
   const frame=await api(frameURL(state.time));if(version!==state.version)return;
   // Constrain the displayed stream to what was delivered at this frame.
@@ -157,8 +166,8 @@ async function loadFrame({snap=false}={}){
   for(const ship of frame.ships)presentationShips.set(ship.id,ship);
   if(state.appliedPoisoningSignature!==scenarioSignature){resetFeed();anomalyNotice.reset();state.appliedPoisoningSignature=scenarioSignature;}
   collectFeed({...frame,ships:[...frame.ships,...terminalShips]});state.frame=frame;state.loadedMinute=requested;state.failedMinute=null;state.feedSignature='';
-  motion.update([...presentationShips.values()],continuous,state.time);renderAll();showError(null);$('play').disabled=false;renderSpeed();
- }catch(error){if(version!==state.version)return;playback(false);state.failedMinute=requested;showError(error);}
+  motion.update([...presentationShips.values()],continuous,state.time);showError(null);renderAll();$('play').disabled=false;renderSpeed();
+ }catch(error){if(version!==state.version)return;playback(false);state.failedMinute=requested;showError(error);renderComparison();}
  finally{if(version===state.version){state.busy=false;syncFeedback();}}
 }
 function renderAll(){renderClock();renderFeed();renderPopup();drawTrails();updateMarkers();anomalyNotice.update(state.frame?.ships??[],state.model);renderComparison();activity.update(state.catalog,state.start,state.end,state.time);}
@@ -251,12 +260,15 @@ document.addEventListener('keydown',e=>{
 });
 new ResizeObserver(resize).observe($('coastal-map'));
 let poisonTimer;
+function scenarioChanged(){
+ state.version++;state.busy=false;state.pendingPoisoning=true;state.failedMinute=null;
+ anomalyNotice.reset();renderComparison();clearTimeout(poisonTimer);
+ poisonTimer=setTimeout(()=>{state.pendingPoisoning=false;void loadFrame({snap:true});},180);
+}
 const poisoningControls=createPoisoningControls({container:$('poison-controls'),
  onExplain:control=>{document.dispatchEvent(new Event('arc-overlay-open'));$('method-title').textContent=control.label;$('method-description').textContent=control.description;$('method-dialog').showModal();},
  onChange:settings=>{
-  state.poisoning=settings;state.version++;state.busy=false;state.pendingPoisoning=true;state.failedMinute=null;
-  anomalyNotice.reset();clearTimeout(poisonTimer);
-  poisonTimer=setTimeout(()=>{state.pendingPoisoning=false;void loadFrame({snap:true});},180);
+  state.poisoning=settings;scenarioChanged();
  },
 });
 enhanceArcSlider($('scrub'));

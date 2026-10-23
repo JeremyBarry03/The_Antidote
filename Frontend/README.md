@@ -38,19 +38,45 @@ leaves the poisoned column empty. Errors refer to the original analytical harbor
 crossing, not docking. Vessels are labeled by source MMSI because the prepared
 histories do not contain vessel names.
 
-All seven controls call the existing report attacks. Reporting gaps start ten
+All eight controls call the existing report attacks, including location drift.
+The speed-drift slider uses under-reporting. Over-reporting remains available
+through the backend experiment API.
+Reporting gaps start ten
 minutes after each approach begins and last for the selected duration; they do
 not move with the replay clock. Noise/drift strength and position-jump settings
 are described by each control's explanation. Attacks are seeded and compose in
-the order gap, drift, deterioration, position jump, then missing fields. Original
+the order gap, speed drift, location drift, deterioration, position jump, then missing fields. Original
 records, frozen artifacts and reference crossings stay unchanged. Display audit
 labels are attached after inference; withheld events contain no measurements.
 
-C uses its trained input guard. Experimental missing-speed, course and class
-repairs are still opt-in through the existing single-attack API endpoints;
-the dashboard does not silently combine unevaluated repair policies. Reporting
-gap warnings use the existing observable cadence detector and clear when reports
-resume. This integration does not claim new calibration or robustness results.
+C uses its trained input guard plus the existing strategies through
+`Optimized_Model/fleet_mitigations.py`. Mitigations are built into Antidote;
+the dashboard always enables them without a separate repair switch. Missing speed/course
+can be reconstructed independently from checked original position history;
+class recovery uses consistent received MMSI metadata. Gaussian noise and speed
+drift use their existing conditional sensor reconstruction. Gap and navigation
+consistency detectors provide warnings; the position-jump detector never repairs
+coordinates. The per-vessel Antidote status lists applied estimates and review
+requirements. Underlined feed cells expose derived estimates in their tooltip;
+displayed measurements remain the actual received values. A/B, raw quality
+features, source files, clocks and trained models stay unchanged.
+
+Selected position faults pause position-based sensor/missing-navigation repairs.
+Noise plus speed drift pauses their overlapping sensor corrections. These are
+explicit experiment reference policies, not automatic fault classification.
+Detectors continue to inspect the unmodified received stream. Metadata recovery
+is independent of navigation and may still operate. Compatible repairs can run
+together, but combined-attack accuracy has not been established or calibrated.
+
+Location drift warns by default. The dashboard does not add simulated reference
+fixes. The backend's explicit `trusted_fixes=true` experiment adds original-position
+reference fixes from the first report in each five-minute bin.
+Each fix becomes available only at its measurement/delivery clock; the
+existing five-minute projection expiry and navigation checks still apply.
+This is an oracle-reference simulation, not a deployed independent data source.
+It is available only with location drift, mitigations on, and no speed, course,
+noise, speed-drift or position-jump attack. Original crossing outcomes never
+become repair inputs. No previous calibration is transferred to these repairs.
 
 ## Checks
 
@@ -97,9 +123,20 @@ array of `{ id, label, maximum, unit, description }`. The backend supplies those
 labels, bounds and explanations; the UI does not implement the attacks.
 
 Existing control IDs: `reporting_gap` (0–60 minutes), `missing_speed`,
-`missing_course`, `missing_vessel_class`, `sensor_drift`, `sensor_deterioration`,
+`missing_course`, `missing_vessel_class`, `sensor_drift`, `location_drift`, `sensor_deterioration`,
 and `position_jump` (each 0–100). The client sends their numeric settings in the
 `poisoning` JSON query. Return the applied settings as `frame.poisoning`.
+
+For backend experiment controls the same frame route accepts
+`mitigate=true|false` (default true; the dashboard always sends true),
+`trusted_fixes=true|false` (default false; always false in the dashboard), and `drift_direction=under|over`
+(default under). Invalid flags or unsupported trusted-fix combinations return
+400. The catalog includes `mitigation_defaults`; `frame.mitigations` echoes the
+selected options. Each ship includes `mitigation` with `enabled`, `strategies`,
+`features_changed`, `estimated_values`, `reference_simulated`, and an explicit
+uncalibrated ETA policy. Strategy results contain status, detection, applied
+count, review requirement and the original strategy diagnostics. Display reports
+optionally contain `estimated_values`; these never overwrite received fields.
 
 ### Frame and vessel shape
 

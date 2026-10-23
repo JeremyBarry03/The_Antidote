@@ -3,8 +3,13 @@
 `SensorNoiseMitigation(BaseMitigation)` implements detection **and** checked
 reconstruction for `SensorDeteriorationAttack`, the experiment that adds random
 Gaussian noise to SOG (speed over ground) and COG (course over ground).
-The serving adapter permits this strategy only with that attack. It is not
-connected to the gap, drift, missing-field, or position-jump experiments.
+The single-attack serving adapter permits this strategy only with that attack.
+The fleet dashboard also enables it only when Gaussian noise is selected. Its
+reference policy pauses noise correction with selected position faults or
+simultaneous speed drift. Compatible missing-field repairs use the same original
+positions independently; no derived sensor values become another strategy's
+reference. This integration does not establish combined-attack accuracy. See
+the [dashboard contract](../../../Frontend/README.md).
 
 The selected strategy is **guarded replacement**. Like `GapMitigation`, it is a
 frozen, stateless `BaseMitigation` subclass with configuration, a typed result,
