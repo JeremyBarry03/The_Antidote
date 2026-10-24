@@ -5,9 +5,29 @@
 <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/v3.32.0/mapbox-gl.css"><link rel="stylesheet" href="./style.css?v=review-confirmation-dark-green-exit"><link rel="stylesheet" href="./arc-components.css"><link rel="stylesheet" href="./arc-date-time.css"><link rel="stylesheet" href="./arc-feedback.css">
 <link rel="stylesheet" href="./introduction.css"><link rel="stylesheet" href="./monthly-chart.css"><link rel="stylesheet" href="./insights.css">
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.32.0/mapbox-gl.js" defer></script><script src="./coastal.js" defer></script><script src="./app.mjs?v=review-confirmation-dark-green-exit" type="module"></script>
+<link rel="stylesheet" href="./header.css">
+<script src="./header.mjs" type="module"></script>
 </head><body>
 <div id="replay-workspace">
 <nav class="project-nav" aria-label="Primary navigation"><div class="project-brand"><h1 class="project-name">The Antidote</h1><span>Harbor arrival intelligence</span></div><div><a class="overview-link" href="/overview/" target="_blank" rel="noopener">Overview<span class="sr-only"> (opens in a new tab)</span></a></div></nav>
+<!-- Header-only addition: independent of replay, graphs and backend. -->
+<header id="antidote-header">
+ <section class="ah-banner" aria-labelledby="ah-title">
+  <div class="ah-copy-panel">
+   <div class="ah-copy">
+    <h2 id="ah-title">The Antidote</h2>
+    <p class="ah-motto">Know when to trust an ETA.</p>
+    <p class="ah-description">Antidote helps port operations planners decide whether to keep or revise an incoming vessel’s arrival window as tracking reports change.</p>
+    <ul class="ah-points">
+     <li>Stale, incomplete or inconsistent reports can mean premature staffing, idle equipment or late coordination.</li>
+     <li>Compare Poly, XGBoost and Antidote on original reports and simulated disruptions, tracking arrival-time error and prediction coverage.</li>
+    </ul>
+   </div>
+  </div>
+  <div class="ah-art-frame" aria-hidden="true"></div>
+  <div class="ah-art" id="ah-ascii" role="img" aria-label="Animated ASCII illustration of branching antidote forms"></div>
+ </section>
+</header>
 <main class="console" aria-label="Antidote replay and model analysis">
  <section class="tracking-column">
   <section id="map-console" class="map-console" aria-label="Historical ship replay">
