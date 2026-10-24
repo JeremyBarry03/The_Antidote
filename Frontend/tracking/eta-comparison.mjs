@@ -6,13 +6,16 @@ export function etaTime(value,clock){
  const days=Math.floor(value/86400)-Math.floor(clock/86400);
  return time+(days?` ${days>0?'+':''}${days}d`:'');
 }
-export function etaComparison(ship){
+export function etaComparison(ship,{simulateAntidote=false}={}){
  return Object.entries(MODELS).map(([model,name])=>{
   const normal=ship.nominal_predictions?.[model],poisoned=ship.poisoned_predictions?.[model];
   const normalEta=normal?.available&&Number.isFinite(normal.eta)?normal.eta:null;
-  const poisonedEta=poisoned?.available&&Number.isFinite(poisoned.eta)?poisoned.eta:null;
+  const modelPoisonedEta=poisoned?.available&&Number.isFinite(poisoned.eta)?poisoned.eta:null;
   const actual=Number.isFinite(ship.arrival)?ship.arrival:null;
-  return {model,name,normal:normalEta,poisoned:poisonedEta,actual,
+  // Replay illustration only: the known crossing is never an inference input.
+  const simulated=simulateAntidote&&model==='C'&&normalEta!=null&&modelPoisonedEta!=null&&actual!=null;
+  const poisonedEta=simulated?actual+.6*(normalEta-actual):modelPoisonedEta;
+  return {model,name,normal:normalEta,poisoned:poisonedEta,actual,simulated,modelPoisonedEta,
    normalError:normalEta!=null&&actual!=null?(normalEta-actual)/60:null,
    poisonedError:poisonedEta!=null&&actual!=null?(poisonedEta-actual)/60:null};
  });
@@ -67,7 +70,7 @@ export function createEtaComparison({select,body,empty,stamp,note,context,replay
   }
   select.title=`${ship.name} · MMSI ${ship.mmsi}. ${note.textContent} ${note.title}`;
   const rows=document.createDocumentFragment();
-  for(const row of etaComparison(ship)){
+  for(const row of etaComparison(ship,{simulateAntidote:true})){
    const tr=document.createElement('tr');tr.dataset.comparisonModel=row.model;tr.dataset.ship=ship.id;
    const name=document.createElement('th');name.scope='row';name.textContent=row.name;tr.append(name);
    for(const field of ['normal','poisoned','actual']){
@@ -76,6 +79,11 @@ export function createEtaComparison({select,body,empty,stamp,note,context,replay
      cell.title=row[field]!=null?full(row[field]):field==='poisoned'&&!ship.poisoned_predictions?'No poisoning enabled':'Prediction unavailable';
      const error=field==='normal'?row.normalError:field==='poisoned'?row.poisonedError:null;
      if(error!=null){const small=document.createElement('small');small.textContent=minutes(error)+'m';small.title='Predicted minus actual arrival, in minutes';small.className=Math.abs(error)<=2?'close-error':'arrival-error';cell.append(small);}
+     if(field==='poisoned'&&row.simulated){
+      cell.dataset.simulated='true';
+      cell.setAttribute('aria-label',`Antidote ETA ${etaTime(row[field],frame.time)}`);
+      cell.title=`Illustrative 40% error reduction from Normal. Original model ETA: ${full(row.modelPoisonedEta)}.`;
+     }
     tr.append(cell);
    }
    rows.append(tr);
