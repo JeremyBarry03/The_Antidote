@@ -51,7 +51,9 @@ export function createAnalysisChart(root,{kind,onRetry=()=>{}}){
  function inspect(index){
   if(!result||!geometry||!result.samples.length)return;
   selected=Math.max(0,Math.min(result.samples.length-1,index));const sample=result.samples[selected];
-  inspector.replaceChildren();const title=document.createElement('strong');title.textContent=convergence?`${sample.from_minutes}–${sample.to_minutes} min before crossing`:`${sample.minute}-minute report delay`;inspector.append(title);
+  const from=Math.round(finite(sample.from_minutes)?sample.from_minutes:sample.minute);
+  const to=Math.round(finite(sample.to_minutes)?sample.to_minutes:sample.minute);
+  inspector.replaceChildren();const title=document.createElement('strong');title.textContent=convergence?`${from===to?from:`${from}–${to}`} min before crossing`:`${Math.round(sample.minute)}-minute report delay`;inspector.append(title);
   const showClean=convergence&&context.poisoning_active;
   const table=document.createElement('table'),header=table.createTHead().insertRow();
   for(const label of ['Model','MAE (min)',...(showClean?['Clean MAE']:[])])cell(header,'th',label);
