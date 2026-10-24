@@ -140,7 +140,7 @@ Speed drift is checked against position-supported speed. For disagreement $r_k=v
  e_k=(1-\rho_k)e_{k-1}+\rho_k r_k,\qquad
  \rho_k=1-\exp(-\Delta t_k/\tau),\qquad \tau=2\text{ minutes}.
 \]
-The provisional rule requires same-direction disagreement across at least three reports and two minutes, with $|e_k|>0.5$ knots. Reference acceleration, track fit, and turning checks can prevent reconstruction. These conditions reduce impulsive replacements but also reject legitimate manoeuvres; the screen finds limited repair availability for speed drift.
+The provisional rule requires same-direction disagreement across at least three reports and two minutes, with $|e_k|>0.5$ knots. Reference acceleration, track fit, and turning checks can prevent reconstruction. These conditions reduce impulsive replacements but also reject legitimate manoeuvres; the screen finds limited repair availability for speed drift. The active development branch uses Kalman filtering for sensor-drift mitigation; this overview documents the EWMA implementation in the current main branch.
 
 Location drift compares observed displacement with motion implied by received SOG/COG. Persistent displacement disagreement can justify verification, but it cannot identify the true coordinates by itself. The dashboard therefore warns rather than correcting location. A separate experimental mode projects from explicit, time-available position anchors for at most five minutes and requires trusted navigation. Those anchors are simulated from original AIS in the experiment, so they are an oracle-reference study, not an independent operational feed. Coherent corruption of both position and motion may evade these consistency checks.
 
