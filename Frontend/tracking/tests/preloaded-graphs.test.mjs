@@ -18,6 +18,30 @@ beforeEach(()=>{
 });
 const makeBundle=()=>({version:1,strength_fraction:.25,controls,scenarios:Object.fromEntries(Array.from({length:256},(_,mask)=>[mask,result(mask)])),stress:{status:'ready',samples:[],matched_decisions:0,scheduled_decisions:1,approaches:1}});
 
+it('toggles stability lines, endpoint labels and hover values independently across metrics and scenarios',async()=>{
+ const graphs=createPreloadedGraphs(document.getElementById('graph-scenarios'),{fetcher:async()=>({ok:true,json:async()=>makeBundle()})});
+ await vi.waitFor(()=>expect(document.querySelectorAll('[data-origin="simulation"]')).toHaveLength(4));
+ const panel=document.getElementById('forecast-stability'),plot=panel.querySelector('.insight-plot');
+ const button=model=>panel.querySelector(`.insight-models [data-model="${model}"]`);
+ const series=()=>[...panel.querySelectorAll('.stability-line')].map(line=>line.dataset.series);
+ expect(series()).toEqual(['A','B','C']);
+ for(const model of ['A','B']){button(model).click();expect(button(model).getAttribute('aria-pressed')).toBe('false');}
+ expect(series()).toEqual(['C']);
+ expect([...panel.querySelectorAll('.endpoint-label')].map(label=>label.textContent)).toEqual(['Antidote']);
+ expect(panel.querySelectorAll('.spread-fill,.spread-edge,.series-dim')).toHaveLength(0);
+ plot.dispatchEvent(new Event('focus'));
+ expect([...panel.querySelectorAll('.monthly-inspector tbody tr')].map(row=>row.cells[0].textContent)).toEqual(['Antidote']);
+ expect(panel.querySelectorAll('.insight-selection circle')).toHaveLength(1);
+ panel.querySelector('[data-metric="updates"]').click();
+ document.querySelector('#graph-scenarios input').click();
+ expect(series()).toEqual(['C']);
+ button('C').click();expect(series()).toEqual([]);
+ expect(panel.querySelectorAll('.endpoint-label')).toHaveLength(0);
+ button('A').click();expect(series()).toEqual(['A']);
+ expect(button('A').getAttribute('aria-pressed')).toBe('true');
+ graphs.destroy();
+});
+
 it('plots a full hour of stability and inspects the 60-minute endpoint in both metrics',async()=>{
  const bundle=JSON.parse(readFileSync('tracking/data/scenarios.json','utf8'));
  const graphs=createPreloadedGraphs(document.getElementById('graph-scenarios'),{fetcher:async()=>({ok:true,json:async()=>bundle})});

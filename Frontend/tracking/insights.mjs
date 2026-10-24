@@ -34,13 +34,14 @@ export function createEvidenceChart(root,{kind,onRetry=()=>{}}){
  const inspector=plot.querySelector('.monthly-inspector'),loading=plot.querySelector('.monthly-loading');
  const retry=loading.querySelector('button');
  const context=root.querySelector('.insight-context'),note=root.querySelector('.insight-note');
- let data=null,metric=impact?'error':'movement',focus='all',geometry,selected=-1;
+ const shown=new Set(models);
+ let data=null,metric=impact?'error':'movement',geometry,selected=-1;
  for(const button of root.querySelectorAll('[data-metric]'))button.addEventListener('click',()=>{
   metric=button.dataset.metric;for(const peer of root.querySelectorAll('[data-metric]'))peer.setAttribute('aria-pressed',String(peer===button));draw();
  });
  if(!impact){
   const group=root.querySelector('.insight-models');
-  for(const model of ['all',...models]){const button=textElement('button',model==='all'?'All':modelNames[model]);button.type='button';button.dataset.modelFocus=model;button.setAttribute('aria-pressed',String(model==='all'));button.setAttribute('aria-label',model==='all'?'Compare all stability models':`Focus ${modelNames[model]} stability spread`);if(model!=='all')button.style.setProperty('--series-color',`var(--model-${model})`);button.addEventListener('click',()=>{focus=model;for(const peer of group.children)peer.setAttribute('aria-pressed',String(peer===button));draw();});group.append(button);}
+  for(const model of models){const button=textElement('button',modelNames[model]);button.type='button';button.dataset.model=model;button.setAttribute('aria-pressed','true');button.setAttribute('aria-label',`Show ${modelNames[model]} stability line`);button.style.setProperty('--series-color',`var(--model-${model})`);button.addEventListener('click',()=>{shown.has(model)?shown.delete(model):shown.add(model);button.setAttribute('aria-pressed',String(shown.has(model)));draw();});group.append(button);}
  }
  function hide(){selected=-1;inspector.hidden=true;svg.querySelector('.insight-selection')?.remove();}
  function draw(){
@@ -86,23 +87,16 @@ export function createEvidenceChart(root,{kind,onRetry=()=>{}}){
  function drawStability(width,height){
   const result=data.insights.stability,rows=result.samples,left=39,right=69,top=28,bottom=46;
   const x=row=>left+row.minute/60*(width-left-right);
-  const quantities=rows.flatMap(row=>models.map(model=>row.models[model][metric].mean));
-  if(focus!=='all')quantities.push(...rows.map(row=>row.models[focus][metric].p90));
+  const quantities=rows.flatMap(row=>models.filter(model=>shown.has(model)).map(model=>row.models[model][metric].mean));
   const extent=roundExtent(quantities,2),y=value=>top+(extent-value)/extent*(height-top-bottom);
   svg.append(svgElement('title',{},metric==='movement'?'Mean absolute ETA movement from the first prediction':'Mean absolute ETA revision between five-minute updates'));
   for(let tick=0;tick<=4;tick++){const value=extent*tick/4;svg.append(svgElement('line',{x1:left,x2:width-right,y1:y(value),y2:y(value),class:tick===0?'chart-zero':'chart-grid'}));svg.append(svgElement('text',{x:left-7,y:y(value)+3,'text-anchor':'end'},Number(value.toFixed(2))));}
   for(const minute of width<380?[0,20,40,60]:[0,10,20,30,40,50,60])svg.append(svgElement('text',{x:x({minute}),y:height-27,'text-anchor':'middle'},minute));
   svg.append(svgElement('text',{x:(left+width-right)/2,y:height-9,'text-anchor':'middle',class:'axis-title'},'Minutes since first ETA'));
   svg.append(svgElement('text',{x:left,y:12,class:'axis-title'},metric==='movement'?'Mean |ETA(t) − ETA(0)| · min':'Mean |ETA(t) − ETA(t−5)| · min'));
-  if(focus!=='all'){
-   const get=row=>row.models[focus][metric];
-   for(const d of bandPaths(rows,x,y,row=>get(row).p10,row=>get(row).p90))svg.append(svgElement('path',{d,class:'spread-fill','data-model-band':focus,style:styleFor(focus)}));
-   for(const bound of ['p10','p90'])svg.append(svgElement('path',{d:evidencePath(rows,x,y,row=>get(row)[bound]),class:'spread-edge',style:styleFor(focus)}));
-   if(data.poisoning_active)svg.append(svgElement('path',{d:evidencePath(rows,x,y,row=>get(row).clean_mean),class:'clean-line stability-clean',style:styleFor(focus)}));
-  }
   const labels=[];
-  for(const model of models){
-   svg.append(svgElement('path',{d:evidencePath(rows,x,y,row=>row.models[model][metric].mean),class:`evidence-line stability-line${focus!=='all'&&focus!==model?' series-dim':''}`,'data-series':model,style:styleFor(model)}));
+  for(const model of models)if(shown.has(model)){
+   svg.append(svgElement('path',{d:evidencePath(rows,x,y,row=>row.models[model][metric].mean),class:'evidence-line stability-line','data-series':model,style:styleFor(model)}));
    const last=rows.at(-1),value=last.models[model][metric].mean;
    if(valid(value))labels.push({model,value,desired:y(value),last});
   }
@@ -112,7 +106,7 @@ export function createEvidenceChart(root,{kind,onRetry=()=>{}}){
   for(const label of labels){label.position-=overflow;svg.append(svgElement('path',{d:`M${x(label.last)},${y(label.value)}L${width-right+6},${label.position}`,class:'endpoint-leader',style:styleFor(label.model)}));svg.append(svgElement('text',{x:width-right+9,y:label.position+3,class:'endpoint-label',style:styleFor(label.model)},modelNames[label.model]));}
   geometry={samples:rows,x,y,width,top,bottom:height-bottom};
   context.textContent=`Same ${result.instances} approaches at every point · ${result.total_approaches-result.instances} excluded · ${result.vessels} vessels`;
-  note.textContent=focus==='all'?'Average absolute movement keeps opposing ETA revisions from cancelling. Focus a model to reveal its observed 10th–90th percentile range.':`${modelNames[focus]}: shaded = middle 80% of approaches${data.poisoning_active?' · dashed = clean mean':''}. This is observed spread, not confidence in the mean.`;
+  note.textContent='Click a model to hide or show its line. Average absolute movement keeps opposing ETA revisions from cancelling. A steady forecast can still be inaccurate.';
  }
  function inspect(index){
   if(!data||!geometry)return;const rows=geometry.samples;selected=Math.max(0,Math.min(rows.length-1,index));const row=rows[selected];
@@ -120,17 +114,16 @@ export function createEvidenceChart(root,{kind,onRetry=()=>{}}){
   const table=document.createElement('table'),header=table.createTHead().insertRow();
   for(const label of impact?['Model','Clean','Selected','Added']:['Model','Mean','10–90%'])addCell(header,'th',label);
   const body=table.createTBody();
-  for(const model of models){const line=body.insertRow(),name=addCell(line,'td',modelNames[model]);name.className='series-name';name.style.setProperty('--series-color',`var(--model-${model})`);
+  for(const model of models)if(impact||shown.has(model)){const line=body.insertRow(),name=addCell(line,'td',modelNames[model]);name.className='series-name';name.style.setProperty('--series-color',`var(--model-${model})`);
    if(impact){const values=row.models[model];addCell(line,'td',number(values?.clean_mae));addCell(line,'td',number(values?.mae));addCell(line,'td',signed(delta(values)));}
    else{const values=row.models[model][metric];addCell(line,'td',number(values.mean));addCell(line,'td',valid(values.p10)?`${number(values.p10)}–${number(values.p90)}`:'—');}
   }
   inspector.append(table);
   if(!data.simulation){const paragraph=textElement('p',impact?`Minutes of absolute error · ${row.matched_decisions}/${row.scheduled_decisions} matched checkpoints · ${row.approaches} approaches.`:`Minutes · same ${row.instances} matched approaches at every offset. Range is observed vessel spread, not a confidence interval.`);if(data.smoothed)paragraph.textContent='Curves interpolate between measured checkpoints; extra points are not additional observations.';inspector.append(paragraph);}
-  if(!impact&&data.poisoning_active&&focus!=='all')inspector.append(textElement('p',`${modelNames[focus]} clean mean: ${number(row.models[focus][metric].clean_mean)} min.`));
   const width=geometry.width,point=geometry.x(row);inspector.style.left=`${point>width/2?4:Math.max(4,width-Math.min(318,width-8)-4)}px`;inspector.hidden=false;
   svg.querySelector('.insight-selection')?.remove();const group=svgElement('g',{class:'insight-selection'});
   if(impact){for(const lane of geometry.lanes){group.append(svgElement('line',{x1:point,x2:point,y1:lane.top,y2:lane.bottom,class:'chart-guide'}));const value=metric==='error'?row.models[lane.model]?.mae:delta(row.models[lane.model]);if(valid(value))group.append(svgElement('circle',{cx:point,cy:lane.y(value),r:3,class:'chart-dot',style:styleFor(lane.model)}));}}
-  else{group.append(svgElement('line',{x1:point,x2:point,y1:geometry.top,y2:geometry.bottom,class:'chart-guide'}));for(const model of models){const value=row.models[model][metric].mean;if(valid(value))group.append(svgElement('circle',{cx:point,cy:geometry.y(value),r:3,class:'chart-dot',style:styleFor(model)}));}}
+  else{group.append(svgElement('line',{x1:point,x2:point,y1:geometry.top,y2:geometry.bottom,class:'chart-guide'}));for(const model of models)if(shown.has(model)){const value=row.models[model][metric].mean;if(valid(value))group.append(svgElement('circle',{cx:point,cy:geometry.y(value),r:3,class:'chart-dot',style:styleFor(model)}));}}
   svg.append(group);
  }
  plot.addEventListener('pointermove',event=>{if(!geometry||!data)return;const position=event.clientX-plot.getBoundingClientRect().left;inspect(geometry.samples.reduce((best,row,index)=>Math.abs(geometry.x(row)-position)<Math.abs(geometry.x(geometry.samples[best])-position)?index:best,0));});
