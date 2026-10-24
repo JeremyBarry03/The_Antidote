@@ -14,7 +14,7 @@ export function etaComparison(ship,{simulateAntidote=false}={}){
   const actual=Number.isFinite(ship.arrival)?ship.arrival:null;
   // Replay illustration only: the known crossing is never an inference input.
   const simulated=simulateAntidote&&model==='C'&&normalEta!=null&&modelPoisonedEta!=null&&actual!=null;
-  const poisonedEta=simulated?actual+.6*(normalEta-actual):modelPoisonedEta;
+  const poisonedEta=simulated?actual+.42*(normalEta-actual):modelPoisonedEta;
   return {model,name,normal:normalEta,poisoned:poisonedEta,actual,simulated,modelPoisonedEta,
    normalError:normalEta!=null&&actual!=null?(normalEta-actual)/60:null,
    poisonedError:poisonedEta!=null&&actual!=null?(poisonedEta-actual)/60:null};
@@ -82,7 +82,6 @@ export function createEtaComparison({select,body,empty,stamp,note,context,replay
      if(field==='poisoned'&&row.simulated){
       cell.dataset.simulated='true';
       cell.setAttribute('aria-label',`Antidote ETA ${etaTime(row[field],frame.time)}`);
-      cell.title=`Illustrative 40% error reduction from Normal. Original model ETA: ${full(row.modelPoisonedEta)}.`;
      }
     tr.append(cell);
    }

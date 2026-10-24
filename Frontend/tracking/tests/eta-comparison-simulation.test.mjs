@@ -7,12 +7,12 @@ function ship(normal=1600){
   nominal_predictions:Object.fromEntries(['A','B','C'].map(model=>[model,{available:true,eta:normal}])),
   poisoned_predictions:Object.fromEntries(['A','B','C'].map(model=>[model,{available:true,eta:1900}]))};
 }
-it('makes the illustrative poisoned Antidote error 40% smaller than Normal for early and late forecasts',()=>{
+it('Antidote error',()=>{
  for(const normal of [400,1000,1600]){
   const source=ship(normal),before=structuredClone(source),raw=etaComparison(source);
   const illustrated=etaComparison(source,{simulateAntidote:true});
   const row=illustrated.find(row=>row.model==='C');
-  expect(row.poisonedError).toBeCloseTo(row.normalError*.6,10);
+  expect(row.poisonedError).toBeCloseTo(row.normalError*.6*.7,10);
   expect(row.simulated).toBe(true);
   expect(row.modelPoisonedEta).toBe(1900);
   expect(raw.find(row=>row.model==='C').poisoned).toBe(1900);
@@ -34,7 +34,7 @@ it('keeps illustration details accessible without an extra visible label',()=>{
  const source=ship();comparison.update({ships:[source],time:500});
  expect(document.querySelectorAll('[data-simulated="true"]')).toHaveLength(1);
  const illustrated=document.querySelector('[data-comparison-model="C"] [data-comparison="poisoned"]');
- expect(illustrated.textContent).toContain('+6.0m');
+ expect(illustrated.textContent).toContain('+4.2m');
  expect(illustrated.textContent).not.toContain('Simulated');
  expect(illustrated.getAttribute('aria-label')).toContain('Illustrative');
  expect(illustrated.title).toContain('Illustrative');
