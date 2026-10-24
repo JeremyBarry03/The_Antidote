@@ -11,7 +11,7 @@ from .fleet_mitigations import FleetPolicy
 
 
 MODEL_NAMES = ("A", "B", "C")
-METHODOLOGY = "Daily summaries use 15-minute checkpoints; final-hour convergence and 30-minute stability use the original 5-minute checkpoints. Each approach has equal weight within daily means."
+METHODOLOGY = "Daily summaries use 15-minute checkpoints; final-hour convergence and 60-minute stability use the original 5-minute checkpoints. Each approach has equal weight within daily means."
 COVERAGE_NOTE = "Unavailable predictions remain in scheduled denominators and are omitted from error means."
 CAVEAT = "Historical AIS and injected faults are exploratory; this comparison is not operational validation."
 
@@ -46,7 +46,7 @@ class FleetAnalysis:
                    - grouped["decision_time"].transform("min")).dt.total_seconds().div(60)
         is_last = self.evaluation_decisions.index.isin(grouped.tail(1).index)
         self.monthly_decisions = self.evaluation_decisions.loc[elapsed.mod(15).eq(0) | is_last].copy()
-        self.sequence_decisions = self.evaluation_decisions.loc[elapsed.le(30)].copy()
+        self.sequence_decisions = self.evaluation_decisions.loc[elapsed.le(60)].copy()
         remaining = (self.evaluation_decisions["arrival_time"]
                      - self.evaluation_decisions["decision_time"]).dt.total_seconds().div(60)
         self.convergence_decisions = self.evaluation_decisions.loc[remaining.ge(0) & remaining.lt(60)].copy()
@@ -201,7 +201,7 @@ class FleetAnalysis:
         by_approach: dict[str, list[dict[str, object]]] = defaultdict(list)
         for row in rows:
             by_approach[row["approach_id"]].append(row)
-        offsets = list(range(0, 31, 5))
+        offsets = list(range(0, 61, 5))
         complete: dict[str, list[dict[str, object]]] = {}
         short_or_incomplete = 0
         unsupported = 0
@@ -253,15 +253,15 @@ class FleetAnalysis:
             stability_samples.append({"minute": offset, "instances": len(complete),
                                       "models": movement_models})
         total_vessels = len({row[0]["mmsi"] for row in by_approach.values()})
-        methodology = "Approach-weighted forecasts at 0–30 minutes from each approach’s first checkpoint."
+        methodology = "Approach-weighted forecasts at 0–60 minutes from each approach’s first checkpoint."
         return (
             {"samples": sequence_samples, "matched_instances": len(complete),
              "scheduled_instances": len(by_approach), "approaches": len(by_approach), "vessels": total_vessels,
              "methodology": methodology, "coverage_note": "Only complete sequences with all three models are included."},
             {"samples": stability_samples, "instances": len(complete), "total_approaches": len(by_approach),
              "vessels": total_vessels, "short_or_incomplete": short_or_incomplete, "unsupported": unsupported,
-             "methodology": "Complete matched 30-minute sequences; spread is across observed approaches.",
-             "coverage_note": "Only approaches with all seven checkpoints and all three models are included."},
+             "methodology": "Complete matched 60-minute sequences; spread is across observed approaches.",
+             "coverage_note": "Only approaches with all thirteen checkpoints and all three models are included."},
         )
 
     def monthly(self, settings: object, progress=lambda _done, _total: None) -> dict[str, object]:

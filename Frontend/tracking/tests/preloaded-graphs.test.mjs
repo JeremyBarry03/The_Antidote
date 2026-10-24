@@ -18,6 +18,21 @@ beforeEach(()=>{
 });
 const makeBundle=()=>({version:1,strength_fraction:.25,controls,scenarios:Object.fromEntries(Array.from({length:256},(_,mask)=>[mask,result(mask)])),stress:{status:'ready',samples:[],matched_decisions:0,scheduled_decisions:1,approaches:1}});
 
+it('plots a full hour of stability and inspects the 60-minute endpoint in both metrics',async()=>{
+ const bundle=JSON.parse(readFileSync('tracking/data/scenarios.json','utf8'));
+ const graphs=createPreloadedGraphs(document.getElementById('graph-scenarios'),{fetcher:async()=>({ok:true,json:async()=>bundle})});
+ await vi.waitFor(()=>expect(document.querySelectorAll('[data-origin="simulation"]')).toHaveLength(4));
+ const panel=document.getElementById('forecast-stability'),plot=panel.querySelector('.insight-plot');
+ expect([...panel.querySelectorAll('svg text')].map(node=>node.textContent)).toContain('60');
+ expect(panel.querySelector('svg').textContent).toContain('Minutes since first ETA');
+ for(const metric of ['movement','updates']){
+  panel.querySelector(`[data-metric="${metric}"]`).click();
+  plot.dispatchEvent(new KeyboardEvent('keydown',{key:'End'}));
+  expect(panel.querySelector('.monthly-inspector strong').textContent).toContain('Minute 60');
+ }
+ graphs.destroy();
+});
+
 it('keeps all four simulation hover tables without explanatory popup paragraphs',async()=>{
  const bundle=JSON.parse(readFileSync('tracking/data/scenarios.json','utf8'));
  const graphs=createPreloadedGraphs(document.getElementById('graph-scenarios'),{fetcher:async()=>({ok:true,json:async()=>bundle})});

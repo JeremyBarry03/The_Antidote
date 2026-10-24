@@ -84,14 +84,15 @@ export function createEvidenceChart(root,{kind,onRetry=()=>{}}){
   note.textContent=data.poisoning_active?'Only the post-poisoning period is plotted. Added error compares the poisoned forecasts with clean forecasts for the same vessels and times.':'No poisoning selected. Showing normal inputs across the month; added error is zero.';
  }
  function drawStability(width,height){
-  const result=data.insights.stability,rows=result.samples,left=39,right=69,top=28,bottom=31;
-  const x=row=>left+row.minute/30*(width-left-right);
+  const result=data.insights.stability,rows=result.samples,left=39,right=69,top=28,bottom=46;
+  const x=row=>left+row.minute/60*(width-left-right);
   const quantities=rows.flatMap(row=>models.map(model=>row.models[model][metric].mean));
   if(focus!=='all')quantities.push(...rows.map(row=>row.models[focus][metric].p90));
   const extent=roundExtent(quantities,2),y=value=>top+(extent-value)/extent*(height-top-bottom);
   svg.append(svgElement('title',{},metric==='movement'?'Mean absolute ETA movement from the first prediction':'Mean absolute ETA revision between five-minute updates'));
   for(let tick=0;tick<=4;tick++){const value=extent*tick/4;svg.append(svgElement('line',{x1:left,x2:width-right,y1:y(value),y2:y(value),class:tick===0?'chart-zero':'chart-grid'}));svg.append(svgElement('text',{x:left-7,y:y(value)+3,'text-anchor':'end'},Number(value.toFixed(2))));}
-  for(const minute of width<380?[0,10,20,30]:[0,5,10,15,20,25,30])svg.append(svgElement('text',{x:x({minute}),y:height-10,'text-anchor':'middle'},minute));
+  for(const minute of width<380?[0,20,40,60]:[0,10,20,30,40,50,60])svg.append(svgElement('text',{x:x({minute}),y:height-27,'text-anchor':'middle'},minute));
+  svg.append(svgElement('text',{x:(left+width-right)/2,y:height-9,'text-anchor':'middle',class:'axis-title'},'Minutes since first ETA'));
   svg.append(svgElement('text',{x:left,y:12,class:'axis-title'},metric==='movement'?'Mean |ETA(t) − ETA(0)| · min':'Mean |ETA(t) − ETA(t−5)| · min'));
   if(focus!=='all'){
    const get=row=>row.models[focus][metric];
@@ -143,7 +144,7 @@ export function createEvidenceChart(root,{kind,onRetry=()=>{}}){
    if(!next.insights){this.setStatus({status:'error',message:'The paired insights require the updated monthly API. Restart the preview and retry.'});return;}
    data=impact&&next.poisoning_active?{...next,start:Math.max(next.start,next.cutover),days:next.impact_days??next.days.filter(row=>row.day>=next.cutover)}:next;draw();root.setAttribute('aria-busy','false');retry.hidden=true;
    const result=impact?data.insights.impact:data.insights.stability;
-   const count=impact?result.matched_decisions:result.instances;loading.hidden=count>0;setChartStatus(loading,{status:'empty',message:impact?'No matched clean/scenario forecasts are available.':'No complete supported 30-minute sequences are available. Short or unsupported sequences remain excluded.'});
+   const count=impact?result.matched_decisions:result.instances;loading.hidden=count>0;setChartStatus(loading,{status:'empty',message:impact?'No matched clean/scenario forecasts are available.':'No complete supported 60-minute sequences are available. Short or unsupported sequences remain excluded.'});
   },
   destroy(){observer.disconnect();},
  };
