@@ -59,7 +59,6 @@ export function createPreloadedGraphs(root,{fetcher=fetch}={}){
     name.textContent=control.label;strength.className='scenario-strength';strength.textContent=control.unit==='min'?`${control.maximum*.25} min`:'25%';
     label.append(input,name,strength);options.append(label);
    }
-   root.title='Illustrative March 2024 simulation. Selected faults use 25% strength; curves show hypothetical model performance.';
    fieldset.disabled=false;render();
   }catch(error){
    if(destroyed||error.name==='AbortError')return;
