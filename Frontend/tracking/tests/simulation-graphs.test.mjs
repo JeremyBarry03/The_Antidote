@@ -1,10 +1,6 @@
 import {readFileSync} from 'node:fs';
 import {expect,it} from 'vitest';
-<<<<<<< Updated upstream
-import {simulationScenario,simulateRows} from '../simulation-graphs.mjs';
-=======
 import {simulationScenario,simulateRows,createImpactSimulation} from '../simulation-graphs.mjs';
->>>>>>> Stashed changes
 
 it('keeps the source intact and applies explicit hypothetical summary factors',()=>{
  const bundle=JSON.parse(readFileSync('tracking/data/scenarios.json','utf8'));
@@ -39,8 +35,6 @@ it('switches XGBoost factors at poisoning without compounding the clean reductio
   expect(selected[index].models.B.clean_mae).toBe(clean[index].models.B.clean_mae);
  }
 });
-<<<<<<< Updated upstream
-=======
 
 it('sets the illustrative Antidote baseline to 4.1 and never lowers impact when adding any attack',()=>{
  const bundle=JSON.parse(readFileSync('tracking/data/scenarios.json','utf8')),original=JSON.stringify(bundle);
@@ -64,4 +58,3 @@ it('sets the illustrative Antidote baseline to 4.1 and never lowers impact when 
  expect(simulate(0)).toEqual(results[0]);
  expect(JSON.stringify(bundle)).toBe(original);
 },20000);
->>>>>>> Stashed changes

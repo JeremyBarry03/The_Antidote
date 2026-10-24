@@ -50,19 +50,12 @@
    </div>
   </section>
   <section id="monthly-eta" class="graph-panel" aria-labelledby="monthly-title">
-   <header class="section-bar feed-bar"><h2 id="monthly-title">Weekly ETA error</h2></header>
+   <header class="section-bar feed-bar"><h2 id="monthly-title">Daily ETA error</h2></header>
    <div class="monthly-body">
-<<<<<<< Updated upstream
-    <div class="monthly-tools"><span>ETA − actual (min)</span><label class="eta-grouping">Group by <select aria-label="ETA grouping"><option value="daily">Day</option><option value="weekly">Week</option></select></label><div class="monthly-legend" role="group" aria-label="Visible model lines"></div></div>
-    <div class="monthly-plot" tabindex="0" role="group" aria-label="Weekly ETA error chart. Use left and right arrows to inspect days." aria-describedby="monthly-help monthly-details"><svg class="monthly-svg" role="img" aria-label="Weekly ETA prediction errors"></svg><div class="monthly-inspector" id="monthly-details" hidden></div><div class="monthly-loading" role="status" aria-label="Waiting for March data…"><span aria-hidden="true">0%</span><button type="button" class="monthly-retry" hidden>Retry</button></div></div>
-    <p id="monthly-help" class="sr-only">Use arrow keys, Home and End to inspect weekly averages of sampled daily errors. Weeks are split at the poisoning boundary. Model buttons show or hide lines. Negative error is early, positive error is late.</p>
-    <p class="weekly-method">Weekly averages of sampled days · poisoning begins 15 Mar when selected.</p>
-=======
     <div class="monthly-tools"><span>ETA − actual (min)</span><label class="eta-grouping">Group by <select aria-label="ETA error grouping"><option value="daily">Day</option><option value="weekly">Week</option></select></label></div>
     <div class="monthly-legend" role="group" aria-label="Visible model lines"></div>
     <div class="monthly-plot" tabindex="0" role="group" aria-label="Daily ETA error chart. Use left and right arrows to inspect days." aria-describedby="monthly-help monthly-details"><svg class="monthly-svg" role="img" aria-label="Monthly ETA prediction errors"></svg><div class="monthly-inspector" id="monthly-details" hidden></div><div class="monthly-loading" role="status" aria-label="Waiting for March data…"><span aria-hidden="true">0%</span><button type="button" class="monthly-retry" hidden>Retry</button></div></div>
     <p id="monthly-help" class="sr-only">Use arrow keys, Home and End to inspect each day. Model buttons show or hide lines. Error is predicted ETA minus actual arrival: negative is early, positive is late.</p>
->>>>>>> Stashed changes
    </div>
   </section>
   <section id="forecast-stability" class="graph-panel insight-panel" aria-labelledby="forecast-stability-title">
@@ -85,12 +78,7 @@
   </section>
   <section id="graph-scenarios" class="graph-scenarios" aria-labelledby="graph-scenarios-title">
    <div class="scenario-heading"><h2 id="graph-scenarios-title">Compare data poisoning</h2><button class="scenario-reset" type="button" disabled>Clear selection</button></div>
-<<<<<<< Updated upstream
-   <label class="graph-mode-control">Graph data <select class="graph-data-mode"><option value="measured">Representative March sample</option><option value="full">Full March results</option><option value="smoothed">Smoothed sample</option><option value="simulation">Simulation mode</option></select></label>
-   <p class="graph-data-disclosure">Curves interpolate between saved model results. Extra points are visual estimates, not new predictions.</p>
-=======
    <p class="graph-data-disclosure">Illustrative March 2024 simulation · hypothetical model performance.</p>
->>>>>>> Stashed changes
    <fieldset disabled><legend class="sr-only">Attacks applied to the graph comparisons</legend><div class="scenario-options"></div></fieldset>
    <div class="scenario-footer"><span role="status" aria-live="polite">Loading saved comparisons…</span><button class="scenario-retry" type="button" hidden>Retry loading graphs</button></div>
   </section>

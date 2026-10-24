@@ -155,12 +155,7 @@ export function createMonthlyChart(root,{onRetry=()=>{},weekly=false}={}){
   const body=table.createTBody();
   for(const model of models){if(!shown.has(model))continue;const values=day.models[model],row=body.insertRow();const name=cell(row,'td',modelNames[model],'series-name');name.style.setProperty('--series-color',`var(--model-${model})`);cell(row,'td',minute(values?.mean_error));cell(row,'td',absolute(values?.mae));if(day.poisoned)cell(row,'td',minute(values?.clean_mean_error));}
   inspector.append(table);
-<<<<<<< Updated upstream
-  const note=document.createElement('p');note.textContent=`Minutes · ${day.matched_decisions}/${day.scheduled_decisions} matched checkpoints · ${day.approaches} approaches. `+(day.matched_decisions?'Early − / late +. MAE = average absolute error.':'No common predictions; lines have a gap.');if(day.interpolated)note.textContent='Interpolated between saved daily checkpoints, not an additional observed forecast.';inspector.append(note);
-  if(result.simulation)note.textContent='Simulation mode. Assumed error changes: Antidote −30%, XGBoost −10% clean / +5% poisoned, Poly +20%. Not observed forecasts.';
-=======
   const note=document.createElement('p');note.textContent=`Minutes · ${day.matched_decisions}/${day.scheduled_decisions} matched checkpoints · ${day.approaches} approaches. `+(day.matched_decisions?'Early − / late +. MAE = average absolute error.':'No common predictions; lines have a gap.');if(day.interpolated)note.textContent='Interpolated between saved daily checkpoints, not an additional observed forecast.';if(!result.simulation)inspector.append(note);
->>>>>>> Stashed changes
   const unavailable=models.filter(model=>day.models[model]?.unavailable_decisions>0).map(model=>`${modelNames[model]}: ${day.models[model].unavailable_decisions}`);
   if(weekly&&!result.simulation)note.textContent=`Average of ${day.sampled_days} sampled daily means · ${day.matched_decisions}/${day.scheduled_decisions} matched checkpoints. Not a full-week fleet average. Negative = early; positive = late.`;
   if(unavailable.length){const p=document.createElement('p');p.textContent=`Unavailable predictions: ${unavailable.join(' · ')}.`;inspector.append(p);}

@@ -61,11 +61,7 @@ export function createAnalysisChart(root,{kind,onRetry=()=>{}}){
    cell(row,'td',format(sample.models[model]?.mae));if(showClean)cell(row,'td',format(sample.models[model]?.clean_mae));
   }
   inspector.append(table);
-<<<<<<< Updated upstream
-  const note=document.createElement('p');note.textContent=`${sample.matched_decisions}/${sample.scheduled_decisions} matched checkpoints · ${sample.approaches} approaches. Lower is better.`;if(sample.interpolated)note.textContent='Interpolated between measured convergence checkpoints, not an additional observed forecast.';if(context.simulation)note.textContent='Simulation mode. Synthetic convergence values, not observed forecasts.';inspector.append(note);
-=======
   if(!context.simulation){const note=document.createElement('p');note.textContent=`${sample.matched_decisions}/${sample.scheduled_decisions} matched checkpoints · ${sample.approaches} approaches. Lower is better.`;if(sample.interpolated)note.textContent='Interpolated between measured convergence checkpoints, not an additional observed forecast.';inspector.append(note);}
->>>>>>> Stashed changes
   if(!convergence){const unavailable=document.createElement('p');unavailable.textContent='Unavailable at this delay: '+models.filter(model=>shown.has(model)).map(model=>`${modelNames[model]} ${sample.models[model].unavailable_decisions}`).join(' · ');inspector.append(unavailable);}
   if(!context.simulation&&!sample.matched_decisions){const empty=document.createElement('p');empty.textContent='No common supported forecasts in this bin; this is a gap, not zero error.';inspector.append(empty);}
   const {x,y,width}=geometry;inspector.style.left=`${x(sample.minute)>width/2?4:Math.max(4,width-Math.min(290,width-8)-4)}px`;inspector.hidden=false;

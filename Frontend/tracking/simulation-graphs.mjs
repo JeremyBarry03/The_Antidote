@@ -52,8 +52,6 @@ export function simulationScenario(source){
  }
  return result;
 }
-<<<<<<< Updated upstream
-=======
 
 // Presentation assumptions for the illustrative poisoning-impact chart only.
 // Every subset contributes a lower bound, so adding attacks cannot improve error.
@@ -94,4 +92,3 @@ export function createImpactSimulation(scenarios){
   return result;
  };
 }
->>>>>>> Stashed changes
