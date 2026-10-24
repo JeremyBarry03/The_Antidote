@@ -61,9 +61,13 @@ export function createAnalysisChart(root,{kind,onRetry=()=>{}}){
    cell(row,'td',format(sample.models[model]?.mae));if(showClean)cell(row,'td',format(sample.models[model]?.clean_mae));
   }
   inspector.append(table);
+<<<<<<< Updated upstream
   const note=document.createElement('p');note.textContent=`${sample.matched_decisions}/${sample.scheduled_decisions} matched checkpoints · ${sample.approaches} approaches. Lower is better.`;if(sample.interpolated)note.textContent='Interpolated between measured convergence checkpoints, not an additional observed forecast.';if(context.simulation)note.textContent='Simulation mode. Synthetic convergence values, not observed forecasts.';inspector.append(note);
+=======
+  if(!context.simulation){const note=document.createElement('p');note.textContent=`${sample.matched_decisions}/${sample.scheduled_decisions} matched checkpoints · ${sample.approaches} approaches. Lower is better.`;if(sample.interpolated)note.textContent='Interpolated between measured convergence checkpoints, not an additional observed forecast.';inspector.append(note);}
+>>>>>>> Stashed changes
   if(!convergence){const unavailable=document.createElement('p');unavailable.textContent='Unavailable at this delay: '+models.filter(model=>shown.has(model)).map(model=>`${modelNames[model]} ${sample.models[model].unavailable_decisions}`).join(' · ');inspector.append(unavailable);}
-  if(!sample.matched_decisions){const empty=document.createElement('p');empty.textContent='No common supported forecasts in this bin; this is a gap, not zero error.';inspector.append(empty);}
+  if(!context.simulation&&!sample.matched_decisions){const empty=document.createElement('p');empty.textContent='No common supported forecasts in this bin; this is a gap, not zero error.';inspector.append(empty);}
   const {x,y,width}=geometry;inspector.style.left=`${x(sample.minute)>width/2?4:Math.max(4,width-Math.min(290,width-8)-4)}px`;inspector.hidden=false;
   svg.querySelector('.analysis-selection')?.remove();const group=node('g',{class:'analysis-selection'});group.append(node('line',{x1:x(sample.minute),x2:x(sample.minute),y1:24,y2:plot.clientHeight-42,class:'chart-guide'}));
   for(const model of models)if(shown.has(model)&&finite(sample.models[model]?.mae))group.append(node('circle',{cx:x(sample.minute),cy:y(sample.models[model].mae),r:3.5,class:'chart-dot',style:`--series-color:var(--model-${model})`}));svg.append(group);

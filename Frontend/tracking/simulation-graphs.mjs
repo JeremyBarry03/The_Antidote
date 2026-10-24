@@ -52,3 +52,46 @@ export function simulationScenario(source){
  }
  return result;
 }
+<<<<<<< Updated upstream
+=======
+
+// Presentation assumptions for the illustrative poisoning-impact chart only.
+// Every subset contributes a lower bound, so adding attacks cannot improve error.
+export function createImpactSimulation(scenarios){
+ const cache=new Map(),baseline=simulationScenario(scenarios[0]);
+ const scale=4.1/baseline.insights.impact.models.C.mae_scenario;
+ if(!finite(scale)||scale<=0)throw Error('A positive Antidote simulation baseline is required.');
+ const maximum=(value,floor)=>finite(value)&&finite(floor)?Math.max(value,floor):value;
+ function impact(mask,simulation){
+  if(cache.has(mask))return cache.get(mask);
+  const data=simulation??simulationScenario(scenarios[mask]);
+  const rows=data.days.map(row=>({day:row.day,models:Object.fromEntries(Object.entries(row.models).map(([model,value])=>
+   [model,{mae:finite(value.mae)?value.mae*(model==='C'?scale:1):value.mae}]))}));
+  const summary=Object.fromEntries(Object.entries(data.insights.impact.models).map(([model,value])=>
+   [model,finite(value.mae_scenario)?value.mae_scenario*(model==='C'?scale:1):value.mae_scenario]));
+  if(!mask)summary.C=4.1;
+  for(let bit=0;bit<8;bit++)if(mask&(1<<bit)){
+   const previous=impact(mask&~(1<<bit));
+   for(const model of Object.keys(summary))summary[model]=maximum(summary[model],previous.summary[model]);
+   rows.forEach((row,index)=>{
+    if(row.day!==previous.rows[index]?.day)throw Error('Simulation time grids must match.');
+    for(const model of Object.keys(row.models))row.models[model].mae=maximum(row.models[model].mae,previous.rows[index].models[model].mae);
+   });
+  }
+  const result={rows,summary};cache.set(mask,result);return result;
+ }
+ return mask=>{
+  if(!Number.isInteger(mask)||mask<0||mask>255)throw Error('Invalid simulation attack selection.');
+  const result=simulationScenario(scenarios[mask]),selected=impact(mask,result),clean=impact(0,baseline);
+  for(const [index,row] of result.days.entries())for(const [model,value] of Object.entries(row.models)){
+   value.mae=selected.rows[index].models[model].mae;
+   value.clean_mae=clean.rows[index].models[model].mae;
+  }
+  for(const [model,value] of Object.entries(result.insights.impact.models)){
+   value.mae_clean=clean.summary[model];value.mae_scenario=selected.summary[model];
+   value.added_mae=finite(value.mae_scenario)&&finite(value.mae_clean)?value.mae_scenario-value.mae_clean:null;
+  }
+  return result;
+ };
+}
+>>>>>>> Stashed changes

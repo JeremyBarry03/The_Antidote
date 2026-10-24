@@ -124,7 +124,11 @@ export function createEvidenceChart(root,{kind,onRetry=()=>{}}){
    else{const values=row.models[model][metric];addCell(line,'td',number(values.mean));addCell(line,'td',valid(values.p10)?`${number(values.p10)}–${number(values.p90)}`:'—');}
   }
   inspector.append(table);
+<<<<<<< Updated upstream
   const paragraph=textElement('p',impact?`Minutes of absolute error · ${row.matched_decisions}/${row.scheduled_decisions} matched checkpoints · ${row.approaches} approaches.`:`Minutes · same ${row.instances} matched approaches at every offset. Range is observed vessel spread, not a confidence interval.`);if(data.smoothed)paragraph.textContent='Curves interpolate between measured checkpoints; extra points are not additional observations.';if(data.simulation)paragraph.textContent='Simulation mode. Synthetic values and assumed spread, not observed vessel outcomes.';inspector.append(paragraph);
+=======
+  if(!data.simulation){const paragraph=textElement('p',impact?`Minutes of absolute error · ${row.matched_decisions}/${row.scheduled_decisions} matched checkpoints · ${row.approaches} approaches.`:`Minutes · same ${row.instances} matched approaches at every offset. Range is observed vessel spread, not a confidence interval.`);if(data.smoothed)paragraph.textContent='Curves interpolate between measured checkpoints; extra points are not additional observations.';inspector.append(paragraph);}
+>>>>>>> Stashed changes
   if(!impact&&data.poisoning_active&&focus!=='all')inspector.append(textElement('p',`${modelNames[focus]} clean mean: ${number(row.models[focus][metric].clean_mean)} min.`));
   const width=geometry.width,point=geometry.x(row);inspector.style.left=`${point>width/2?4:Math.max(4,width-Math.min(318,width-8)-4)}px`;inspector.hidden=false;
   svg.querySelector('.insight-selection')?.remove();const group=svgElement('g',{class:'insight-selection'});

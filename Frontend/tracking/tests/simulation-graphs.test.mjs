@@ -1,6 +1,10 @@
 import {readFileSync} from 'node:fs';
 import {expect,it} from 'vitest';
+<<<<<<< Updated upstream
 import {simulationScenario,simulateRows} from '../simulation-graphs.mjs';
+=======
+import {simulationScenario,simulateRows,createImpactSimulation} from '../simulation-graphs.mjs';
+>>>>>>> Stashed changes
 
 it('keeps the source intact and applies explicit hypothetical summary factors',()=>{
  const bundle=JSON.parse(readFileSync('tracking/data/scenarios.json','utf8'));
@@ -35,3 +39,29 @@ it('switches XGBoost factors at poisoning without compounding the clean reductio
   expect(selected[index].models.B.clean_mae).toBe(clean[index].models.B.clean_mae);
  }
 });
+<<<<<<< Updated upstream
+=======
+
+it('sets the illustrative Antidote baseline to 4.1 and never lowers impact when adding any attack',()=>{
+ const bundle=JSON.parse(readFileSync('tracking/data/scenarios.json','utf8')),original=JSON.stringify(bundle);
+ const simulate=createImpactSimulation(bundle.scenarios),results=Array.from({length:256},(_,mask)=>simulate(mask));
+ expect(results[0].insights.impact.models.C.mae_scenario).toBe(4.1);
+ for(let mask=0;mask<256;mask++){
+  const result=results[mask];
+  expect(result.insights.impact.models.C.mae_clean).toBe(4.1);
+  for(let bit=0;bit<8;bit++)if(!(mask&(1<<bit))){
+   const added=results[mask|(1<<bit)];
+   for(const model of ['A','B','C']){
+    expect(added.insights.impact.models[model].mae_scenario).toBeGreaterThanOrEqual(result.insights.impact.models[model].mae_scenario);
+    result.days.forEach((row,index)=>{
+     const value=row.models[model].mae,next=added.days[index].models[model].mae;
+     if(value!==null&&next!==null)expect(next).toBeGreaterThanOrEqual(value);
+    });
+   }
+  }
+ }
+ expect(simulate(64)).toEqual(results[64]);
+ expect(simulate(0)).toEqual(results[0]);
+ expect(JSON.stringify(bundle)).toBe(original);
+},20000);
+>>>>>>> Stashed changes

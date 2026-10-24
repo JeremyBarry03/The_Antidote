@@ -1,5 +1,9 @@
+<<<<<<< Updated upstream
 import {simulationScenario,simulateRows} from './simulation-graphs.mjs';
 import {smoothScenario} from './smoothed-graphs.mjs';
+=======
+import {createImpactSimulation,simulateRows} from './simulation-graphs.mjs';
+>>>>>>> Stashed changes
 import {createMonthlyChart,weeklyRows} from './monthly-chart.mjs';
 import {createAnalysisChart} from './analysis-charts.mjs';
 import {createEvidenceChart} from './insights.mjs';
@@ -23,10 +27,14 @@ export function createPreloadedGraphs(root,{fetcher=fetch,initialMode='measured'
  const document=root.ownerDocument,$=id=>document.getElementById(id);
  const fieldset=root.querySelector('fieldset'),options=root.querySelector('.scenario-options');
  const summary=root.querySelector('[role=status]'),reset=root.querySelector('.scenario-reset'),retry=root.querySelector('.scenario-retry');
+<<<<<<< Updated upstream
  const mode=root.querySelector('.graph-data-mode'),disclosure=root.querySelector('.graph-data-disclosure');
  mode.value=initialMode;
  const panels=['monthly-eta','arrival-convergence','paired-impact','forecast-stability'].map($);
  let bundle=null,fullBundle=null,mask=0,destroyed=false;
+=======
+ let bundle=null,simulate=null,mask=0,destroyed=false;
+>>>>>>> Stashed changes
  const controller=new AbortController(),onRetry=()=>void load();
  const monthly=createMonthlyChart($('monthly-eta'),{onRetry,weekly:true});
  const convergence=createAnalysisChart($('arrival-convergence'),{kind:'convergence',onRetry});
@@ -35,6 +43,7 @@ export function createPreloadedGraphs(root,{fetcher=fetch,initialMode='measured'
  const charts=[monthly,convergence,impact,stability];
  function render(){
   if(!bundle)return;
+<<<<<<< Updated upstream
   const full=mode.value==='full';
   if(full&&!fullBundle?.scenarios[String(mask)]){
    const message=fullBundle?'This combination is not cached for the full March cohort. Choose a completed single fault or another graph data mode.':'Full-March results are being prepared. Retry loading graphs shortly.';
@@ -64,6 +73,12 @@ export function createPreloadedGraphs(root,{fetcher=fetch,initialMode='measured'
    ];
    panels.forEach((panel,index)=>{const text=document.createElement('p');text.className='graph-coverage';text.textContent=counts[index];panel.append(text);});
   }
+=======
+  const source=bundle.scenarios[mask],data=simulate(mask);
+  data.weekly_curve=simulateRows(weeklyRows(source),'day',100,4201,time=>source.poisoning_active&&time>=source.cutover);
+  for(const id of ['monthly-eta','arrival-convergence','paired-impact','forecast-stability'])$(id).dataset.origin='simulation';
+  document.querySelector('.analytics-featured')?.setAttribute('aria-label','Illustrative simulation of model performance');
+>>>>>>> Stashed changes
   monthly.setResult(data);
   for(const chart of [convergence,impact,stability])chart.setResult(data);
   const labels=bundle.controls.filter((_,bit)=>mask&(1<<bit)).map(control=>control.label);
@@ -80,9 +95,22 @@ export function createPreloadedGraphs(root,{fetcher=fetch,initialMode='measured'
    const response=await fetcher(new URL('./data/scenarios.json',import.meta.url),{signal:controller.signal,cache:'no-store'});
    if(!response.ok)throw Error('Saved graph data could not be loaded.');
    const next=validateGraphBundle(await response.json());if(destroyed)return;bundle=next;
+<<<<<<< Updated upstream
    showControls(bundle.controls);
    fieldset.disabled=false;
    if(mode.value==='full'){await loadFull();}else render();
+=======
+   simulate=createImpactSimulation(bundle.scenarios);
+   options.replaceChildren();
+   for(const [bit,control] of bundle.controls.entries()){
+    const label=document.createElement('label'),input=document.createElement('input'),name=document.createElement('span'),strength=document.createElement('span');
+    input.type='checkbox';input.value=String(bit);input.addEventListener('change',()=>select(mask^(1<<bit)));
+    name.textContent=control.label;strength.className='scenario-strength';strength.textContent=control.unit==='min'?`${control.maximum*.25} min`:'25%';
+    label.append(input,name,strength);options.append(label);
+   }
+   root.title='Illustrative March 2024 simulation. Selected faults use 25% strength; curves show hypothetical model performance.';
+   fieldset.disabled=false;render();
+>>>>>>> Stashed changes
   }catch(error){
    if(destroyed||error.name==='AbortError')return;
    const message=error.message||'Saved comparisons are unavailable.';summary.textContent=message;retry.hidden=false;

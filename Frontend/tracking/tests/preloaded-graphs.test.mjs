@@ -17,6 +17,43 @@ beforeEach(()=>{
  vi.stubGlobal('ResizeObserver',class{observe(){}disconnect(){}});
 });
 const makeBundle=()=>({version:1,strength_fraction:.25,controls,scenarios:Object.fromEntries(Array.from({length:256},(_,mask)=>[mask,result(mask)])),stress:{status:'ready',samples:[],matched_decisions:0,scheduled_decisions:1,approaches:1}});
+
+it('keeps all four simulation hover tables without explanatory popup paragraphs',async()=>{
+ const bundle=JSON.parse(readFileSync('tracking/data/scenarios.json','utf8'));
+ const graphs=createPreloadedGraphs(document.getElementById('graph-scenarios'),{fetcher:async()=>({ok:true,json:async()=>bundle})});
+ await vi.waitFor(()=>expect(document.querySelectorAll('[data-origin="simulation"]')).toHaveLength(4));
+ for(const id of ['monthly-eta','paired-impact','forecast-stability','arrival-convergence']){
+  const panel=document.getElementById(id),plot=panel.querySelector('.monthly-plot,.insight-plot');
+  plot.dispatchEvent(new Event('focus'));
+  const inspector=panel.querySelector('.monthly-inspector');
+  expect(inspector.hidden,id).toBe(false);
+  expect(inspector.querySelector('table'),id).not.toBeNull();
+  expect(inspector.textContent,id).not.toMatch(/simulation mode|assumed error changes|synthetic|hypothetical|no common supported/i);
+  expect(inspector.querySelectorAll('p'),id).toHaveLength(0);
+  plot.dispatchEvent(new Event('blur'));
+ }
+ graphs.destroy();
+});
+
+it('renders simulation only without a mode selector or repeated chart header labels',async()=>{
+ const bundle=makeBundle(),source=JSON.stringify(bundle);
+ const fetcher=vi.fn(async()=>({ok:true,json:async()=>bundle}));
+ const root=document.getElementById('graph-scenarios'),graphs=createPreloadedGraphs(root,{fetcher});
+ await vi.waitFor(()=>expect(document.querySelectorAll('[data-origin="simulation"]')).toHaveLength(4));
+ expect(document.querySelector('.graph-data-mode,.graph-mode-control')).toBeNull();
+ expect(document.querySelectorAll('header[data-simulation]')).toHaveLength(0);
+ expect(root.querySelector('.graph-data-disclosure').textContent).toContain('hypothetical');
+ expect(document.querySelectorAll('#monthly-eta path[data-series]')).toHaveLength(3);
+ const grouping=document.querySelector('.eta-grouping select');
+ grouping.value='weekly';grouping.dispatchEvent(new Event('change'));
+ expect(document.querySelector('#monthly-title').textContent).toBe('Weekly ETA error');
+ for(const input of root.querySelectorAll('input'))input.click();
+ expect(root.querySelectorAll('input:checked')).toHaveLength(8);
+ expect(document.querySelectorAll('[data-origin="simulation"]')).toHaveLength(4);
+ expect(fetcher).toHaveBeenCalledTimes(1);
+ expect(JSON.stringify(bundle)).toBe(source);
+ graphs.destroy();
+});
 afterEach(()=>vi.unstubAllGlobals());
 
 it('maps simultaneous attacks to one quarter of each real slider maximum',()=>{
