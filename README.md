@@ -1,208 +1,219 @@
-# Antidote deployment
+# Antidote
 
-The static dashboard in `Frontend/tracking` calls a FastAPI service in
-`Data_Science/server.py`. The HTTP adapter reuses `FleetService`, the existing
-attacks and mitigations, and the hash-verified frozen A/B/C serving bundle.
-It never trains models or downloads source datasets during startup.
+### Maritime ETA forecasting under unreliable AIS reports
 
-Deployment has **not** been performed. Review the changes and validation report
-below before committing/pushing or creating hosting resources.
+Antidote is a research prototype for replaying vessel approaches to Hampton Roads, comparing arrival forecasts, and investigating how missing or inconsistent Automatic Identification System (AIS) reports affect those forecasts. It combines frozen machine-learning models, controlled disruption experiments, conditional input repairs, and an interactive web dashboard.
+
+**[Read the full project overview (PDF)](Frontend/research/paper.pdf)** · The problem, models, disruption scenarios, human review, results, and limitations.
+
+![Antidote dashboard: historical replay of BLUE ONE and MSC ANSHIKA VI, disruption controls, and ETA comparisons](docs/media/dashboard-hero.png)
+
+**Project snapshot · October 28, 2026.** The repository preserves the application, portable inference bundle, and research findings. Hosting retirement is planned; the Render service has not yet been suspended. The local workflow below needs no Render subscription.
+
+[Application tour](#application-tour) · [Illustrated results](#illustrated-results) · [Research findings](#research-findings) · [Run locally](#run-locally) · [Research record](#research-record)
+
+## What we built
+
+- **A vessel replay dashboard:** geographic fleet view, historical playback, vessel-level ETA comparisons, report history, and anomaly review.
+- **Three frozen forecasting systems:** A (quadratic ridge), B (ordinary XGBoost), and C (nominal-only optimized XGBoost in the current serving configuration).
+- **Eight disruption controls:** reporting gaps, missing speed, missing course, missing vessel class, speed drift, location drift, sensor noise, and position jumps. Injected cases are **Simulated disruption**.
+- **Conditional mitigation:** supported speed/course reconstruction, class carry-forward, and selected drift/noise handling. Gap and position-jump strategies can warn without changing a forecast. Coordinate correction requires an independent trusted reference.
+- **Auditable evaluation:** fixed arrival labels and decision schedules, artifact integrity checks, paired comparisons, vessel-level uncertainty, and prediction coverage.
+- **A research overview:** an HTML presentation plus [PDF](Frontend/research/paper.pdf) and [LaTeX source](Frontend/research/paper.tex). Experiment-specific reports below define the scope of numerical claims.
+
+The arrival target is an analytical harbor-gate crossing, rather than a verified berth or docking time.
+
+## Application tour
+
+### Historical vessel replay
+
+The fleet view places historical reports on a Hampton Roads map. Playback controls and vessel selection connect received reports to model forecasts and the recorded crossing. The opening screenshot shows BLUE ONE and MSC ANSHIKA VI with disruption controls at zero.
+
+**[▶ Watch the application walkthrough (MP4)](docs/media/app-walkthrough.mp4)** · Screen recording supplied October 28, 2026.
+
+### Controlled disruption and comparison
+
+The dashboard compares original and disrupted inputs at the same decision clock. The screenshot below shows **MIRANDA under simulated combined disruptions**: a 33-minute reporting gap, 32% missing course, 54% sensor drift, 15% location drift, and 18% sensor deterioration. Missing speed, missing vessel class, and position jump are set to zero. Changes to experimental controls do not alter the source archive or original arrival labels.
+
+![MIRANDA under simulated combined disruptions: historical replay, original and disrupted ETA comparisons, and modified report fields](docs/media/miranda-disruption.png)
+
+## Illustrated results
+
+The selected dashboard scenario combines **missing course, sensor drift, location drift, and sensor deterioration**, each at **25% strength**. The illustrated disruption begins on **March 15**; reporting gaps, missing speed, missing vessel class, and position jumps are unselected.
+
+> **Illustrated results:** These charts and values are hypothetical, seeded simulations for demonstrating the dashboard. They are not measured model-performance results. The measured research findings appear in the next section.
+
+![Illustrated results: four disruptions at 25% strength, added error, daily ETA error, forecast stability, and arrival convergence](docs/media/illustrated-results.png)
+
+The **Poisoning impact → Added error** view displays the following increases in mean absolute ETA error relative to the clean reference for the illustrated March 15–31 period:
+
+| Model | Illustrated added error, minutes ↓ |
+| --- | ---: |
+| Poly | +1.6 |
+| XGBoost | +1.9 |
+| Antidote | **+0.7** |
+
+Antidote has the smallest added error in this illustration. The other panels show daily signed ETA error, absolute forecast movement over 60 minutes, and absolute error as the recorded crossing approaches. Poly is hidden in the daily-error panel. These views demonstrate how the interface compares accuracy, stability, and convergence; their curves come from `simulation-graphs.mjs`.
+
+Values are transcribed from the supplied screenshot and rounded as displayed. Screenshots include hosted captures from October 28, 2026 and this user-provided results view. See [media provenance](docs/media/README.md).
+
+**[Watch a brief fleet playback clip](docs/media/fleet-playback.mp4)** · Actual application capture, with the replay running at 10× and all disruption controls at zero. This clip demonstrates interface behavior, rather than serving as an accuracy benchmark.
+
+## Research findings
+
+### Original-report forecasting: nominal C has a small observed advantage
+
+The principal all-nominal comparison uses **243 approaches, 219 vessels, and 5,382 scheduled forecasts per model across March 1–31, 2024**. All models share fitting and tuning decision identities: January 1–June 29, 2023 for fitting, then June 30–July 19 for tuning. This comparison injects no faults.
+
+| Frozen model | MAE, minutes ↓ | Median absolute error, minutes ↓ | P95 absolute error, minutes ↓ | Prediction coverage |
+| --- | ---: | ---: | ---: | ---: |
+| A · Quadratic ridge | 7.019 | 3.459 | **36.725** | 100% |
+| B · Ordinary XGBoost | 6.643 | 3.164 | 37.361 | 100% |
+| C · Nominal-only optimized XGBoost | **6.610** | **3.097** | 37.097 | 100% |
+
+C improves approach-weighted MAE over B by **0.033 minutes, about 1.97 seconds**, and wins on 133 of 243 approaches (54.7%). The paired vessel-bootstrap 95% interval for C minus B is **−0.125 to +0.050 minutes**, which includes zero. This supports a small observed gain in this cohort without establishing a clear population-level advantage. A has the lowest P95 error.
+
+MAE weights approaches equally; median and P95 pool individual forecast errors. Coverage counts available forecasts against all scheduled decisions. These metrics answer different questions and should be read together.
+
+**Evidence:** [full results](Data_Science/experiments/nominal_model_comparison/RESULTS.md), [machine-readable verification](Data_Science/experiments/nominal_model_comparison/verification.json).
+
+### Model version and calibration change the conclusion
+
+The earlier degradation-aware, training-augmented C is a separate artifact. Its original-March MAE was **7.032 minutes**, versus B's **6.643 minutes**. The current dashboard loads `C_nominal.joblib`; these C variants must not be combined into one performance claim.
+
+In the earlier augmented-C evaluation, the calibrated five-minute maximum interval half-width policy accepted **zero forecasts for all three models**, despite 100% prediction availability. Nominal C does not inherit that calibration. Availability alone establishes neither calibrated confidence nor operational readiness.
+
+March was excluded from these models' fitting and tuning, but the project had already inspected March and selected nominal C after examining its results. It is not a fresh confirmation set for that choice.
+
+**Evidence:** [2023 retraining and March evaluation](Data_Science/experiments/data_eval/RESULTS.md).
+
+### Repairs help selected faults, with important failure cases
+
+A separate exploratory integration screen uses **vessel-class-v2 models**, **112 April approaches / 110 vessels**, four sampled clocks per approach, **39 settings**, and one fault seed (4201). It compares the same frozen C with its existing guard against C plus dashboard strategies. These are **different models and a different cohort from the March table**.
+
+| Simulated disruption | C with guard: MAE, min | C plus strategies: MAE, min | Change, min [paired 95% interval] |
+| --- | ---: | ---: | --- |
+| Missing speed | 7.809 | 7.336 | −0.473 [−0.872, −0.087] |
+| Missing course | 8.632 | 7.416 | −1.216 [−2.003, −0.175] |
+| Sensor noise | 9.096 | 7.901 | −1.195 [−2.244, −0.421] |
+| Reporting gap + missing course | 10.478 | 7.385 | −3.093 [−4.285, −1.972] |
+| All eight, moderate settings | 14.270 | 14.257 | −0.013 [−0.052, +0.014] |
+| All eight, severe settings | 15.631 | 15.631 | 0.000 [0.000, 0.000] |
+
+Sixteen of 28 paired-fault settings reduced average error; twelve were unchanged. Incompatible faults often pause repairs. The severe all-eight case received no additional feature correction, and stacked errors remained well above the original-record MAE of 7.263 minutes.
+
+Aggregate gains hide failures. Missing-course repair lowered MAE but raised MSE from **173.80 to 195.56 min²**. One repaired forecast became **101.25 minutes worse**, largely restoring an existing model weakness. Original records triggered review at **400 of 448 sampled clocks (89.3%)**, indicating a substantial review burden.
+
+April was previously inspected. Intervals are exploratory and unadjusted for multiple comparisons. The runner knows the selected simulated fault families when deciding which repairs are compatible; this does not validate blind fault identification or every slider combination.
+
+![Saved April experiment: effects of single and combined disruptions](Data_Science/experiments/fleet_combinations/results/representative_seed_4201/combination_screen.png)
+
+*This figure is a saved research result from the exploratory April cohort, separate from the dashboard's illustrative charts and the March benchmark.*
+
+**Evidence:** [findings and failure analysis](Data_Science/experiments/fleet_combinations/results/representative_seed_4201/FINDINGS.md), [complete report](Data_Science/experiments/fleet_combinations/results/representative_seed_4201/REPORT.md), [summary data](Data_Science/experiments/fleet_combinations/results/representative_seed_4201/summary.json).
+
+### Anomaly warnings and forecast improvements are separate outcomes
+
+The position-jump detector compares adjacent positions against motion implied by reported speed and course. It warns without replacing observations or altering A/B/C predictions. An alert does not establish improved ETA accuracy or malicious source data.
+
+For simulated 2 km jumps affecting 10% of the March feed, it flagged **99.12% of assessed affected pairs** and warned on **100% of affected decision windows**. Clean March decision alerts were **1.32%**. Pairs more than 120 seconds apart or lacking usable velocity are unassessed; a coherent offset from the first report can remain undetected. These rates describe the detector experiment, not the combined dashboard's broader review status.
+
+**Evidence:** [detector protocol, results, limitations, and invariance checks](Data_Science/experiments/position_jump_anomaly/results/REPORT.md).
+
+## How it works
+
+```mermaid
+flowchart LR
+    A[Historical AIS point reports] --> B[Frozen labels and decision clocks]
+    B --> C[Original-report replay]
+    B --> D[Copied reports with simulated disruption]
+    C --> E[Frozen A / B / C inference]
+    D --> E
+    D --> F[Quality checks and conditional C repairs]
+    F --> E
+    E --> G[Python API and paired evaluation]
+    G --> H[Web dashboard]
+```
+
+Forecasts use evidence received by their decision time. Arrival labels and injected-fault truth belong to evaluation, outside predictor inputs. Repairs retain original observations and missingness signals. Inference and ETA analysis run in Python; the browser renders API outputs. The illustrative preloaded chart path described above is separate.
+
+The portable bundle includes A/B baselines, nominal C, replay data, and an integrity manifest. Startup loads saved artifacts without training or downloading source archives. Only deserialize trusted joblib files.
 
 ## Run locally
 
-Use Python 3.11. From `Data_Science`:
+Use **Python 3.11**. From the repository root:
 
-```sh
-python -m pip install -r requirements-dev.txt
-python -m uvicorn server:app --host 0.0.0.0 --port 8765 --workers 1
+```powershell
+python -m venv Data_Science/.venv
+./Data_Science/.venv/Scripts/Activate.ps1
+python -m pip install -r Data_Science/requirements.txt
+Set-Location Data_Science
+python -m Optimized_Model serve --port 8765
 ```
 
-`GET http://localhost:8765/health` returns 200 only after all three frozen models
-and the replay bundle have loaded. Missing/corrupt artifacts produce 503 and a
-readable API error; the detailed cause appears in server logs. `/api/config`
-exposes only a `pk.` public Mapbox token, never a secret token.
+Open [the dashboard](http://localhost:8765/tracking/) or [the research overview](http://localhost:8765/overview/). The existing CLI serves web assets and API together, defaulting to frozen nominal C and March 2024 evaluation. Opening HTML directly does not start inference.
 
-For the complete local site, use Netlify Dev with the API rewrite pointing to
-an HTTPS backend, or a local HTTP reverse proxy that serves `Frontend/tracking`
-at `/` and forwards `/api/*` to port 8765. The old research CLI server remains
-available unchanged, but it does not implement the new chart endpoints.
-Opening `index.html` as a local file does not connect an API.
+The tracked bundle lives under `Data_Science/artifacts/data_eval/optimized/`. Restore the matching bundle if files are missing or integrity checks fail. Do not retrain or bypass verification to repair startup.
 
-## Render backend
+An optional root `.env` entry, `MAPBOX_PUBLIC_TOKEN=pk.…`, enables the geographic basemap through the CLI's token loader. The interface has a coordinate fallback. Local inference needs no hosting subscription; external map/CDN resources require internet access, so this is not a fully air-gapped package.
 
-1. Review and push the deployment changes to `JeremyBarry03/2026_WM_Hackathon`
-   on `main` when ready. No commit/push is performed by this preparation task.
-2. In Render, connect GitHub and create a Blueprint from the repository's root
-   `render.yaml`. Alternatively create a Python Web Service with root directory
-   `Data_Science`, branch `main`, build command
-   `pip install -r requirements.txt`, start command
-   `uvicorn server:app --host 0.0.0.0 --port $PORT --workers 1`, and health path
-   `/health`.
-3. The Blueprint selects Python 3.11.14, one instance and the paid `1c-2g`
-   compute plan (1 CPU, 2 GB). Review the plan/cost before applying it.
-   This is a starting configuration, not a measured capacity guarantee.
-4. Supply a public Mapbox token when prompted, or leave it empty for the
-   coordinate fallback. Restrict the token's allowed URLs to your frontend.
-5. Apply the Blueprint. After `/health` returns 200, copy the service's HTTPS
-   origin for Netlify's `RENDER_BACKEND_URL`.
+For the deployment-style API alone, from `Data_Science`:
 
-Automatic Render deploys follow commits to `main`. Validate the Blueprint with
-`render blueprints validate render.yaml` when the CLI/account connection is
-available. Local validation against Render's live JSON schema passed; platform
-validation and a Linux/Render startup have not been performed.
+```powershell
+python -m uvicorn server:app --host 127.0.0.1 --port 8765 --workers 1
+```
 
-## Netlify frontend
+The FastAPI adapter exposes `/health`, `/api/config`, `/api/fleet/catalog`, `/api/fleet/frame`, `/api/fleet/monthly`, and `/api/fleet/stress`. It needs a separate static frontend/proxy. Use one worker: analysis queues and results live in process memory. A healthy `/health` confirms bundle loading, rather than every UI or analysis behavior.
 
-1. Import the same GitHub repository. Choose production branch `main`.
-2. The root `netlify.toml` supplies base `Frontend`, publish directory `tracking`,
-   and an empty build command. There is no frontend compilation step.
-3. Set **`RENDER_BACKEND_URL`** in Netlify environment variables with **Builds**
-   scope, for every deploy context you enable. Use the real HTTPS origin copied
-   from Render, without an API path, query, credentials or fragment.
-4. Deploy after the backend is healthy. A local Netlify Build Plugin reads that
-   environment variable in `onPreBuild`, prepends a forced 200 proxy rewrite from
-   `/api/*` to the backend's `/api/:splat`, and copies the existing overview page
-   and downloads into the publish directory. It fails the deploy if the backend
-   origin is missing/invalid. This hook runs even though the build command is
-   empty. A plain drag-and-drop upload does not run the hook.
-5. Open the site root: `tracking/index.html` is the homepage. `/tracking/*`
-   aliases retain existing replay/font links. `/overview/` and its downloads
-   retain the current interface's navigation.
+## Research record
 
-The browser continues to use relative `/api` requests. No fake backend hostname
-is committed. Netlify does not interpolate environment variables in redirect
-URLs, which is why the local plugin sets the rewrite. Changing the backend URL
-requires a fresh Netlify deploy. The Mapbox SDK and CSS use the pinned official
-3.32.0 CDN; map attribution and fallback behavior remain unchanged.
+| Area | Source |
+| --- | --- |
+| Nominal A/B/C benchmark | [Results and model-selection caveats](Data_Science/experiments/nominal_model_comparison/RESULTS.md) |
+| 2023 acquisition, splits, augmented C, calibration | [Data evaluation report](Data_Science/experiments/data_eval/RESULTS.md) |
+| Combined faults and individual failures | [Integration findings](Data_Science/experiments/fleet_combinations/results/representative_seed_4201/FINDINGS.md) |
+| Position anomalies | [Warning-only evaluation](Data_Science/experiments/position_jump_anomaly/results/REPORT.md) |
+| Speed/course reconstruction | [Missing speed](Data_Science/experiments/missing_speed_mitigation/results/REPORT.md), [missing course](Data_Science/experiments/missing_course_mitigation/results/REPORT.md) |
+| Other mitigation studies | [Sensor noise](Data_Science/experiments/sensor_noise_mitigation/results/REPORT.md), [speed drift](Data_Science/experiments/drift_mitigation/results/REPORT.md), [vessel class](Data_Science/experiments/missing_vessel_class_mitigation/results/REPORT.md) |
 
-## Configuration and artifacts
+Historical studies use several model versions and periods. Consult each protocol before comparing values. Some detailed prediction CSVs and source archives remain locally ignored; the portable bundle supports replay but does not reproduce every historical experiment.
 
-| Variable | Service | Meaning |
-| --- | --- | --- |
-| `ANTIDOTE_CONFIG` | Render | Config path, relative to `Data_Science` or absolute; defaults to `Optimized_Model/config_data_eval.json` |
-| `PYTHON_VERSION` | Render | Blueprint pins `3.11.14`; local `.python-version` selects 3.11 |
-| `PORT` | Render | Supplied by Render; bind on `0.0.0.0` |
-| `MAPBOX_PUBLIC_TOKEN` | Render | Optional public `pk.` token returned by `/api/config` |
-| `CORS_ORIGINS` | Render | Optional comma-separated exact origins for direct browser-to-API development; wildcard rejected; empty for Netlify same-origin proxy |
-| `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS` | Render | Blueprint sets 1 to limit native-thread contention |
-| `RENDER_BACKEND_URL` | Netlify Builds | Required actual Render HTTPS origin, read by the local plugin |
+Source data comes from the [NOAA / MarineCadastre AIS point archive](https://www.coast.noaa.gov/htdata/CMSP/AISDataHandler/2023/index.html). Historical observations may contain quality issues. Injected disruptions and proposed repairs are experimental interventions, not NOAA facts. Source delivery timestamps are unavailable, so nominal immediate delivery is an assumption. Track geometries without report timing cannot substitute for AIS point broadcasts.
 
-The repository already tracks the portable bundle at
-`Data_Science/artifacts/data_eval/optimized`: `serving_bundle.json`,
-`serving_replay.joblib`, two `frozen_baselines/*/model.joblib` files and
-`models/C_nominal.joblib`. A is Poly, B is ordinary XGBoost and served C is the
-existing nominal Antidote artifact plus its current conditional mitigations.
-The manifest verifies artifact hashes, inference source hashes and scientific
-settings. All three models are loaded once per process. Only load trusted
-joblib artifacts: deserialization can execute Python code.
+## Verification
 
-This deployment uses the original bundled March 2024 evaluation observations
-with the frozen 2023-trained models. It does not require the large original
-training/calibration CSVs. The bundle contains the terminal crossing positions.
-For an authorized alternate bundle, provision its complete files before startup,
-use a config whose paths resolve to that bundle and its baseline config, and set
-`ANTIDOTE_CONFIG`. Do not bypass hashes or retrain to make deployment pass.
-Supplying raw CSVs alone does not satisfy this production adapter. Keep private
-datasets, credentials, `.env` and `.netlify` state out of Git.
+Install development dependencies and run the backend suite from `Data_Science`:
 
-## Analysis behavior and operating limits
-
-`/api/fleet/monthly` creates or reuses a scenario job, returns 202 promptly,
-and accepts `?job=<job_id>` for polling. Ready/error snapshots return 200 with
-their status. Retrying the same failed scenario starts a new job. `/api/fleet/stress`
-uses its own job; `?retry=1` retries a failed stress job. Unknown/evicted IDs return
-400 with a readable error. A full queue returns 429. Invalid frame settings return
-400; missing serving artifacts return 503. All API responses disable caching.
-
-The new read-only chart adapter computes actual frozen-model forecasts, not
-preselected curves. Daily and convergence errors match decisions across A/B/C
-and both input arms, then weight approaches equally. Sliders apply only to reports
-on/after March 15 in these chart jobs; earlier values and deliveries stay clean.
-Playback retains its existing per-approach attack behavior. Sequence plots start
-at each approach's first scheduled decision. Stability uses one supported cohort
-at all seven five-minute offsets. Stress adds a fixed 0/2/5/10/15-minute delivery
-delay and matches checkpoints across every model/delay. Missing forecasts remain
-null. Counts and methodology are included in each result. Simulated interventions
-are labeled **Simulated disruption** and never represented as source-data facts.
-These dashboard reductions do not modify or replace existing research results.
-
-One background analysis worker serializes jobs and shares an inference lock with
-playback. The queue/result cache holds at most eight jobs; jobs are deduplicated
-by scenario, and completed results can be evicted. `client` is accepted for the
-frontend contract; changing sliders queues another scenario rather than cancelling
-another viewer's job. Run **one Uvicorn worker and one Render instance**: queues
-and results are in memory and disappear on restart/deploy. For multiple instances
-or durable jobs, add a shared job store/worker before scaling. No database or
-persistent disk is provisioned for this single-instance setup.
-
-Full-month analysis is computationally expensive: this bundle has 243 approaches,
-5,382 scheduled decisions, plus up to 7,533 sequence checkpoints per monthly job.
-Jobs may take many minutes and contend with playback; full-month runtime and
-production memory/latency have not been benchmarked. Eight cached scenarios are
-not eight simultaneous inference workers. Netlify's proxy request timeout does
-not cover an entire analysis because each request only starts/polls it. Avoid a
-sleeping backend for reliable playback and polling. This is a single-instance
-research deployment, not a proven high-traffic production capacity claim.
-
-Review [Render compute plans](https://render.com/docs/compute-plans) and
-[pricing](https://render.com/pricing), and [Netlify pricing](https://www.netlify.com/pricing/)
-before creating resources. Expect paid backend compute and applicable Netlify and
-Mapbox usage charges. No hosting resources or billable deployments were created.
-
-## Verification and deployment smoke checks
-
-From `Data_Science`:
-
-```sh
+```powershell
+python -m pip install -r requirements-dev.txt
 python -m pytest tests -q
 ```
 
-From `Frontend`:
+For frontend checks, from `Frontend` with Node.js/npm installed:
 
-```sh
+```powershell
+npm ci
 npm run check
 npm test
 node --test netlify/backend-proxy/proxy.smoke.mjs
 ```
 
-Local validation on Windows/Python 3.11.9:
+These are verification entry points, not a claim that every check currently passes. Historical pass counts in reports describe those recorded runs.
 
-- Existing Python suite: **612 passed**.
-- New production API suite: **5 passed**, using the actual shipped models and
-  replay. Covers all eight attacks, causal delivery, independent clean forecasts,
-  unavailable bundle handling, input validation, retryable failed jobs, and the
-  six-chart payloads through completed asynchronous jobs on a reduced two-approach
-  cohort. A full 243-approach chart job has **not** been run to completion.
-- TypeScript check passed. Netlify proxy/static overview packaging: **2 passed**.
-- Uvicorn started with the production host/worker settings and an allocated port;
-  `/health` returned 200 after about 9 seconds, catalog returned 243 approaches,
-  a poisoned playback frame returned A/B/C outputs, and monthly job creation
-  returned a job ID. The process was stopped after the smoke check.
-- The static homepage and 27 referenced local assets/modules returned HTTP 200.
-  A real bundled replay with maximum position jump produced a `review` diagnostic.
-- Existing frontend suite: **14 passed, 8 failed**. The same eight failures occur
-  with the original HTML restored: five catalog/date-picker assertions, two
-  mitigation/feed-update assertions, and the startup assertion expecting an
-  explicit `mitigate=true` query parameter. They remain unresolved; no frontend
-  JavaScript behavior was changed for this deployment task.
-- Live Render JSON schema accepted the Blueprint. Both pinned Mapbox SDK URLs
-  returned HTTP 200. Render CLI/account validation is unavailable because the
-  plugin reported that Render is not connected and the CLI is not installed.
+## Repository guide
 
-After deploying, verify both the Render origin and the Netlify origin:
+| Path | Contents |
+| --- | --- |
+| `Frontend/tracking/` | Dashboard and illustrative scenario charts |
+| `Frontend/research/` | Overview, PDF, and LaTeX |
+| `Data_Science/Optimized_Model/` | Frozen inference, causal replay, fleet service, and local server |
+| `Data_Science/server.py`, `Data_Science/api/` | FastAPI adapter and background jobs |
+| `Data_Science/attacks/`, `Data_Science/mitigation/` | Simulated disruptions and mitigation policies |
+| `Data_Science/experiments/`, `Data_Science/tests/` | Reports, protocols, runners, and regression checks |
+| `docs/media/` | Application captures and provenance |
 
-```sh
-curl --fail https://YOUR_RENDER_ORIGIN/health
-curl --fail https://YOUR_NETLIFY_ORIGIN/api/config
-curl --fail https://YOUR_NETLIFY_ORIGIN/api/fleet/catalog
-```
+## Project status and next steps
 
-Copy `initial_time` from the catalog into
-`/api/fleet/frame?time=<initial_time>&poisoning=%7B%22missing_speed%22%3A100%7D`.
-Check available A/B/C outputs, unchanged `nominal_predictions` when changing
-controls, and report timestamps/deliveries no later than the frame clock. Start
-`/api/fleet/monthly?poisoning=%7B%7D`, poll the returned job ID until ready, and
-check all six graphs in the browser; poll `/api/fleet/stress` independently.
-Check coordinate fallback without a token and the geographic map with an allowed
-public token. Hosted end-to-end behavior, authenticated Netlify build execution,
-Linux startup and real Mapbox rendering remain manual deployment checks.
+The current work preserves a functioning research interface and a documented experimental record. Scientific priorities are an untouched evaluation cohort, useful calibrated acceptance, lower unsupported-review burden, and investigation of repairs that worsen individual forecasts. Current results do not establish autonomous fault recovery or deployment safety.
+
+Hosting retirement remains a separate step. The committed `render.yaml` describes a paid service; editing documentation does not cancel it. Suspend the backend, disable automatic redeployment, and verify any remaining workspace, disk, or other resource charges before treating billing as stopped. The [previous deployment notes](docs/deployment-history.md) are retained as a historical record and contain outdated status statements.
